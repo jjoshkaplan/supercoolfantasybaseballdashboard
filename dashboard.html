@@ -127,6 +127,13 @@ tbody tr.editing .col-pos, tbody tr.editing .col-player{background:rgba(91,141,2
 /* Stat coloring */
 .stat-hot{color:var(--green)}.stat-cold{color:var(--red)}.stat-neutral{color:var(--text)}
 
+/* Trend indicators */
+.trend{display:inline-flex;align-items:center;gap:3px}
+.trend-arrow{font-size:10px;font-weight:700;line-height:1}
+.trend-up{color:var(--green)}
+.trend-down{color:var(--red)}
+.trend-flat{color:var(--muted)}
+
 /* Ownership bars */
 .own-bar{display:flex;align-items:center;gap:6px}
 .own-fill{height:4px;border-radius:2px;background:var(--green);min-width:1px;max-width:48px}
@@ -273,6 +280,7 @@ tbody tr.editing .col-pos, tbody tr.editing .col-player{background:rgba(91,141,2
             <button class="period-btn active" data-period="season" onclick="switchPeriod('season')">Season</button>
             <button class="period-btn" data-period="lastweek" onclick="switchPeriod('lastweek')">L7</button>
             <button class="period-btn" data-period="lastmonth" onclick="switchPeriod('lastmonth')">L30</button>
+            <button class="period-btn" data-period="prevyear" onclick="switchPeriod('prevyear')">Prev Year</button>
           </div>
         </div>
         <div class="roster-toolbar-right">
@@ -319,27 +327,25 @@ let currentLeagueKey = null;
 let myTeamKey = null;
 let rosterTab = 'hitters';
 let currentPeriod = 'season';
-let statCategories = {};   // { stat_id: { name, display_name, position_types } }
-let rosterData = [];       // full parsed roster
-let pendingChanges = {};   // { player_key: new_position }
-let opponents = {};        // { team_abbr: opponent_abbr }
-let gameKey = null;        // e.g. "mlb" game key like "430"
+let statCategories = {};
+let rosterData = [];
+let refData = {};          // reference period stats keyed by playerKey
+let pendingChanges = {};
+let opponents = {};
+let gameKey = null;
+let leagueSeason = null;
 
-// Hitter stat display names we want (in order)
 const HITTER_STATS = ['R','HR','RBI','SB','OBP'];
-// Pitcher stat display names we want (in order)
 const PITCHER_STATS = ['W','SV','ERA','WHIP','K'];
-
-// Position type detection
+const LOWER_IS_BETTER = ['ERA','WHIP'];
+const PERIOD_DAYS = { lastweek: 7, lastmonth: 30, season: 162, prevyear: 162 };
+const TREND_REF = { lastweek: 'lastmonth', lastmonth: 'season', season: 'prevyear' };
 const PITCHER_POSITIONS = ['SP','RP','P'];
-const HITTER_POSITIONS = ['C','1B','2B','3B','SS','LF','CF','RF','OF','Util','DH'];
 const BENCH_POSITIONS = ['BN','IL','IL+','DL','NA'];
-
-// Eligible position ordering for dropdowns
 const POS_ORDER_HITTERS = ['C','1B','2B','3B','SS','LF','CF','RF','OF','Util','DH','BN','IL','IL+','DL','NA'];
 const POS_ORDER_PITCHERS = ['SP','RP','P','BN','IL','IL+','DL','NA'];
 
-// ─── AUTH CHECK ─────────────────────────────────────────
+// ─── AUTH ───────────────────────────────────────────────
 async function checkAuth() {
   try {
     const resp = await fetch('/api/auth-me');
@@ -354,7 +360,6 @@ async function checkAuth() {
   } catch(e) { console.error('Auth check failed:', e); }
 }
 
-// ─── YAHOO API HELPER ───────────────────────────────────
 async function yahooGet(endpoint) {
   const resp = await fetch(`/api/yahoo?endpoint=${encodeURIComponent(endpoint)}`);
   if (resp.status === 401) { window.location.href = '/api/auth-login'; return null; }
@@ -364,9 +369,7 @@ async function yahooGet(endpoint) {
 
 async function yahooPut(endpoint, xmlBody) {
   const resp = await fetch(`/api/yahoo?endpoint=${encodeURIComponent(endpoint)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/xml' },
-    body: xmlBody,
+    method: 'PUT', headers: { 'Content-Type': 'application/xml' }, body: xmlBody,
   });
   if (resp.status === 401) { window.location.href = '/api/auth-login'; return null; }
   return resp;
@@ -378,14 +381,9 @@ async function loadOpponents() {
     const today = new Date().toISOString().slice(0,10);
     const resp = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=team`);
     const d = await resp.json();
-    const games = (d.dates || []).flatMap(x => x.games || []);
-    games.forEach(g => {
-      const away = g.teams?.away?.team?.abbreviation;
-      const home = g.teams?.home?.team?.abbreviation;
-      if (away && home) {
-        opponents[away] = `@${home}`;
-        opponents[home] = `v${away}`;
-      }
+    (d.dates || []).flatMap(x => x.games || []).forEach(g => {
+      const aw = g.teams?.away?.team?.abbreviation, hm = g.teams?.home?.team?.abbreviation;
+      if (aw && hm) { opponents[aw] = `@${hm}`; opponents[hm] = `v${aw}`; }
     });
   } catch(e) { console.error('Schedule load failed:', e); }
 }
@@ -398,26 +396,20 @@ function switchView(view) {
   document.querySelector(`.sb-item[data-view="${view}"]`).classList.add('active');
   if (currentLeague) loadViewData(view);
 }
-
 function switchLeague(key) {
   if (!key) return;
-  currentLeagueKey = key;
-  currentLeague = key;
-  myTeamKey = null;
-  statCategories = {};
-  pendingChanges = {};
+  currentLeagueKey = key; currentLeague = key; myTeamKey = null;
+  statCategories = {}; pendingChanges = {}; refData = {};
   updateSaveBtn();
   const active = document.querySelector('.sb-item.active')?.dataset.view || 'roster';
   initLeagueData().then(() => loadViewData(active));
 }
-
 function switchRosterTab(tab) {
   rosterTab = tab;
   document.querySelectorAll('#rosterTabs .tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.getElementById('roster-hitters').style.display = tab === 'hitters' ? '' : 'none';
   document.getElementById('roster-pitchers').style.display = tab === 'pitchers' ? '' : 'none';
 }
-
 function switchPeriod(period) {
   currentPeriod = period;
   document.querySelectorAll('#periodBar .period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === period));
@@ -430,79 +422,51 @@ async function loadLeagues() {
   if (!data) return;
   const leagues = [];
   try {
-    const fc = data.fantasy_content || {};
-    const users = fc.users || {};
-    const user = users['0']?.user || [];
-    const games = user[1]?.games || {};
-    const gc = games.count || 0;
+    const fc = data.fantasy_content || {}, users = fc.users || {}, user = users['0']?.user || [];
+    const games = user[1]?.games || {}, gc = games.count || 0;
     for (let i = 0; i < gc; i++) {
       const game = games[String(i)]?.game || [];
       if (game.length > 1) {
         const gi = game[0];
         if (!gameKey) gameKey = gi.game_key;
-        const gl = game[1]?.leagues || {};
-        const lc = gl.count || 0;
+        const gl = game[1]?.leagues || {}, lc = gl.count || 0;
         for (let j = 0; j < lc; j++) {
           const lg = gl[String(j)]?.league || [];
           if (lg.length) {
             const li = Array.isArray(lg) ? lg[0] : lg;
-            leagues.push({ key: li.league_key, name: li.name, season: gi.season, num_teams: li.num_teams });
+            leagues.push({ key: li.league_key, name: li.name, season: gi.season });
           }
         }
       }
     }
   } catch(e) { console.error('League parse:', e); }
-
   const sel = document.getElementById('leagueSelect');
   sel.innerHTML = '';
   if (leagues.length) {
-    leagues.forEach(lg => {
-      const opt = document.createElement('option');
-      opt.value = lg.key; opt.textContent = `${lg.name} (${lg.season})`;
-      sel.appendChild(opt);
-    });
-    currentLeagueKey = leagues[0].key;
-    currentLeague = leagues[0].key;
+    leagues.forEach(lg => { const o = document.createElement('option'); o.value = lg.key; o.textContent = `${lg.name} (${lg.season})`; sel.appendChild(o); });
+    currentLeagueKey = leagues[0].key; currentLeague = leagues[0].key; leagueSeason = leagues[0].season;
     document.getElementById('leagueName').textContent = leagues[0].name;
-    await initLeagueData();
-    loadViewData('roster');
-  } else {
-    sel.innerHTML = '<option value="">No leagues found</option>';
-  }
+    await initLeagueData(); loadViewData('roster');
+  } else { sel.innerHTML = '<option value="">No leagues found</option>'; }
 }
 
 // ─── INIT LEAGUE DATA ───────────────────────────────────
-async function initLeagueData() {
-  await Promise.all([loadStatCategories(), findMyTeam()]);
-}
+async function initLeagueData() { await Promise.all([loadStatCategories(), findMyTeam()]); }
 
 async function loadStatCategories() {
   const data = await yahooGet(`league/${currentLeagueKey}/settings`);
   if (!data) return;
   try {
-    const leagueArr = data.fantasy_content?.league;
-    if (!leagueArr) return;
-    // Settings can be at index 1 in the league array
+    const la = data.fantasy_content?.league; if (!la) return;
     let settings = null;
-    for (let i = 0; i < leagueArr.length; i++) {
-      const item = leagueArr[i];
-      if (item?.settings) { settings = item.settings; break; }
-    }
+    for (let i = 0; i < la.length; i++) { if (la[i]?.settings) { settings = la[i].settings; break; } }
     if (!settings) return;
-    // settings can be an array: [{ stat_categories: {...} }, ...]
-    const settingsObj = Array.isArray(settings) ? settings[0] : settings;
-    const cats = settingsObj?.stat_categories?.stats || [];
+    const so = Array.isArray(settings) ? settings[0] : settings;
+    const cats = so?.stat_categories?.stats || [];
     statCategories = {};
     for (const item of cats) {
       const s = item.stat || item;
-      if (s.stat_id != null) {
-        statCategories[String(s.stat_id)] = {
-          name: s.name || '',
-          display_name: s.display_name || '',
-          position_types: s.position_types || [],
-          sort_order: s.sort_order,
-        };
-      }
+      if (s.stat_id != null) statCategories[String(s.stat_id)] = { name: s.name||'', display_name: s.display_name||'', position_types: s.position_types||[] };
     }
     console.log(`Loaded ${Object.keys(statCategories).length} stat categories`);
   } catch(e) { console.error('Stat categories parse:', e); }
@@ -512,16 +476,13 @@ async function findMyTeam() {
   const td = await yahooGet(`league/${currentLeagueKey}/teams`);
   if (!td) return;
   try {
-    const teams = td.fantasy_content?.league?.[1]?.teams || {};
-    const tc = teams.count || 0;
+    const teams = td.fantasy_content?.league?.[1]?.teams || {}, tc = teams.count || 0;
     for (let i = 0; i < tc; i++) {
       const t = teams[String(i)]?.team?.[0] || [];
       let isOwner = false, tk = null;
-      for (const item of t) {
-        if (typeof item === 'object') {
-          if (item.is_owned_by_current_login === 1) isOwner = true;
-          if (item.team_key) tk = item.team_key;
-        }
+      for (const item of t) if (typeof item === 'object') {
+        if (item.is_owned_by_current_login === 1) isOwner = true;
+        if (item.team_key) tk = item.team_key;
       }
       if (isOwner && tk) { myTeamKey = tk; return; }
     }
@@ -530,172 +491,134 @@ async function findMyTeam() {
 
 function loadViewData(view) {
   if (!currentLeague) return;
-  switch(view) {
-    case 'roster': loadRoster(); break;
-    case 'standings': loadStandings(); break;
-    case 'matchups': loadMatchups(); break;
-    case 'transactions': loadTransactions(); break;
-  }
+  switch(view) { case 'roster': loadRoster(); break; case 'standings': loadStandings(); break; case 'matchups': loadMatchups(); break; case 'transactions': loadTransactions(); break; }
 }
 
-// ─── STAT MAPPING HELPERS ───────────────────────────────
-function getStatIdByName(displayName) {
-  for (const [id, cat] of Object.entries(statCategories)) {
-    if (cat.display_name === displayName) return String(id);
-  }
-  return null;
-}
-
-function getStatValue(playerStats, displayName) {
-  const sid = getStatIdByName(displayName);
-  if (sid === null) return '—';
-  const found = playerStats.find(s => String(s.stat_id) === sid);
-  return found ? found.value : '—';
-}
-
+// ─── STAT HELPERS ───────────────────────────────────────
+function getStatIdByName(dn) { for (const [id, c] of Object.entries(statCategories)) if (c.display_name === dn) return String(id); return null; }
+function getStatValue(ps, dn) { const sid = getStatIdByName(dn); if (!sid) return '—'; const f = (ps||[]).find(s => String(s.stat_id) === sid); return f ? f.value : '—'; }
 function formatStat(val, name) {
-  if (val === '—' || val === undefined || val === null) return '—';
-  // Rate stats formatting
-  if (['OBP','SLG','OPS','AVG'].includes(name)) {
-    const n = parseFloat(val);
-    return isNaN(n) ? val : n.toFixed(3).replace(/^0/, '');
-  }
-  if (name === 'ERA') {
-    const n = parseFloat(val);
-    return isNaN(n) ? val : n.toFixed(2);
-  }
-  if (name === 'WHIP') {
-    const n = parseFloat(val);
-    return isNaN(n) ? val : n.toFixed(2);
-  }
+  if (val === '—' || val == null || val === '') return '—';
+  if (['OBP','SLG','OPS','AVG'].includes(name)) { const n = parseFloat(val); return isNaN(n) ? val : n.toFixed(3).replace(/^0/, ''); }
+  if (name === 'ERA' || name === 'WHIP') { const n = parseFloat(val); return isNaN(n) ? val : n.toFixed(2); }
   return val;
 }
 
-// ─── LOAD ROSTER ────────────────────────────────────────
-async function loadRoster() {
-  if (!myTeamKey) {
-    showRosterEmpty('Could not find your team');
-    return;
+// ─── ENDPOINT BUILDER ───────────────────────────────────
+function buildRosterEndpoint(period, withOwn) {
+  const base = `team/${myTeamKey}/roster/players`;
+  const out = withOwn ? ';out=stats,percent_owned' : ';out=stats';
+  if (!period || period === 'season') return `${base}${out}`;
+  if (period === 'prevyear') { const ps = leagueSeason ? String(parseInt(leagueSeason)-1) : '2025'; return `${base}${out};type=season;season=${ps}`; }
+  return `${base}${out};type=${period}`;
+}
+
+// ─── PLAYER PARSER ──────────────────────────────────────
+// Yahoo player array: [metadata[], sub1, sub2, sub3, ...]
+// Sub-resources are at ANY index >= 1 — must scan all of them
+function parsePlayerArray(pArr) {
+  if (!pArr || !Array.isArray(pArr) || pArr.length < 1) return null;
+  const info = pArr[0];
+
+  // Scan all sub-resource objects at indices 1+
+  let selPosRaw = null, statsRaw = null, pctOwnRaw = null;
+  for (let k = 1; k < pArr.length; k++) {
+    const sub = pArr[k];
+    if (!sub || typeof sub !== 'object') continue;
+    if ('selected_position' in sub) selPosRaw = sub.selected_position;
+    if ('player_stats' in sub) statsRaw = sub.player_stats;
+    if ('percent_owned' in sub) pctOwnRaw = sub.percent_owned;
   }
 
-  showRosterLoading();
-
-  // Build endpoint with stat type
-  let endpoint = `team/${myTeamKey}/roster/players;out=stats,percent_owned`;
-  if (currentPeriod !== 'season') {
-    endpoint = `team/${myTeamKey}/roster/players;out=stats,percent_owned;type=${currentPeriod}`;
+  // Parse selected position
+  let selPos = '';
+  if (selPosRaw) {
+    if (Array.isArray(selPosRaw)) {
+      for (const item of selPosRaw) {
+        if (item?.selected_position?.position) { selPos = item.selected_position.position; break; }
+        if (item?.position) { selPos = item.position; break; }
+      }
+    } else if (selPosRaw.position) selPos = selPosRaw.position;
   }
 
-  const rd = await yahooGet(endpoint);
-  if (!rd) { showRosterEmpty('Could not load roster'); return; }
+  // Parse metadata
+  let name='',team='',pos='',hs='',status='',statusFull='',playerKey='',posType='',eligPos=[];
+  if (Array.isArray(info)) for (const item of info) {
+    if (typeof item !== 'object' || !item) continue;
+    if (item.player_key) playerKey = item.player_key;
+    if (item.name) name = item.name.full || '';
+    if (item.editorial_team_abbr) team = item.editorial_team_abbr;
+    if (item.display_position) pos = item.display_position;
+    if (item.headshot) hs = item.headshot.url || '';
+    if (item.status_full) statusFull = item.status_full;
+    if (item.status) status = item.status;
+    if (item.position_type) posType = item.position_type;
+    if (item.eligible_positions && Array.isArray(item.eligible_positions))
+      for (const ep of item.eligible_positions) { const p = ep?.position || (typeof ep === 'string' ? ep : null); if (p) eligPos.push(p); }
+  }
 
-  rosterData = [];
+  // Parse percent_owned
+  let pctOwn = '—';
+  if (pctOwnRaw != null) {
+    try {
+      if (typeof pctOwnRaw === 'number') pctOwn = pctOwnRaw;
+      else if (Array.isArray(pctOwnRaw)) {
+        for (const item of pctOwnRaw) { const inner = item?.percent_owned || item; if (inner?.value != null) { pctOwn = inner.value; break; } }
+      } else if (typeof pctOwnRaw === 'object') {
+        if (pctOwnRaw.value != null) pctOwn = pctOwnRaw.value;
+        else if (pctOwnRaw.percent_owned?.value != null) pctOwn = pctOwnRaw.percent_owned.value;
+      }
+    } catch(e) {}
+  }
+
+  // Parse stats
+  let stats = [];
+  if (statsRaw != null) {
+    try {
+      let ps = statsRaw;
+      if (Array.isArray(ps)) for (const item of ps) { if (item?.player_stats) { ps = item.player_stats; break; } }
+      const rawStats = ps?.stats;
+      if (rawStats) {
+        const sa = rawStats.stat || (Array.isArray(rawStats) ? rawStats : []);
+        if (Array.isArray(sa)) stats = sa.map(s => ({ stat_id: String(s.stat_id), value: s.value }));
+      }
+    } catch(e) {}
+  }
+
+  let type = 'hitter';
+  if (posType === 'P' || PITCHER_POSITIONS.includes(pos.split(',')[0])) type = 'pitcher';
+
+  return { playerKey, name, team, pos, selPos, hs, status, statusFull, posType, eligPos, type, stats, pctOwn };
+}
+
+function parseRosterResponse(rd) {
+  const players = [];
+  if (!rd) return players;
   try {
     const pd = rd.fantasy_content?.team?.[1]?.roster?.['0']?.players || {};
-    const pc = pd.count || 0;
-    for (let i = 0; i < pc; i++) {
-      const p = pd[String(i)]?.player || [];
-      if (p.length < 2) continue;
-      const info = p[0], rest = p[1] || {};
-
-      // Selected position - Yahoo nests this differently depending on context
-      let selPos = '';
-      const sel = rest.selected_position;
-      if (sel) {
-        if (Array.isArray(sel)) {
-          // Could be [{ selected_position: { position: 'SS' } }] or [{ position: 'SS', coverage_type: ... }]
-          for (const item of sel) {
-            if (item?.selected_position?.position) { selPos = item.selected_position.position; break; }
-            if (item?.position) { selPos = item.position; break; }
-          }
-        } else if (sel.position) {
-          selPos = sel.position;
-        } else if (sel.selected_position?.position) {
-          selPos = sel.selected_position.position;
-        }
-      }
-
-      // Player info
-      let name='', team='', pos='', hs='', status='', statusFull='', playerKey='', posType='';
-      let eligPos = [];
-      for (const item of info) {
-        if (typeof item === 'object') {
-          if (item.player_key) playerKey = item.player_key;
-          if (item.name) name = item.name.full || '';
-          if (item.editorial_team_abbr) team = item.editorial_team_abbr;
-          if (item.display_position) pos = item.display_position;
-          if (item.headshot) hs = item.headshot.url || '';
-          if (item.status_full) statusFull = item.status_full;
-          if (item.status) status = item.status;
-          if (item.position_type) posType = item.position_type;
-          if (item.eligible_positions) {
-            const eps = item.eligible_positions;
-            if (Array.isArray(eps)) {
-              for (const ep of eps) {
-                const pos = ep?.position || (typeof ep === 'string' ? ep : null);
-                if (pos) eligPos.push(pos);
-              }
-            }
-          }
-        }
-      }
-
-      // Percent owned - Yahoo returns this in various nested formats
-      let pctOwn = '—', pctStart = '—';
-      try {
-        const po = rest.percent_owned;
-        if (po) {
-          // Could be { value: N } or [{ percent_owned: { value: N } }] or { percent_owned: { value: N } }
-          if (po.value != null) { pctOwn = po.value; }
-          else if (Array.isArray(po)) {
-            for (const item of po) {
-              const inner = item?.percent_owned || item;
-              if (inner?.value != null) pctOwn = inner.value;
-            }
-          } else if (po.percent_owned?.value != null) {
-            pctOwn = po.percent_owned.value;
-          }
-        }
-      } catch(e) { console.warn('pct_owned parse:', e); }
-
-      // Stats - Yahoo nests these in player_stats.stats.stat[]
-      let stats = [];
-      try {
-        let ps = rest.player_stats;
-        if (ps) {
-          // Handle array wrapping: player_stats could be the object or [{ player_stats: {...} }]
-          if (Array.isArray(ps)) {
-            for (const item of ps) {
-              if (item?.player_stats) { ps = item.player_stats; break; }
-            }
-          }
-          // Now ps should be { coverage_type, stats: { stat: [...] } } or { stats: [...] }
-          let rawStats = ps.stats;
-          if (rawStats) {
-            // rawStats could be { stat: [...] } or just [...]
-            const statArr = rawStats.stat || rawStats;
-            if (Array.isArray(statArr)) {
-              stats = statArr.map(s => ({
-                stat_id: String(s.stat_id),
-                value: s.value
-              }));
-            }
-          }
-        }
-      } catch(e) { console.warn('stats parse:', e); }
-
-      // Determine if hitter or pitcher
-      let type = 'hitter';
-      if (posType === 'P' || PITCHER_POSITIONS.includes(pos.split(',')[0])) {
-        type = 'pitcher';
-      }
-
-      rosterData.push({
-        playerKey, name, team, pos, selPos, hs, status, statusFull,
-        posType, eligPos, type, stats, pctOwn, pctStart,
-      });
-    }
+    for (let i = 0; i < (pd.count||0); i++) { const p = parsePlayerArray(pd[String(i)]?.player); if (p) players.push(p); }
   } catch(e) { console.error('Roster parse:', e); }
+  return players;
+}
+
+// ─── LOAD ROSTER + REFERENCE ────────────────────────────
+async function loadRoster() {
+  if (!myTeamKey) { showRosterEmpty('Could not find your team'); return; }
+  showRosterLoading();
+
+  const primaryEP = buildRosterEndpoint(currentPeriod, true);
+  const refPeriod = TREND_REF[currentPeriod] || null;
+  const refEP = refPeriod ? buildRosterEndpoint(refPeriod, false) : null;
+
+  const fetches = [yahooGet(primaryEP)];
+  if (refEP) fetches.push(yahooGet(refEP));
+  const [primaryResp, refResp] = await Promise.all(fetches);
+
+  if (!primaryResp) { showRosterEmpty('Could not load roster'); return; }
+  rosterData = parseRosterResponse(primaryResp);
+
+  refData = {};
+  if (refResp) { for (const p of parseRosterResponse(refResp)) refData[p.playerKey] = p.stats; }
 
   renderRoster();
 }
@@ -705,184 +628,132 @@ function showRosterLoading() {
   document.getElementById('roster-hitters').innerHTML = h;
   document.getElementById('roster-pitchers').innerHTML = h;
 }
-
 function showRosterEmpty(msg) {
   const h = `<div class="empty"><h3>${msg}</h3></div>`;
   document.getElementById('roster-hitters').innerHTML = h;
   document.getElementById('roster-pitchers').innerHTML = h;
 }
 
+// ─── TRENDING ───────────────────────────────────────────
+function computeTrend(statName, curVal, refStats) {
+  if (!refStats || curVal === '—') return null;
+  const rv = getStatValue(refStats, statName);
+  if (rv === '—') return null;
+  const cur = parseFloat(curVal), ref = parseFloat(rv);
+  if (isNaN(cur) || isNaN(ref)) return null;
+
+  const isRate = ['OBP','SLG','OPS','AVG','ERA','WHIP'].includes(statName);
+  const lowerBetter = LOWER_IS_BETTER.includes(statName);
+
+  if (isRate) {
+    const diff = cur - ref;
+    if (Math.abs(diff) < 0.005) return 'flat';
+    return lowerBetter ? (diff < 0 ? 'up' : 'down') : (diff > 0 ? 'up' : 'down');
+  } else {
+    const curDays = PERIOD_DAYS[currentPeriod] || 162;
+    const refP = TREND_REF[currentPeriod];
+    const refDays = PERIOD_DAYS[refP] || 162;
+    const curRate = cur / curDays, refRate = ref / refDays;
+    const diff = curRate - refRate;
+    if (Math.abs(diff) < 0.01) return 'flat';
+    return diff > 0 ? 'up' : 'down';
+  }
+}
+function trendHtml(dir) {
+  if (!dir || dir === 'flat') return '';
+  return dir === 'up' ? ' <span class="trend-arrow trend-up">▲</span>' : ' <span class="trend-arrow trend-down">▼</span>';
+}
+
 // ─── RENDER ROSTER ──────────────────────────────────────
 function renderRoster() {
   const hitters = rosterData.filter(p => p.type === 'hitter');
   const pitchers = rosterData.filter(p => p.type === 'pitcher');
+  const sort = (arr, order) => arr.sort((a,b) => { const av = order.indexOf(a.selPos)===-1?99:order.indexOf(a.selPos); const bv = order.indexOf(b.selPos)===-1?99:order.indexOf(b.selPos); return av-bv; });
+  sort(hitters, POS_ORDER_HITTERS); sort(pitchers, POS_ORDER_PITCHERS);
 
-  // Sort: active positions first, then bench/IL
-  const sortPlayers = (arr, posOrder) => {
-    return arr.sort((a, b) => {
-      const ai = posOrder.indexOf(a.selPos);
-      const bi = posOrder.indexOf(b.selPos);
-      const av = ai === -1 ? 99 : ai;
-      const bv = bi === -1 ? 99 : bi;
-      return av - bv;
-    });
-  };
+  const hasTrend = !!TREND_REF[currentPeriod];
+  document.getElementById('roster-hitters').innerHTML = buildStatsTable(hitters, HITTER_STATS, hasTrend);
+  document.getElementById('roster-pitchers').innerHTML = buildStatsTable(pitchers, PITCHER_STATS, hasTrend);
 
-  sortPlayers(hitters, POS_ORDER_HITTERS);
-  sortPlayers(pitchers, POS_ORDER_PITCHERS);
-
-  document.getElementById('roster-hitters').innerHTML = buildStatsTable(hitters, HITTER_STATS, 'hitter');
-  document.getElementById('roster-pitchers').innerHTML = buildStatsTable(pitchers, PITCHER_STATS, 'pitcher');
-
-  const totalH = hitters.length, totalP = pitchers.length;
-  document.getElementById('rosterSub').textContent = `${totalH} hitters · ${totalP} pitchers · ${currentPeriod === 'season' ? 'Season' : currentPeriod === 'lastweek' ? 'Last 7 days' : 'Last 30 days'}`;
+  const pLabels = { season:'Season', lastweek:'Last 7 days', lastmonth:'Last 30 days', prevyear:`${parseInt(leagueSeason||2026)-1} Season` };
+  const rLabels = { lastmonth:'vs L30', season:'vs Season', prevyear:`vs ${parseInt(leagueSeason||2026)-1}` };
+  const rp = TREND_REF[currentPeriod];
+  const tn = hasTrend && rp ? ` · Trends ${rLabels[rp]||''}` : '';
+  document.getElementById('rosterSub').textContent = `${hitters.length} hitters · ${pitchers.length} pitchers · ${pLabels[currentPeriod]||currentPeriod}${tn}`;
 }
 
-function buildStatsTable(players, statNames, type) {
+function buildStatsTable(players, statNames, hasTrend) {
   if (!players.length) return '<div class="empty"><h3>No players</h3></div>';
-
-  let html = '<table><thead><tr>';
-  html += '<th class="col-pos">Pos</th>';
-  html += '<th class="col-player">Player</th>';
-  html += '<th class="num">%OWN</th>';
-  html += '<th>OPP</th>';
-
-  for (const sn of statNames) {
-    html += `<th class="num">${sn}</th>`;
-  }
+  let html = '<table><thead><tr><th class="col-pos">Pos</th><th class="col-player">Player</th><th class="num">%OWN</th><th>OPP</th>';
+  for (const sn of statNames) html += `<th class="num">${sn}</th>`;
   html += '</tr></thead><tbody>';
 
-  // Find where bench starts for a separator
   let benchStarted = false;
-
   for (const p of players) {
     const isBench = BENCH_POSITIONS.includes(p.selPos);
-
-    // Add visual separator before bench
     if (isBench && !benchStarted) {
       benchStarted = true;
-      const colSpan = 4 + statNames.length;
-      html += `<tr><td colspan="${colSpan}" style="padding:3px 12px;background:var(--surface-2);border-top:2px solid var(--border)"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">Bench / IL</span></td></tr>`;
+      html += `<tr><td colspan="${4+statNames.length}" style="padding:3px 12px;background:var(--surface-2);border-top:2px solid var(--border)"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">Bench / IL</span></td></tr>`;
     }
-
     const isChanged = pendingChanges[p.playerKey] && pendingChanges[p.playerKey] !== p.selPos;
-    html += `<tr class="${isChanged ? 'editing' : ''}">`;
-
-    // Position cell with dropdown
+    html += `<tr class="${isChanged?'editing':''}">`;
     html += `<td class="col-pos">${buildPosSelect(p)}</td>`;
 
-    // Player info cell
     const opp = opponents[p.team] || '—';
-    const statusClass = p.status && (p.status.includes('IL') || p.status.includes('DL')) ? 'il' : p.status ? 'dtd' : '';
-    const statusHtml = p.statusFull ? `<span class="status ${statusClass}">${p.status}</span>` : '';
-
+    const sc = p.status && (p.status.includes('IL')||p.status.includes('DL')) ? 'il' : p.status ? 'dtd' : '';
+    const sh = p.statusFull ? `<span class="status ${sc}">${p.status}</span>` : '';
     html += `<td class="col-player"><div class="player-cell">`;
     if (p.hs) html += `<img class="player-hs" src="${p.hs}" alt="" onerror="this.style.display='none'">`;
-    html += `<div class="player-info"><div class="name">${p.name}</div>`;
-    html += `<div class="meta">${p.team} · ${p.pos} ${statusHtml}</div>`;
-    html += `</div></div></td>`;
+    html += `<div class="player-info"><div class="name">${p.name}</div><div class="meta">${p.team} · ${p.pos} ${sh}</div></div></div></td>`;
 
-    // %OWN with micro bar
-    const ownVal = p.pctOwn !== '—' ? parseInt(p.pctOwn) : 0;
-    html += `<td class="num"><div class="own-bar"><div class="own-fill" style="width:${Math.min(ownVal, 100) * 0.48}px"></div><span class="own-val">${p.pctOwn}%</span></div></td>`;
+    const ov = p.pctOwn !== '—' ? parseInt(p.pctOwn) : 0;
+    html += `<td class="num"><div class="own-bar"><div class="own-fill" style="width:${Math.min(ov,100)*0.48}px"></div><span class="own-val">${p.pctOwn!=='—'?p.pctOwn+'%':'—'}</span></div></td>`;
 
-    // Opponent - styled
-    const oppClass = opp.startsWith('@') ? 'style="color:var(--dim)"' : opp.startsWith('v') ? 'style="color:var(--cyan);font-weight:600"' : '';
-    html += `<td ${oppClass}>${opp}</td>`;
+    const os = opp.startsWith('v') ? 'color:var(--cyan);font-weight:600' : opp.startsWith('@') ? 'color:var(--dim)' : '';
+    html += `<td style="${os}">${opp}</td>`;
 
-    // Stats
+    const pRef = refData[p.playerKey] || null;
     for (const sn of statNames) {
-      const val = getStatValue(p.stats, sn);
-      const formatted = formatStat(val, sn);
-      html += `<td class="num">${formatted}</td>`;
+      const val = getStatValue(p.stats, sn), fmt = formatStat(val, sn);
+      let arrow = '';
+      if (hasTrend && pRef) arrow = trendHtml(computeTrend(sn, val, pRef));
+      html += `<td class="num"><span class="trend">${fmt}${arrow}</span></td>`;
     }
-
     html += '</tr>';
   }
-
-  html += '</tbody></table>';
-  return html;
+  return html + '</tbody></table>';
 }
 
 function buildPosSelect(player) {
-  const current = pendingChanges[player.playerKey] || player.selPos;
-  const eligible = player.eligPos.length ? player.eligPos : [player.selPos];
-
-  // Add BN, IL if not already there
-  const allOptions = [...new Set([...eligible, 'BN', 'IL', 'IL+', 'DL', 'NA'].filter(Boolean))];
-
-  const changedClass = pendingChanges[player.playerKey] && pendingChanges[player.playerKey] !== player.selPos ? 'changed' : '';
-
-  let html = `<select class="pos-select ${changedClass}" onchange="onPosChange('${player.playerKey}','${player.selPos}',this.value)">`;
-  for (const pos of allOptions) {
-    const selected = pos === current ? 'selected' : '';
-    html += `<option value="${pos}" ${selected}>${pos}</option>`;
-  }
-  html += '</select>';
-  return html;
+  const cur = pendingChanges[player.playerKey] || player.selPos;
+  const elig = player.eligPos.length ? player.eligPos : [player.selPos];
+  const opts = [...new Set([...elig, 'BN', 'IL', 'IL+', 'DL', 'NA'].filter(Boolean))];
+  const cc = pendingChanges[player.playerKey] && pendingChanges[player.playerKey] !== player.selPos ? 'changed' : '';
+  return `<select class="pos-select ${cc}" onchange="onPosChange('${player.playerKey}','${player.selPos}',this.value)">${opts.map(p=>`<option value="${p}" ${p===cur?'selected':''}>${p}</option>`).join('')}</select>`;
 }
 
 // ─── LINEUP EDITING ─────────────────────────────────────
-function onPosChange(playerKey, originalPos, newPos) {
-  if (newPos === originalPos) {
-    delete pendingChanges[playerKey];
-  } else {
-    pendingChanges[playerKey] = newPos;
-  }
-  updateSaveBtn();
-  renderRoster();
-}
-
+function onPosChange(pk, orig, nw) { if (nw===orig) delete pendingChanges[pk]; else pendingChanges[pk]=nw; updateSaveBtn(); renderRoster(); }
 function updateSaveBtn() {
-  const btn = document.getElementById('saveLineupBtn');
-  const count = Object.keys(pendingChanges).length;
-  btn.classList.toggle('visible', count > 0);
-  btn.textContent = count > 0 ? `Save Lineup (${count})` : 'Save Lineup';
+  const btn = document.getElementById('saveLineupBtn'), c = Object.keys(pendingChanges).length;
+  btn.classList.toggle('visible', c > 0);
+  btn.textContent = c > 0 ? `Save Lineup (${c})` : 'Save Lineup';
 }
-
 async function saveLineup() {
   const changes = Object.entries(pendingChanges);
   if (!changes.length || !myTeamKey) return;
-
-  const btn = document.getElementById('saveLineupBtn');
-  btn.disabled = true;
-  btn.textContent = 'Saving...';
-
-  const today = new Date().toISOString().slice(0, 10);
-  let playersXml = '';
-  for (const [key, pos] of changes) {
-    playersXml += `<player><player_key>${key}</player_key><position>${pos}</position></player>`;
-  }
-
-  const xml = `<?xml version='1.0'?><fantasy_content><roster><coverage_type>date</coverage_type><date>${today}</date><players>${playersXml}</players></roster></fantasy_content>`;
-
+  const btn = document.getElementById('saveLineupBtn'); btn.disabled = true; btn.textContent = 'Saving...';
+  const today = new Date().toISOString().slice(0,10);
+  const px = changes.map(([k,p])=>`<player><player_key>${k}</player_key><position>${p}</position></player>`).join('');
+  const xml = `<?xml version='1.0'?><fantasy_content><roster><coverage_type>date</coverage_type><date>${today}</date><players>${px}</players></roster></fantasy_content>`;
   try {
     const resp = await yahooPut(`team/${myTeamKey}/roster`, xml);
-    if (resp && resp.ok) {
-      pendingChanges = {};
-      updateSaveBtn();
-      showStatus('Lineup saved!', 'success');
-      loadRoster();
-    } else {
-      const errText = resp ? await resp.text() : 'Unknown error';
-      console.error('Lineup save failed:', errText);
-      showStatus('Save failed — check positions', 'error');
-    }
-  } catch(e) {
-    console.error('Save error:', e);
-    showStatus('Save failed', 'error');
-  }
-
+    if (resp && resp.ok) { pendingChanges = {}; updateSaveBtn(); showStatus('Lineup saved!','success'); loadRoster(); }
+    else { console.error('Save failed:', resp ? await resp.text() : ''); showStatus('Save failed — check positions','error'); }
+  } catch(e) { console.error('Save error:', e); showStatus('Save failed','error'); }
   btn.disabled = false;
 }
-
-function showStatus(msg, type) {
-  const el = document.createElement('div');
-  el.className = `status-msg ${type}`;
-  el.textContent = msg;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
-}
+function showStatus(msg, type) { const el = document.createElement('div'); el.className = `status-msg ${type}`; el.textContent = msg; document.body.appendChild(el); setTimeout(()=>el.remove(), 3000); }
 
 // ─── STANDINGS ──────────────────────────────────────────
 async function loadStandings() {
@@ -890,33 +761,23 @@ async function loadStandings() {
   el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading standings...</div>';
   const data = await yahooGet(`league/${currentLeagueKey}/standings`);
   if (!data) { el.innerHTML = '<div class="empty">Could not load standings</div>'; return; }
-
   const standings = [];
   try {
-    const sd = data.fantasy_content?.league?.[1]?.standings?.[0]?.teams || {};
-    const tc = sd.count || 0;
+    const sd = data.fantasy_content?.league?.[1]?.standings?.[0]?.teams || {}, tc = sd.count || 0;
     for (let i = 0; i < tc; i++) {
-      const t = sd[String(i)]?.team || [];
-      if (t.length < 2) continue;
+      const t = sd[String(i)]?.team || []; if (t.length < 2) continue;
       const info = t[0], ts = t[1]?.team_standings || {};
       let name='',logo='',mgrs=[];
-      for (const item of info) if (typeof item === 'object') {
-        if (item.name) name = item.name;
-        if (item.team_logos) logo = item.team_logos?.[0]?.team_logo?.url||'';
-        if (item.managers) for (const m of item.managers) mgrs.push(m.manager?.nickname||'');
-      }
+      for (const item of info) if (typeof item==='object') { if (item.name) name=item.name; if (item.team_logos) logo=item.team_logos?.[0]?.team_logo?.url||''; if (item.managers) for (const m of item.managers) mgrs.push(m.manager?.nickname||''); }
       const oc = ts.outcome_totals||{};
       standings.push({ rank:ts.rank, name, logo, mgrs, w:oc.wins||0, l:oc.losses||0, t:oc.ties||0, pct:oc.percentage||'.000', pf:ts.points_for||'—', pa:ts.points_against||'—', gb:ts.games_back||'—' });
     }
   } catch(e) { console.error('Standings parse:', e); }
-  standings.sort((a,b) => (parseInt(a.rank)||99) - (parseInt(b.rank)||99));
-
+  standings.sort((a,b)=>(parseInt(a.rank)||99)-(parseInt(b.rank)||99));
   let html = `<div class="tw"><table><thead><tr><th style="width:40px">#</th><th>Team</th><th>Record</th><th>Win %</th><th>PF</th><th>PA</th><th>GB</th></tr></thead><tbody>`;
-  standings.forEach(t => {
-    html += `<tr><td class="rank">${t.rank}</td><td><div class="tm-cell">${t.logo?`<img class="tm-logo" src="${t.logo}" alt="">`:''}
-      <div><div class="tm-name">${t.name}</div><div class="tm-mgr">${t.mgrs.join(', ')}</div></div></div></td>
-      <td class="record">${t.w}-${t.l}${t.t>0?'-'+t.t:''}</td><td class="wpct">${t.pct}</td><td>${t.pf}</td><td>${t.pa}</td><td>${t.gb}</td></tr>`;
-  });
+  standings.forEach(t => { html += `<tr><td class="rank">${t.rank}</td><td><div class="tm-cell">${t.logo?`<img class="tm-logo" src="${t.logo}" alt="">`:''}
+    <div><div class="tm-name">${t.name}</div><div class="tm-mgr">${t.mgrs.join(', ')}</div></div></div></td>
+    <td class="record">${t.w}-${t.l}${t.t>0?'-'+t.t:''}</td><td class="wpct">${t.pct}</td><td>${t.pf}</td><td>${t.pa}</td><td>${t.gb}</td></tr>`; });
   el.innerHTML = html + '</tbody></table></div>';
 }
 
@@ -926,35 +787,25 @@ async function loadMatchups() {
   el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading matchups...</div>';
   const data = await yahooGet(`league/${currentLeagueKey}/scoreboard`);
   if (!data) { el.innerHTML = '<div class="empty">Could not load matchups</div>'; return; }
-
   const matchups = [];
   try {
-    const md = data.fantasy_content?.league?.[1]?.scoreboard?.['0']?.matchups || {};
-    const mc = md.count || 0;
+    const md = data.fantasy_content?.league?.[1]?.scoreboard?.['0']?.matchups || {}, mc = md.count || 0;
     for (let i = 0; i < mc; i++) {
-      const m = md[String(i)]?.matchup || {};
-      const tms = m['0']?.teams || {};
-      const teams = [];
+      const m = md[String(i)]?.matchup || {}, tms = m['0']?.teams || {}, teams = [];
       for (let j = 0; j < (tms.count||0); j++) {
-        const t = tms[String(j)]?.team || [];
-        if (t.length < 2) continue;
+        const t = tms[String(j)]?.team || []; if (t.length<2) continue;
         let name='',logo='';
-        for (const item of t[0]) if (typeof item === 'object') {
-          if (item.name) name = item.name;
-          if (item.team_logos) logo = item.team_logos?.[0]?.team_logo?.url||'';
-        }
+        for (const item of t[0]) if (typeof item==='object') { if (item.name) name=item.name; if (item.team_logos) logo=item.team_logos?.[0]?.team_logo?.url||''; }
         teams.push({ name, logo, pts: t[1]?.team_points?.total||'0' });
       }
       if (teams.length >= 2) matchups.push({ teams });
     }
   } catch(e) { console.error('Matchups parse:', e); }
-
   el.innerHTML = matchups.map(m => {
     const t1=m.teams[0], t2=m.teams[1], p1=parseFloat(t1.pts)||0, p2=parseFloat(t2.pts)||0;
     return `<div class="mu-card"><div class="mu-vs"><div class="mu-tm">${t1.logo?`<img class="tm-logo" src="${t1.logo}" alt="">`:''}
       <div><div class="tm-name">${t1.name}</div><div class="mu-score ${p1>=p2?'winning':'losing'}">${t1.pts}</div></div></div>
-      <div class="mu-div">VS</div>
-      <div class="mu-tm right"><div><div class="tm-name">${t2.name}</div><div class="mu-score ${p2>=p1?'winning':'losing'}">${t2.pts}</div></div>
+      <div class="mu-div">VS</div><div class="mu-tm right"><div><div class="tm-name">${t2.name}</div><div class="mu-score ${p2>=p1?'winning':'losing'}">${t2.pts}</div></div>
       ${t2.logo?`<img class="tm-logo" src="${t2.logo}" alt="">`:''}</div></div></div>`;
   }).join('') || '<div class="empty">No matchups this week</div>';
 }
@@ -965,20 +816,15 @@ async function loadTransactions() {
   el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading transactions...</div>';
   const data = await yahooGet(`league/${currentLeagueKey}/transactions`);
   if (!data) { el.innerHTML = '<div class="empty">Could not load transactions</div>'; return; }
-
   const txs = [];
   try {
-    const td = data.fantasy_content?.league?.[1]?.transactions || {};
-    const tc = td.count || 0;
-    for (let i = 0; i < Math.min(tc, 25); i++) {
-      const t = td[String(i)]?.transaction || [];
-      if (t.length) {
-        const info = Array.isArray(t) ? t[0] : t;
-        txs.push({ type:info.type||'', ts:info.timestamp||'', trader:info.trader_team_name||'', tradee:info.tradee_team_name||'' });
-      }
+    const td = data.fantasy_content?.league?.[1]?.transactions || {}, tc = td.count || 0;
+    for (let i = 0; i < Math.min(tc,25); i++) {
+      const t = td[String(i)]?.transaction || []; if (!t.length) continue;
+      const info = Array.isArray(t) ? t[0] : t;
+      txs.push({ type:info.type||'', ts:info.timestamp||'', trader:info.trader_team_name||'', tradee:info.tradee_team_name||'' });
     }
   } catch(e) { console.error('Tx parse:', e); }
-
   el.innerHTML = txs.map(t => {
     const tc = t.type==='trade'?'tx-trade':t.type==='commish'?'tx-commish':'tx-add';
     const d = t.ts ? new Date(parseInt(t.ts)*1000).toLocaleDateString() : '';
@@ -986,49 +832,15 @@ async function loadTransactions() {
   }).join('') || '<div class="empty">No recent transactions</div>';
 }
 
-// ─── THEME TOGGLE ───────────────────────────────────────
-function initTheme() {
-  const saved = localStorage.getItem('scfbd_theme');
-  if (saved === 'light') {
-    applyTheme('light');
-  } else if (saved === 'dark') {
-    applyTheme('dark');
-  } else {
-    // Respect system preference on first visit
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    applyTheme(prefersDark ? 'dark' : 'dark'); // default dark since the design is dark-first
-  }
+// ─── THEME ──────────────────────────────────────────────
+function initTheme() { applyTheme(localStorage.getItem('scfbd_theme') === 'light' ? 'light' : 'dark'); }
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  const s = document.getElementById('themeIconSun'), m = document.getElementById('themeIconMoon');
+  if (s && m) { s.style.display = t==='light'?'':'none'; m.style.display = t==='light'?'none':''; }
 }
-
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  // Update toggle icons
-  const sunIcon = document.getElementById('themeIconSun');
-  const moonIcon = document.getElementById('themeIconMoon');
-  if (sunIcon && moonIcon) {
-    if (theme === 'light') {
-      sunIcon.style.display = '';
-      moonIcon.style.display = 'none';
-    } else {
-      sunIcon.style.display = 'none';
-      moonIcon.style.display = '';
-    }
-  }
-}
-
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme');
-  const next = current === 'light' ? 'dark' : 'light';
-  applyTheme(next);
-  localStorage.setItem('scfbd_theme', next);
-}
-
-// Listen for system theme changes
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-  if (!localStorage.getItem('scfbd_theme')) {
-    applyTheme(e.matches ? 'dark' : 'light');
-  }
-});
+function toggleTheme() { const n = document.documentElement.getAttribute('data-theme')==='light'?'dark':'light'; applyTheme(n); localStorage.setItem('scfbd_theme', n); }
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => { if (!localStorage.getItem('scfbd_theme')) applyTheme(e.matches?'dark':'light'); });
 
 // ─── INIT ───────────────────────────────────────────────
 initTheme();
