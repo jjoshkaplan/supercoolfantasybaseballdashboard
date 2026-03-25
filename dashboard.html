@@ -193,7 +193,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .league-select{max-width:140px;padding:6px 24px 6px 8px;font-size:12px!important}
   .main{width:100%;padding:12px 4px;padding-bottom:calc(68px + env(safe-area-inset-bottom));padding-left:calc(4px + env(safe-area-inset-left));padding-right:calc(4px + env(safe-area-inset-right));overflow-x:hidden;max-width:100vw}
   .view-panel{overflow-x:hidden;max-width:100%}
-  #mu-scores,#mu-rankings{overflow-x:hidden;max-width:100%}
+  #mu-scores,#mu-rankings{overflow-x:hidden;max-width:100%;margin:0 -4px;width:calc(100% + 8px)}
   .mu-card{overflow:hidden;max-width:100%}
   .mobile-nav{display:none}
   .mobile-nav.visible{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:100;background:var(--surface);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
@@ -246,27 +246,27 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .btn-lg{padding:14px 24px;font-size:15px;width:100%;justify-content:center}
 
   /* Cards flush on mobile */
-  .card{border-radius:0;margin-bottom:12px;border-left:none;border-right:none}
+  .view-panel>.card{border-radius:0;margin-bottom:12px;border-left:none;border-right:none;margin-left:-4px;margin-right:-4px;width:calc(100% + 8px)}
+  #rankings-content .card{border-radius:0;overflow:hidden;border-left:none;border-right:none}
 
   /* Matchup cards */
-  .mu-card{padding:10px 8px;margin-bottom:8px;border-radius:0;border-left:none;border-right:none}.mu-score{font-size:16px}
-  .mu-vs{gap:4px}.mu-tm{gap:6px}.mu-div{padding:0 6px;font-size:11px}
+  .mu-card{padding:8px 0;margin-bottom:8px;border-radius:0;border-left:none;border-right:none;overflow:hidden}.mu-score{font-size:16px}
+  .mu-vs{padding:0 8px;gap:4px}.mu-tm{gap:6px}.mu-div{padding:0 6px;font-size:11px}
   .tm-name{font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .tm-logo{width:22px;height:22px;border-radius:4px}
 
-  /* Scrollable table wrappers — force internal scroll */
+  /* Scrollable table wrappers */
   .tw{max-width:100%;overflow-x:auto}
 
-  /* Matchup stat table mobile */
-  .mu-card .tw{padding:0 4px 8px!important;max-width:100%}
+  /* Matchup stat table */
+  .mu-card .tw{padding:0!important;max-width:100%}
   .mu-card .tw table{font-size:10px!important;width:max-content;min-width:100%}
   .mu-card .tw th,.mu-card .tw td{padding:4px 3px!important;font-size:10px!important;min-width:0!important}
   .mu-card .tw th{font-size:8px!important}
   .mu-card .tw td:first-child{max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px!important}
 
   /* Rankings table mobile */
-  #rankings-content .card{border-radius:0;overflow:hidden;max-width:100%;border-left:none;border-right:none}
-  #rankings-content .tw{max-width:100%}
+  #rankings-content .tw{max-width:100%;padding:0}
   #rankings-content table{font-size:10px;width:max-content;min-width:100%}
   #rankings-content th,#rankings-content td{padding:5px 3px!important;font-size:10px!important;min-width:0!important}
   #rankings-content th{font-size:8px!important}
