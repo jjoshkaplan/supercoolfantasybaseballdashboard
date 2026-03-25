@@ -3,6 +3,13 @@ const { getValidToken, encryptTokens, setSessionCookie, refreshAccessToken } = r
 const YAHOO_API = 'https://fantasysports.yahooapis.com/fantasy/v2';
 
 module.exports = async (req, res) => {
+  // Handle CORS preflight for PUT/POST
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    return res.status(200).end();
+  }
+
   const url = new URL(req.url, 'https://localhost');
   const endpoint = url.searchParams.get('endpoint');
 
@@ -18,9 +25,18 @@ module.exports = async (req, res) => {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
+  const method = req.method || 'GET';
   const yahooUrl = `${YAHOO_API}/${endpoint}`;
-  let resp = await fetchYahoo(yahooUrl, tokens.access_token);
 
+  // Read body for PUT/POST requests
+  let body = null;
+  if (method === 'PUT' || method === 'POST') {
+    body = await readBody(req);
+  }
+
+  let resp = await fetchYahoo(yahooUrl, tokens.access_token, method, body);
+
+  // Retry on 401 with token refresh
   if (resp.status === 401 && tokens.refresh_token) {
     const refreshed = await refreshAccessToken(tokens.refresh_token);
     if (refreshed) {
@@ -32,25 +48,59 @@ module.exports = async (req, res) => {
         expires_in: Math.max(1, Math.floor((tokens.expires_at - Date.now()) / 1000)),
       });
       setSessionCookie(res, jwe);
-      resp = await fetchYahoo(yahooUrl, tokens.access_token);
+      resp = await fetchYahoo(yahooUrl, tokens.access_token, method, body);
     }
   }
 
   if (!resp.ok) {
     const errText = await resp.text();
-    console.error(`Yahoo API error ${resp.status}:`, errText.slice(0, 500));
-    return res.status(resp.status).json({ error: 'Yahoo API error', status: resp.status });
+    console.error(`Yahoo API error ${resp.status} [${method}]:`, errText.slice(0, 500));
+    return res.status(resp.status).json({ error: 'Yahoo API error', status: resp.status, detail: errText.slice(0, 200) });
   }
 
-  const data = await resp.json();
-  res.status(200).json(data);
+  // For PUT/POST responses, Yahoo may return XML or empty
+  const contentType = resp.headers.get('content-type') || '';
+  if (contentType.includes('json')) {
+    const data = await resp.json();
+    res.status(200).json(data);
+  } else {
+    const text = await resp.text();
+    res.status(200).json({ success: true, response: text.slice(0, 500) });
+  }
 };
 
-async function fetchYahoo(url, accessToken) {
-  return fetch(`${url}?format=json`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
+async function fetchYahoo(url, accessToken, method = 'GET', body = null) {
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+  };
+
+  const opts = { method, headers };
+
+  if (method === 'GET') {
+    // Append format=json for GET requests
+    const separator = url.includes('?') ? '&' : '?';
+    headers['Content-Type'] = 'application/json';
+    return fetch(`${url}${separator}format=json`, opts);
+  } else {
+    // PUT/POST: send body as-is (XML for roster changes)
+    headers['Content-Type'] = 'application/xml';
+    opts.body = body;
+    return fetch(url, opts);
+  }
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    // Vercel may have already parsed the body
+    if (req.body !== undefined && req.body !== null) {
+      if (typeof req.body === 'string') return resolve(req.body);
+      if (Buffer.isBuffer(req.body)) return resolve(req.body.toString());
+      return resolve(JSON.stringify(req.body));
+    }
+    // Otherwise read from stream
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString()));
+    req.on('error', reject);
   });
 }
