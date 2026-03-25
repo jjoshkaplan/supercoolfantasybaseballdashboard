@@ -52,13 +52,14 @@ select,input,textarea{font-size:16px!important}
 /* ─── MAIN CONTENT ─── */
 .main{padding:28px 36px;padding-left:calc(36px + env(safe-area-inset-left));padding-right:calc(36px + env(safe-area-inset-right));max-width:1400px;margin:0 auto;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .pg-title{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px}
+.pg-title-row{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.pg-title-row .pg-title{margin-bottom:0}
 .pg-sub{color:var(--dim);font-size:14px;margin-bottom:20px;font-weight:300}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px}
 
 /* Roster toolbar */
-.roster-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.roster-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px}
 .roster-toolbar-left{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.roster-toolbar-right{display:flex;align-items:center;gap:10px}
 .tab-bar{display:flex;gap:2px;background:var(--surface-2);border-radius:8px;padding:3px;width:fit-content}
 .tab-btn{padding:7px 18px;border-radius:6px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;border:none;background:transparent;color:var(--dim);transition:all .15s;white-space:nowrap}
 .tab-btn:hover{color:var(--text)}
@@ -197,8 +198,11 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .mob-tab svg{width:20px;height:20px;flex-shrink:0}
   .mob-tab.active{color:var(--green)}
   .mob-tab:active{opacity:.7}
-  .roster-toolbar{flex-direction:column;align-items:stretch;gap:10px;margin-bottom:12px}
+  .roster-toolbar{flex-direction:column;align-items:stretch;gap:8px;margin-bottom:12px}
   .roster-toolbar-left{flex-direction:column;gap:8px}
+  .pg-title-row{gap:8px}
+  .pg-title-row .btn-save{padding:4px 10px;font-size:10px;border-radius:5px;gap:4px;min-height:28px}
+  .pg-title-row .btn-save svg{width:11px;height:11px}
   .tab-bar{width:100%}.tab-btn{flex:1;text-align:center;padding:10px 12px;min-height:44px}
   .period-bar{width:100%;justify-content:stretch}.period-btn{flex:1;text-align:center;padding:8px 6px;min-height:44px;font-size:11px}
   table .col-player{position:static;min-width:120px}
@@ -213,7 +217,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .sc-body{flex-direction:column}.sc-left{flex:none;border-right:none;border-bottom:1px solid var(--border)}
   .sc-panel{margin:0 4px 4px}.sc-left,.sc-right{padding:8px}
   .sc-left svg,.sc-right svg{max-width:100%;height:auto}
-  .btn-sm,.btn-save,.tab-btn,.period-btn,.mob-tab{min-height:44px;display:flex;align-items:center;justify-content:center}
+  .btn-sm,.tab-btn,.period-btn,.mob-tab{min-height:44px;display:flex;align-items:center;justify-content:center}
   .auth-gate{padding:40px 24px;padding-top:calc(60px + env(safe-area-inset-top))}
   .auth-gate h2{font-size:24px}.auth-gate p{font-size:14px}
   .btn-lg{padding:14px 24px;font-size:15px;width:100%;justify-content:center}
@@ -265,14 +269,13 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 <div id="appLayout" style="display:none">
   <div class="main">
     <div id="view-roster" class="view-panel">
-      <h2 class="pg-title">My Roster</h2>
+      <div class="pg-title-row"><h2 class="pg-title">My Roster</h2><button class="btn-save" id="saveLineupBtn" onclick="saveLineup()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Save Lineup</button></div>
       <p class="pg-sub" id="rosterSub">Loading roster data...</p>
       <div class="roster-toolbar">
         <div class="roster-toolbar-left">
           <div class="tab-bar" id="rosterTabs"><button class="tab-btn active" data-tab="hitters" onclick="switchRosterTab('hitters')">Hitters</button><button class="tab-btn" data-tab="pitchers" onclick="switchRosterTab('pitchers')">Pitchers</button></div>
           <div class="period-bar" id="periodBar"><button class="period-btn" data-period="today" onclick="switchPeriod('today')">Today</button><button class="period-btn active" data-period="season" onclick="switchPeriod('season')">Season</button><button class="period-btn" data-period="lastweek" onclick="switchPeriod('lastweek')">L7</button><button class="period-btn" data-period="lastmonth" onclick="switchPeriod('lastmonth')">L30</button><button class="period-btn" data-period="prevyear" onclick="switchPeriod('prevyear')">Prev Year</button></div>
         </div>
-        <div class="roster-toolbar-right"><button class="btn-save" id="saveLineupBtn" onclick="saveLineup()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Save Lineup</button></div>
       </div>
       <div class="card"><div id="roster-hitters" class="tw"></div><div id="roster-pitchers" class="tw" style="display:none"></div></div>
     </div>
