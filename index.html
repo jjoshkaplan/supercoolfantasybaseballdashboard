@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super Cool Fantasy Baseball Dashboard</title>
+<meta name="description" content="Connect your Yahoo Fantasy account. See your league, roster, standings, and live game Statcast data — all in one clean dashboard.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0c10;
+  --surface: #12151c;
+  --border: #1e2330;
+  --text: #e8ecf4;
+  --dim: #6b7a94;
+  --green: #2dd4a0;
+  --green-glow: rgba(45,212,160,.15);
+  --blue: #5b8def;
+  --red: #f06449;
+  --gold: #f0c040;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Outfit',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
+
+/* Grain overlay */
+body::after { content:''; position:fixed; inset:0; pointer-events:none; opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.hero {
+  min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 24px; position:relative;
+}
+
+/* Radial glow behind hero */
+.hero::before {
+  content:''; position:absolute; top:30%; left:50%; transform:translate(-50%,-50%);
+  width:600px; height:400px; border-radius:50%; background:radial-gradient(ellipse, rgba(45,212,160,.06) 0%, transparent 70%); pointer-events:none;
+}
+
+/* Diamond pattern */
+.diamond-grid {
+  position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none; overflow:hidden; opacity:.04;
+}
+.diamond-grid svg { width:100%; height:100%; }
+
+/* Top bar */
+.topbar {
+  position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center; justify-content:space-between;
+  padding:16px 32px; backdrop-filter:blur(12px); background:rgba(10,12,16,.7); border-bottom:1px solid var(--border);
+}
+.topbar-brand { font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:var(--green); letter-spacing:.04em; }
+.topbar-links { display:flex; gap:20px; }
+.topbar-links a { font-size:14px; color:var(--dim); text-decoration:none; font-weight:500; transition:color .15s; }
+.topbar-links a:hover { color:var(--text); }
+
+/* Hero content */
+.hero-badge {
+  display:inline-flex; align-items:center; gap:8px; padding:6px 16px; border-radius:20px;
+  background:var(--green-glow); border:1px solid rgba(45,212,160,.2);
+  font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:var(--green);
+  margin-bottom:28px; letter-spacing:.02em;
+}
+.hero-badge .dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:blink 2s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+.hero-title {
+  font-size:clamp(42px, 7vw, 80px); font-weight:900; line-height:1; letter-spacing:-.04em;
+  text-align:center; max-width:800px; margin-bottom:12px;
+}
+.hero-title .line1 { display:block; color:var(--dim); font-weight:300; font-size:clamp(18px, 2.5vw, 26px); letter-spacing:.06em; text-transform:uppercase; margin-bottom:8px; }
+.hero-title .gradient {
+  background:linear-gradient(135deg, var(--green) 0%, var(--blue) 50%, var(--green) 100%);
+  background-size:200% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  animation:shift 6s ease-in-out infinite;
+}
+@keyframes shift { 0%,100%{background-position:0% center} 50%{background-position:100% center} }
+
+.hero-sub {
+  font-size:18px; color:var(--dim); text-align:center; max-width:520px; line-height:1.6; margin:16px 0 36px; font-weight:300;
+}
+
+.cta-group { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+.btn {
+  display:inline-flex; align-items:center; gap:10px; padding:14px 32px; border-radius:12px;
+  font-family:inherit; font-size:16px; font-weight:600; text-decoration:none; transition:all .2s; border:none; cursor:pointer;
+}
+.btn-primary {
+  background:var(--green); color:#0a0c10;
+}
+.btn-primary:hover { background:#3ee8b4; transform:translateY(-1px); box-shadow:0 8px 30px rgba(45,212,160,.25); }
+.btn-ghost {
+  background:transparent; color:var(--dim); border:1px solid var(--border);
+}
+.btn-ghost:hover { color:var(--text); border-color:var(--dim); }
+
+.btn svg { width:18px; height:18px; }
+
+/* Features */
+.features {
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:1px;
+  background:var(--border); margin-top:80px; max-width:900px; width:100%; border-radius:16px; overflow:hidden;
+}
+.feature {
+  background:var(--surface); padding:28px 24px;
+}
+.feature-icon { font-size:24px; margin-bottom:12px; }
+.feature h3 { font-size:16px; font-weight:800; margin-bottom:6px; letter-spacing:-.01em; }
+.feature p { font-size:14px; color:var(--dim); line-height:1.6; font-weight:300; }
+
+/* Domain callout */
+.domain-bar {
+  margin-top:60px; padding:16px 28px; border-radius:12px; background:var(--surface); border:1px solid var(--border);
+  font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--dim); text-align:center;
+}
+.domain-bar strong { color:var(--green); font-weight:700; }
+
+/* Footer */
+.footer {
+  text-align:center; padding:40px 24px 28px; color:var(--dim); font-size:13px;
+}
+.footer a { color:var(--green); text-decoration:none; }
+
+@media (max-width:600px) {
+  .topbar { padding:12px 16px; }
+  .hero { padding:80px 20px 40px; }
+  .features { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="topbar-brand">SCFBD.XYZ</span>
+  <div class="topbar-links">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/live">Live Tracker</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="diamond-grid">
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+      <defs><pattern id="d" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <rect width="1" height="1" x="9.5" y="9.5" fill="#fff"/>
+      </pattern></defs>
+      <rect width="100" height="100" fill="url(#d)"/>
+    </svg>
+  </div>
+
+  <div class="hero-badge"><span class="dot"></span> 2026 MLB season is live</div>
+
+  <h1 class="hero-title">
+    <span class="line1">the one and only</span>
+    <span class="gradient">Super Cool Fantasy Baseball Dashboard</span>
+  </h1>
+
+  <p class="hero-sub">
+    Connect your Yahoo Fantasy account and get a clean view of your leagues, rosters, standings, matchups, and live Statcast data — all in one place.
+  </p>
+
+  <div class="cta-group">
+    <a href="/api/auth/login" class="btn btn-primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+      Connect Yahoo Account
+    </a>
+    <a href="/live" class="btn btn-ghost">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      Live Tracker
+    </a>
+  </div>
+
+  <div class="features">
+    <div class="feature">
+      <div class="feature-icon">&#9918;</div>
+      <h3>Your roster, clean</h3>
+      <p>Full roster view with positions, player photos, injury status, and eligible positions — not buried in Yahoo's UI.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">&#9776;</div>
+      <h3>Standings + matchups</h3>
+      <p>League standings, head-to-head scoreboard, and recent transactions in one scrollable dashboard.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">&#9201;</div>
+      <h3>Live Statcast</h3>
+      <p>Real-time pitch zones, spray charts, exit velo, and launch angles for every live game. Know when your players are at bat.</p>
+    </div>
+  </div>
+
+  <div class="domain-bar">
+    Yes, the domain is <strong>supercoolfantasybaseballdashboard.xyz</strong> and no, we will not be changing it.
+  </div>
+</section>
+
+<footer class="footer">
+  Built with the <a href="https://developer.yahoo.com/fantasysports/guide/" target="_blank" rel="noopener">Yahoo Fantasy API</a> and
+  <a href="https://statsapi.mlb.com" target="_blank" rel="noopener">MLB Stats API</a>.
+  Your Yahoo credentials are never stored on our servers.
+</footer>
+
+<script>
+// Check if already logged in, redirect to dashboard
+fetch('/api/auth/me').then(r=>r.json()).then(d=>{
+  if(d.authenticated && window.location.pathname === '/') {
+    document.querySelector('.btn-primary').textContent = 'Go to Dashboard';
+    document.querySelector('.btn-primary').href = '/dashboard';
+  }
+}).catch(()=>{});
+</script>
+</body>
+</html>

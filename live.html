@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fantasy Baseball Live Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0c0f14;--surface:#151921;--surface-2:#1c2230;--surface-3:#242c3a;--border:#252d3d;--text:#e4e8f0;--text-dim:#8891a5;--text-muted:#5c6478;--accent:#3b82f6;--accent-glow:rgba(59,130,246,.12);--green:#22c55e;--green-dim:rgba(34,197,94,.12);--red:#ef4444;--red-dim:rgba(239,68,68,.12);--orange:#f59e0b;--orange-dim:rgba(245,158,11,.12);--yellow:#eab308;--yellow-dim:rgba(234,179,8,.12);--purple:#a855f7;--purple-dim:rgba(168,85,247,.12);--cyan:#06b6d4;--cyan-dim:rgba(6,182,212,.12);--radius:10px;--mono:'JetBrains Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
+.header{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
+.header-left{display:flex;align-items:center;gap:12px}
+.header h1{font-size:17px;font-weight:700;letter-spacing:-.02em}
+.header h1 span{color:var(--text-dim);font-weight:400;font-size:13px;margin-left:8px}
+.header-right{display:flex;align-items:center;gap:16px}
+.poll-indicator{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);font-family:var(--mono)}
+.poll-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+.poll-dot.active{animation:pulse-dot 1s ease-in-out infinite}
+.app{display:flex;min-height:calc(100vh - 53px)}
+.sidebar{width:280px;border-right:1px solid var(--border);background:var(--surface);flex-shrink:0;overflow-y:auto;display:flex;flex-direction:column}
+.main{flex:1;padding:24px 28px;overflow-y:auto}
+.sidebar-header{padding:16px 18px 12px;border-bottom:1px solid var(--border)}
+.sidebar-header h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:10px}
+.add-row{display:flex;gap:6px}
+.add-row input{flex:1;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:7px;font-family:inherit;font-size:13px}
+.add-row input:focus{outline:none;border-color:var(--accent)}
+.add-row input::placeholder{color:var(--text-muted)}
+.btn-add{background:var(--accent);color:#fff;border:none;padding:7px 14px;border-radius:7px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.btn-add:hover{background:#2563eb}
+.player-list{padding:6px 0;flex:1;overflow-y:auto}
+.player-item{display:flex;align-items:center;justify-content:space-between;padding:8px 18px;font-size:13px;transition:background .1s}
+.player-item:hover{background:var(--surface-2)}
+.player-name-col{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.player-name-col .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-remove{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:2px 6px;border-radius:4px;line-height:1}
+.player-remove:hover{color:var(--red);background:var(--red-dim)}
+.status-badge{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.status-batting{background:var(--green-dim);color:var(--green)}
+.status-on_deck{background:var(--yellow-dim);color:var(--yellow)}
+.status-in_hole{background:var(--orange-dim);color:var(--orange)}
+.status-pitching{background:var(--purple-dim);color:var(--purple)}
+.status-idle{background:var(--surface-2);color:var(--text-muted)}
+@keyframes pulse-batting{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.4)}70%{box-shadow:0 0 0 6px rgba(34,197,94,0)}}
+.status-batting{animation:pulse-batting 2s infinite}
+.section-title{font-size:18px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
+.section-sub{color:var(--text-dim);font-size:13px;margin-bottom:20px}
+.game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
+.game-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s}
+.game-card.has-player{border-color:var(--accent);border-width:1.5px}
+.game-card.has-batting{border-color:var(--green);box-shadow:0 0 20px rgba(34,197,94,.08)}
+.game-top{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px}
+.game-state{font-family:var(--mono);font-size:11px;font-weight:600}
+.game-state.live{color:var(--green)}.game-state.final{color:var(--text-muted)}.game-state.preview{color:var(--accent)}
+.game-inning{font-family:var(--mono);font-size:11px;color:var(--text-dim)}
+.scoreboard{padding:0 16px 12px}
+.score-row{display:flex;align-items:center;gap:10px;padding:4px 0}
+.team-abbr{font-family:var(--mono);font-size:14px;font-weight:700;width:36px}
+.score-runs{font-family:var(--mono);font-size:20px;font-weight:700;width:32px;text-align:right}
+.score-rhe{display:flex;gap:12px;margin-left:auto}
+.score-rhe span{font-family:var(--mono);font-size:12px;color:var(--text-dim)}
+.score-rhe span b{color:var(--text);font-weight:600}
+.inning-arrow{font-size:10px;color:var(--text-dim);width:12px;text-align:center}
+.count-bar{display:flex;align-items:center;gap:16px;padding:8px 16px;border-top:1px solid var(--border);background:var(--surface-2)}
+.count-group{display:flex;align-items:center;gap:4px}
+.count-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-right:4px;font-family:var(--mono)}
+.count-pip{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--text-muted)}
+.count-pip.fb{background:var(--green);border-color:var(--green)}
+.count-pip.fs{background:var(--red);border-color:var(--red)}
+.count-pip.fo{background:var(--orange);border-color:var(--orange)}
+.bases-wrap{margin-left:auto;position:relative;width:36px;height:36px}
+.base{position:absolute;width:10px;height:10px;transform:rotate(45deg);border:1.5px solid var(--text-muted);border-radius:1.5px}
+.base.on{background:var(--yellow);border-color:var(--yellow)}
+.base-2{top:2px;left:13px}.base-1{top:13px;left:24px}.base-3{top:13px;left:2px}
+.card-players{padding:10px 16px 12px;border-top:1px solid var(--border)}
+.card-players-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:6px;font-family:var(--mono)}
+.card-player-row{display:flex;align-items:center;justify-content:space-between;padding:3px 0;font-size:13px}
+.card-player-name{font-weight:500}.card-player-name.mine{color:var(--accent)}
+.at-bat-detail{padding:8px 16px 10px;border-top:1px solid var(--border);background:rgba(34,197,94,.04)}
+.ab-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--green);margin-bottom:4px;font-family:var(--mono)}
+.ab-matchup{font-size:13px;font-weight:600;margin-bottom:2px}
+.ab-matchup .vs{color:var(--text-muted);font-weight:400}
+.ab-pitch{font-size:12px;color:var(--text-dim)}
+.empty-state{text-align:center;padding:80px 20px;color:var(--text-dim)}
+.empty-state h3{font-size:16px;margin-bottom:8px;color:var(--text)}
+.alerts-bar{padding:0 28px}
+.alert-card{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--green-dim);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius);margin-bottom:12px}
+.alert-card.pitching{background:var(--purple-dim);border-color:rgba(168,85,247,.2)}
+.alert-icon{font-size:20px;flex-shrink:0}
+.alert-text{font-size:14px;font-weight:600}
+.alert-text span{font-weight:400;color:var(--text-dim);font-size:13px;display:block}
+.sidebar-footer{padding:12px 18px;border-top:1px solid var(--border)}
+.poll-control{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text-dim)}
+.poll-control select{background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:5px;font-family:inherit;font-size:12px}
+
+/* ─── STATCAST ─────────────────────────────────────── */
+.sc-toggle{display:flex;align-items:center;justify-content:center;padding:7px 16px;border-top:1px solid var(--border);cursor:pointer;font-size:11px;font-weight:600;color:var(--text-muted);font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase;transition:all .15s;user-select:none}
+.sc-toggle:hover{color:var(--accent);background:var(--accent-glow)}
+.sc-toggle.open{color:var(--accent)}
+.sc-panel{border-top:1px solid var(--border);background:var(--bg)}
+
+.sc-cols{display:flex}
+.sc-left{flex:0 0 210px;padding:12px 10px;border-right:1px solid var(--border)}
+.sc-right{flex:1;min-width:0;padding:12px 10px}
+.sc-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-family:var(--mono);margin-bottom:6px;text-align:center}
+
+/* Pitch log */
+.pl-row{display:flex;align-items:center;gap:5px;padding:2px 0;font-size:11px;font-family:var(--mono)}
+.pl-num{width:14px;color:var(--text-muted);text-align:right}
+.pl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pl-abbr{width:22px;color:var(--text-dim)}
+.pl-velo{width:38px;text-align:right}
+.pl-call{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-dim)}
+
+/* Stats bar */
+.sc-stats{display:flex;gap:1px;border-top:1px solid var(--border);background:var(--border)}
+.sc-stat{flex:1;padding:8px 4px;text-align:center;background:var(--surface)}
+.sc-sv{font-family:var(--mono);font-size:15px;font-weight:700}
+.sc-sl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-family:var(--mono)}
+.sc-sv.hot{color:#ef4444}.sc-sv.warm{color:#f59e0b}.sc-sv.cool{color:var(--accent)}
+
+/* BIP log */
+.bip-row{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;font-family:var(--mono)}
+.bip-ev{font-weight:600;width:48px}.bip-la{color:var(--text-dim);width:32px}.bip-dist{color:var(--text-dim);width:38px}
+.bip-who{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-dim)}
+.bip-who.mine{color:var(--accent);font-weight:500}
+
+/* Legend */
+.sc-legend{display:flex;flex-wrap:wrap;gap:8px;padding:6px 10px;border-top:1px solid var(--border)}
+.sc-leg-item{display:flex;align-items:center;gap:3px;font-size:10px;font-family:var(--mono);color:var(--text-dim)}
+.sc-leg-dot{width:6px;height:6px;border-radius:50%}
+
+@media(max-width:768px){.sidebar{display:none}.main{padding:16px}.game-grid{grid-template-columns:1fr}.sc-cols{flex-direction:column}.sc-left{flex:none;border-right:none;border-bottom:1px solid var(--border)}}
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.loading-card{background:linear-gradient(90deg,var(--surface) 25%,var(--surface-2) 50%,var(--surface) 75%);background-size:800px 100%;animation:shimmer 1.5s infinite;height:200px;border-radius:var(--radius)}
+</style>
+</head>
+<body>
+<div class="header"><div class="header-left"><h1>Live Tracker<span>Fantasy Baseball</span></h1></div><div class="header-right"><div class="poll-indicator"><div class="poll-dot" id="pollDot"></div><span id="pollStatus">Starting...</span></div></div></div>
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-header"><h2>My Players</h2><div class="add-row"><input type="text" id="playerInput" placeholder="e.g. Aaron Judge" onkeydown="if(event.key==='Enter')addPlayer()"><button class="btn-add" onclick="addPlayer()">Add</button></div></div>
+    <div class="player-list" id="playerList"></div>
+    <div class="sidebar-footer"><div class="poll-control"><span>Refresh</span><select id="pollInterval" onchange="setPollInterval(this.value)"><option value="8">8s</option><option value="12" selected>12s</option><option value="20">20s</option><option value="30">30s</option></select></div></div>
+  </div>
+  <div class="main">
+    <div class="alerts-bar" id="alertsBar"></div>
+    <h2 class="section-title">Today's Games</h2>
+    <p class="section-sub" id="sectionSub">Loading...</p>
+    <div class="game-grid" id="gameGrid"><div class="loading-card"></div><div class="loading-card"></div><div class="loading-card"></div></div>
+  </div>
+</div>
+<script>
+const MLB = 'https://statsapi.mlb.com/api';
+let myPlayers=[], schedule=[], liveFeeds={}, openSC={}, pollTimer, pollSec=12;
+
+const PC = {'Four-Seam Fastball':'#ef4444',Fastball:'#ef4444',Sinker:'#dc2626','Two-Seam Fastball':'#dc2626',Cutter:'#f97316',Slider:'#eab308',Sweeper:'#a3e635',Curveball:'#22c55e','Knuckle Curve':'#10b981',Changeup:'#06b6d4','Split-Finger':'#3b82f6',Splitter:'#3b82f6',Knuckleball:'#a855f7',Eephus:'#6366f1'};
+const PA = {'Four-Seam Fastball':'FF',Fastball:'FF',Sinker:'SI','Two-Seam Fastball':'SI',Cutter:'FC',Slider:'SL',Sweeper:'SW',Curveball:'CU','Knuckle Curve':'KC',Changeup:'CH','Split-Finger':'FS',Splitter:'FS',Knuckleball:'KN',Eephus:'EP'};
+function pc(t){return PC[t]||'#8891a5'} function pa(t){return PA[t]||'--'}
+
+// Players
+function loadP(){try{const s=localStorage.getItem('fp');if(s)myPlayers=JSON.parse(s)}catch(e){}renderPL()}
+function saveP(){try{localStorage.setItem('fp',JSON.stringify(myPlayers))}catch(e){}}
+function addPlayer(){const i=document.getElementById('playerInput'),n=i.value.trim();if(!n||myPlayers.find(p=>p.toLowerCase()===n.toLowerCase())){i.value='';return}myPlayers.push(n);saveP();renderPL();renderG();i.value=''}
+function removePlayer(x){myPlayers.splice(x,1);saveP();renderPL();renderG()}
+function renderPL(){const el=document.getElementById('playerList');if(!myPlayers.length){el.innerHTML='<div style="padding:20px 18px;color:var(--text-muted);font-size:13px;text-align:center">Add players to track them live</div>';return}el.innerHTML=myPlayers.map((n,i)=>{const s=getPS(n),bc=s?`status-${s.type}`:'status-idle',bt=s?s.label:'idle';return`<div class="player-item"><div class="player-name-col"><span class="status-badge ${bc}">${bt}</span><span class="name">${n}</span></div><button class="player-remove" onclick="removePlayer(${i})">&times;</button></div>`}).join('')}
+
+function nn(n){return(n||'').toLowerCase().trim().replace(/\./g,'').replace(/\s+/g,' ')}
+function isNM(a,b){if(!b)return false;const x=nn(a),y=nn(b);if(x===y)return true;const xl=x.split(' ').pop(),yl=y.split(' ').pop();return xl.length>2&&xl===yl&&x[0]===y[0]}
+function isMP(n){return myPlayers.some(p=>isNM(p,n))}
+function getPS(name){for(const[,f]of Object.entries(liveFeeds)){if(!f||f.state!=='Live')continue;if(f.batter&&isNM(name,f.batter.name))return{type:'batting',label:'AT BAT'};if(f.on_deck&&isNM(name,f.on_deck.name))return{type:'on_deck',label:'ON DECK'};if(f.in_hole&&isNM(name,f.in_hole.name))return{type:'in_hole',label:'IN HOLE'};if(f.pitcher&&isNM(name,f.pitcher.name))return{type:'pitching',label:'PITCHING'}}return null}
+function getAllPS(){const o=[];for(const[gpk,f]of Object.entries(liveFeeds)){if(!f||f.state!=='Live')continue;const g=schedule.find(x=>String(x.gamePk)===String(gpk));const gl=g?`${g.teams.away.team.abbreviation} @ ${g.teams.home.team.abbreviation}`:'';[{t:'batting',p:f.batter,l:'AT BAT'},{t:'on_deck',p:f.on_deck,l:'ON DECK'},{t:'in_hole',p:f.in_hole,l:'IN HOLE'},{t:'pitching',p:f.pitcher,l:'PITCHING'}].forEach(c=>{if(c.p&&isMP(c.p.name))o.push({...c,name:c.p.name,game:gl,inn:f.inning_ordinal,half:f.inning_half,count:f.count})})}return o}
+
+// Fetch + Parse
+async function fetchSch(){try{const r=await fetch(`${MLB}/v1/schedule?sportId=1&date=${new Date().toISOString().slice(0,10)}&hydrate=team,linescore`);const d=await r.json();schedule=(d.dates||[]).flatMap(x=>x.games||[]);const lc=schedule.filter(g=>g.status.abstractGameState==='Live').length;document.getElementById('sectionSub').textContent=`${schedule.length} game${schedule.length!==1?'s':''} · ${lc} live · ${myPlayers.length} tracked`}catch(e){console.error(e)}}
+
+async function fetchFeed(gpk){try{const r=await fetch(`${MLB}/v1.1/game/${gpk}/feed/live`);const raw=await r.json();return parseFeed(raw)}catch(e){console.error(e);return null}}
+
+function parseFeed(d){
+  if(!d)return null;
+  const gd=d.gameData||{},ld=d.liveData||{},ls=ld.linescore||{},plays=ld.plays||{},cp=plays.currentPlay||{};
+  const off=ls.offense||{},def=ls.defense||{},cnt=cp.count||{};
+  const runners={};for(const b of['first','second','third'])if(off[b])runners[b]={id:off[b].id,name:off[b].fullName};
+  // All pitches in current AB
+  const pitches=[];
+  for(const ev of(cp.playEvents||[])){if(!ev.isPitch)continue;const pd=ev.pitchData||{},det=ev.details||{},hd=ev.hitData||{},co=pd.coordinates||{};
+    pitches.push({num:ev.pitchNumber||pitches.length+1,type:(det.type||{}).description||'',code:(det.type||{}).code||'',speed:pd.startSpeed,spin:(pd.breaks||{}).spinRate,pX:co.pX,pZ:co.pZ,call:det.description||'',isInPlay:det.isInPlay||false,exitVelo:hd.launchSpeed,launchAngle:hd.launchAngle,distance:hd.totalDistance,hitX:(hd.coordinates||{}).coordX,hitY:(hd.coordinates||{}).coordY})}
+  const lp=pitches.length?pitches[pitches.length-1]:null;
+  // Balls in play (whole game)
+  const bip=[];
+  for(const ab of(plays.allPlays||[])){const res=ab.result||{};if(!res.event)continue;const mu=ab.matchup||{};
+    for(const ev of(ab.playEvents||[])){if(!ev.isPitch||!(ev.details||{}).isInPlay)continue;const hd=ev.hitData||{};if(!hd.launchSpeed&&!(hd.coordinates||{}).coordX)continue;
+      bip.push({batter:(mu.batter||{}).fullName||'',event:res.event||'',exitVelo:hd.launchSpeed,launchAngle:hd.launchAngle,distance:hd.totalDistance,hitX:(hd.coordinates||{}).coordX,hitY:(hd.coordinates||{}).coordY,inning:(ab.about||{}).inning})}}
+  const t=gd.teams||{};
+  return{state:(gd.status||{}).abstractGameState||'',detailedState:(gd.status||{}).detailedState||'',inning:ls.currentInning,inning_ordinal:ls.currentInningOrdinal||'',inning_half:ls.inningHalf||'',
+    home:{name:(t.home||{}).teamName||'',abbr:(t.home||{}).abbreviation||'',runs:((ls.teams||{}).home||{}).runs||0,hits:((ls.teams||{}).home||{}).hits||0,errors:((ls.teams||{}).home||{}).errors||0},
+    away:{name:(t.away||{}).teamName||'',abbr:(t.away||{}).abbreviation||'',runs:((ls.teams||{}).away||{}).runs||0,hits:((ls.teams||{}).away||{}).hits||0,errors:((ls.teams||{}).away||{}).errors||0},
+    batter:off.batter?{id:off.batter.id,name:off.batter.fullName}:null,on_deck:off.onDeck?{id:off.onDeck.id,name:off.onDeck.fullName}:null,in_hole:off.inHole?{id:off.inHole.id,name:off.inHole.fullName}:null,pitcher:def.pitcher?{id:def.pitcher.id,name:def.pitcher.fullName}:null,
+    count:{balls:cnt.balls||0,strikes:cnt.strikes||0,outs:ls.outs||0},runners,pitches,lastPitch:lp,bip}}
+
+// Poll
+async function poll(){const dot=document.getElementById('pollDot'),st=document.getElementById('pollStatus');dot.className='poll-dot active';st.textContent='Updating...';await fetchSch();const lg=schedule.filter(g=>g.status.abstractGameState==='Live');const fs=await Promise.all(lg.map(g=>fetchFeed(g.gamePk)));fs.forEach((f,i)=>{if(f)liveFeeds[lg[i].gamePk]=f});renderG();renderAlerts();renderPL();dot.className='poll-dot';startCD()}
+function startCD(){if(pollTimer)clearInterval(pollTimer);let r=pollSec;const s=document.getElementById('pollStatus');pollTimer=setInterval(()=>{r--;if(r<=0){clearInterval(pollTimer);poll()}else s.textContent=`Next in ${r}s`},1000)}
+function setPollInterval(v){pollSec=parseInt(v);if(pollTimer)clearInterval(pollTimer);startCD()}
+
+// Alerts
+function renderAlerts(){const el=document.getElementById('alertsBar');const al=getAllPS().filter(s=>s.t==='batting'||s.t==='pitching');if(!al.length){el.innerHTML='';return}el.innerHTML=al.map(a=>{const cls=a.t==='pitching'?'pitching':'';const det=a.t==='batting'?`${a.count.balls}-${a.count.strikes}, ${a.count.outs} out · ${a.half} ${a.inn}`:`${a.half} ${a.inn}`;return`<div class="alert-card ${cls}"><span class="alert-icon">${a.t==='batting'?'⚾':'🔥'}</span><div class="alert-text">${a.name} is ${a.l}!<span>${a.game} · ${det}</span></div></div>`}).join('')}
+
+// Games
+function hasMP(gpk){const f=liveFeeds[gpk];if(!f)return false;return[f.batter,f.on_deck,f.in_hole,f.pitcher].filter(Boolean).some(p=>isMP(p.name))}
+function toggleSC(gpk){openSC[gpk]=!openSC[gpk];renderG()}
+
+function renderG(){
+  const grid=document.getElementById('gameGrid');
+  if(!schedule.length){grid.innerHTML='<div class="empty-state"><h3>No games today</h3><p>Check back on a game day.</p></div>';return}
+  const sorted=[...schedule].sort((a,b)=>{const al=a.status.abstractGameState==='Live'?0:a.status.abstractGameState==='Preview'?1:2;const bl=b.status.abstractGameState==='Live'?0:b.status.abstractGameState==='Preview'?1:2;if(al!==bl)return al-bl;return(hasMP(a.gamePk)?0:1)-(hasMP(b.gamePk)?0:1)});
+  grid.innerHTML=sorted.map(g=>renderCard(g)).join('')}
+
+function renderCard(game){
+  const st=game.status.abstractGameState,gpk=game.gamePk,f=liveFeeds[gpk];
+  const hA=game.teams.home.team.abbreviation||'',aA=game.teams.away.team.abbreviation||'';
+  let cc='game-card',hasBat=false;
+  if(f&&st==='Live'){if([f.batter,f.on_deck,f.in_hole,f.pitcher].filter(Boolean).some(p=>isMP(p.name)))cc+=' has-player';if(f.batter&&isMP(f.batter.name)){cc+=' has-batting';hasBat=true}}
+  let hR=game.teams.home.score||0,aR=game.teams.away.score||0,hH='-',aH='-',hE='-',aE='-';
+  if(f&&f.home){hR=f.home.runs;aR=f.away.runs;hH=f.home.hits;aH=f.away.hits;hE=f.home.errors;aE=f.away.errors}
+  let sCls=st==='Live'?'live':st==='Final'?'final':'preview';
+  let sTxt=game.status.detailedState||st,iTxt='';
+  if(f&&st==='Live')iTxt=`${f.inning_half==='Top'?'▲':'▼'} ${f.inning_ordinal}`;
+  if(st==='Preview')sTxt=new Date(game.gameDate).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+
+  let cBar='';
+  if(f&&st==='Live'&&f.count){const c=f.count;const mk=(n,m,cl)=>Array.from({length:m},(_,i)=>`<div class="count-pip ${i<n?cl:''}"></div>`).join('');const r=f.runners||{};
+    cBar=`<div class="count-bar"><div class="count-group"><span class="count-label">B</span>${mk(c.balls,4,'fb')}</div><div class="count-group"><span class="count-label">S</span>${mk(c.strikes,3,'fs')}</div><div class="count-group"><span class="count-label">O</span>${mk(c.outs,3,'fo')}</div><div class="bases-wrap"><div class="base base-2 ${r.second?'on':''}"></div><div class="base base-3 ${r.third?'on':''}"></div><div class="base base-1 ${r.first?'on':''}"></div></div></div>`}
+
+  let pSec='';
+  if(f&&st==='Live'){
+    const rows=[{l:'AB',p:f.batter,t:'batting'},{l:'Deck',p:f.on_deck,t:'on_deck'},{l:'Hole',p:f.in_hole,t:'in_hole'},{l:'P',p:f.pitcher,t:'pitching'}].filter(s=>s.p).map(s=>`<div class="card-player-row"><span class="card-player-name ${isMP(s.p.name)?'mine':''}">${s.p.name}</span><span class="status-badge status-${s.t}">${s.l}</span></div>`).join('');
+    if(rows)pSec=`<div class="card-players"><div class="card-players-title">Current action</div>${rows}</div>`;
+    if(hasBat&&f.lastPitch){const lp=f.lastPitch;const info=[lp.type,lp.speed?Math.round(lp.speed)+' mph':'',lp.call].filter(Boolean).join(' · ');
+      pSec+=`<div class="at-bat-detail"><div class="ab-label">Your player at bat</div><div class="ab-matchup">${f.batter.name} <span class="vs">vs</span> ${f.pitcher?f.pitcher.name:'—'}</div>${info?`<div class="ab-pitch">Last: ${info}</div>`:''}</div>`}}
+
+  let scSec='';
+  if(f&&st==='Live'){const isO=openSC[gpk];
+    scSec=`<div class="sc-toggle ${isO?'open':''}" onclick="toggleSC(${gpk})">${isO?'▾ Hide':'▸ Show'} Statcast</div>`;
+    if(isO)scSec+=renderSC(gpk,f)}
+
+  return`<div class="${cc}"><div class="game-top"><span class="game-state ${sCls}">${sTxt}</span><span class="game-inning">${iTxt}</span></div><div class="scoreboard"><div class="score-row"><span class="inning-arrow">${f&&f.inning_half==='Top'&&st==='Live'?'▶':''}</span><span class="team-abbr">${aA}</span><span class="score-runs">${aR}</span><div class="score-rhe"><span>H <b>${aH}</b></span><span>E <b>${aE}</b></span></div></div><div class="score-row"><span class="inning-arrow">${f&&f.inning_half==='Bottom'&&st==='Live'?'▶':''}</span><span class="team-abbr">${hA}</span><span class="score-runs">${hR}</span><div class="score-rhe"><span>H <b>${hH}</b></span><span>E <b>${hE}</b></span></div></div></div>${cBar}${pSec}${scSec}</div>`}
+
+// ─── STATCAST RENDERING ──────────────────────────────────
+function renderSC(gpk, feed) {
+  const pitches = feed.pitches || [];
+  const bip = feed.bip || [];
+
+  // ── Strike zone SVG (catcher's view) ──
+  const W=190, H=210, P=30;
+  const sW=W+P*2, sH=H+P*2+14;
+  const mx=px=>P+(W/2)+(px/1.2)*(W/2);
+  const mz=pz=>P+H-((pz-1.0)/3.0)*H;
+  const zx1=mx(-0.83),zx2=mx(0.83),zy1=mz(3.5),zy2=mz(1.5);
+  const zw=zx2-zx1,zh=zy2-zy1;
+  let grid='';
+  for(let i=1;i<3;i++){grid+=`<line x1="${zx1+zw/3*i}" y1="${zy1}" x2="${zx1+zw/3*i}" y2="${zy2}" stroke="#303850" stroke-width="0.5"/><line x1="${zx1}" y1="${zy1+zh/3*i}" x2="${zx2}" y2="${zy1+zh/3*i}" stroke="#303850" stroke-width="0.5"/>`}
+  const hpx=P+W/2,hpy=mz(0.8);
+  const plate=`<polygon points="${hpx-10},${hpy} ${hpx-6},${hpy+6} ${hpx+6},${hpy+6} ${hpx+10},${hpy} ${hpx},${hpy-4}" fill="none" stroke="#505878" stroke-width="0.8"/>`;
+  let dots='';
+  pitches.forEach((p,i)=>{if(p.pX==null||p.pZ==null)return;const cx=mx(p.pX),cy=mz(p.pZ),last=i===pitches.length-1,r=last?7:5,col=pc(p.type);
+    dots+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${col}" opacity="${last?1:.65}" stroke="${last?'#fff':'none'}" stroke-width="${last?1.5:0}"/><text x="${cx}" y="${cy+.5}" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="${last?9:7}" font-family="var(--mono)" font-weight="600" style="pointer-events:none">${p.num}</text>`});
+  const zoneSvg=`<svg width="${sW}" height="${sH}" viewBox="0 0 ${sW} ${sH}"><rect x="${zx1}" y="${zy1}" width="${zw}" height="${zh}" fill="none" stroke="#505878" stroke-width="1.2" rx="2"/>${grid}${plate}${dots}<text x="${P+W/2}" y="${sH-2}" text-anchor="middle" fill="#5c6478" font-size="9" font-family="var(--mono)">Catcher's view</text></svg>`;
+
+  // Pitch log
+  let pLog='';
+  if(pitches.length){pLog='<div style="margin-top:8px">'+pitches.map(p=>{const col=pc(p.type),ab=pa(p.type);let res=p.call;if(p.isInPlay&&p.exitVelo)res+=` · ${Math.round(p.exitVelo)} EV`;
+    return`<div class="pl-row"><span class="pl-num">${p.num}</span><span class="pl-dot" style="background:${col}"></span><span class="pl-abbr">${ab}</span><span class="pl-velo">${p.speed?Math.round(p.speed):'-'}</span><span class="pl-call">${res}</span></div>`}).join('')+'</div>'}
+
+  // ── Spray chart SVG ──
+  const spW=190,spH=150,spCx=spW/2,spCy=spH-8;
+  let field=`<path d="M ${spCx},${spCy} L ${spCx-spW*.47},${spCy-spH*.87} A ${spW*.64} ${spH*.92} 0 0 1 ${spCx+spW*.47},${spCy-spH*.87} Z" fill="#1a2618" stroke="#2d4a25" stroke-width="0.8"/>`;
+  const ds=28;
+  field+=`<polygon points="${spCx},${spCy-ds*1.6} ${spCx+ds},${spCy-ds*.5} ${spCx},${spCy+ds*.2} ${spCx-ds},${spCy-ds*.5}" fill="none" stroke="#3a5a32" stroke-width="0.6"/>`;
+  field+=`<rect x="${spCx-3}" y="${spCy-3}" width="6" height="6" transform="rotate(45 ${spCx} ${spCy})" fill="#505878"/>`;
+  bip.forEach(b=>{if(b.hitX==null||b.hitY==null)return;const nx=(b.hitX-125)/125,ny=(250-b.hitY)/250;const sx=spCx+nx*spW*.45,sy=spCy-ny*spH*.9;
+    const mine=isMP(b.batter),isHit=['Single','Double','Triple','Home Run'].includes(b.event),isHR=b.event==='Home Run';
+    let col=isHR?'#ef4444':isHit?'#22c55e':'#5c6478';if(mine)col=isHR?'#ef4444':isHit?'#3b82f6':'#f59e0b';
+    field+=`<circle cx="${sx}" cy="${sy}" r="${mine?5:3.5}" fill="${col}" stroke="${mine?'#fff':'none'}" stroke-width="${mine?1:0}" opacity="${mine?1:.6}"/>`});
+  const spraySvg=`<svg width="${spW}" height="${spH}" viewBox="0 0 ${spW} ${spH}">${field}<text x="${spW/2}" y="10" text-anchor="middle" fill="#5c6478" font-size="9" font-family="var(--mono)">${bip.length} balls in play</text></svg>`;
+
+  // BIP log (recent 6)
+  let bipLog='';
+  const recent=bip.slice(-6).reverse();
+  if(recent.length){bipLog='<div class="sc-label" style="text-align:left;margin-top:6px">Recent BIP</div>'+recent.map(b=>{const mine=isMP(b.batter);return`<div class="bip-row"><span class="bip-ev">${b.exitVelo?Math.round(b.exitVelo)+'mph':'—'}</span><span class="bip-la">${b.launchAngle!=null?Math.round(b.launchAngle)+'°':'—'}</span><span class="bip-dist">${b.distance?Math.round(b.distance)+"'":'—'}</span><span class="bip-who ${mine?'mine':''}">${b.batter} · ${b.event}</span></div>`}).join('')}
+
+  // Stats bar
+  let statsBar='';
+  const lp=feed.lastPitch;
+  if(lp){const vc=lp.speed>=96?'hot':lp.speed>=90?'warm':'cool';const ec=lp.exitVelo>=100?'hot':lp.exitVelo>=90?'warm':'cool';
+    statsBar=`<div class="sc-stats"><div class="sc-stat"><div class="sc-sv ${vc}">${lp.speed?Math.round(lp.speed):'—'}</div><div class="sc-sl">Velo</div></div><div class="sc-stat"><div class="sc-sv">${lp.spin?Math.round(lp.spin).toLocaleString():'—'}</div><div class="sc-sl">Spin</div></div><div class="sc-stat"><div class="sc-sv ${ec}">${lp.exitVelo?Math.round(lp.exitVelo):'—'}</div><div class="sc-sl">Exit V</div></div><div class="sc-stat"><div class="sc-sv">${lp.launchAngle!=null?Math.round(lp.launchAngle)+'°':'—'}</div><div class="sc-sl">LA</div></div><div class="sc-stat"><div class="sc-sv">${lp.distance?Math.round(lp.distance)+"'":'—'}</div><div class="sc-sl">Dist</div></div></div>`}
+
+  // Legend
+  const used=[...new Set(pitches.map(p=>p.type).filter(Boolean))];
+  let legend='';
+  if(used.length)legend=`<div class="sc-legend">${used.map(t=>`<span class="sc-leg-item"><span class="sc-leg-dot" style="background:${pc(t)}"></span>${pa(t)}</span>`).join('')}</div>`;
+
+  return`<div class="sc-panel"><div class="sc-cols"><div class="sc-left"><div class="sc-label">Strike zone</div>${zoneSvg}${pLog}</div><div class="sc-right"><div class="sc-label">Spray chart</div>${spraySvg}${bipLog}</div></div>${statsBar}${legend}</div>`;
+}
+
+loadP();poll();
+</script>
+</body>
+</html>

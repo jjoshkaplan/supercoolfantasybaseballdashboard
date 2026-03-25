@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard · SCFBD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0c10;--surface:#12151c;--surface-2:#191e28;--surface-3:#212836;--border:#1e2330;--text:#e8ecf4;--dim:#6b7a94;--muted:#3e4a60;--green:#2dd4a0;--green-dim:rgba(45,212,160,.12);--red:#f06449;--red-dim:rgba(240,100,73,.12);--blue:#5b8def;--blue-dim:rgba(91,141,239,.12);--orange:#f0a030;--orange-dim:rgba(240,160,48,.12);--yellow:#f0c040;--yellow-dim:rgba(240,192,64,.12);--purple:#b07ce8;--purple-dim:rgba(176,124,232,.12);--radius:10px;--mono:'JetBrains Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
+a{color:inherit;text-decoration:none}
+
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;padding:12px 28px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
+.header-brand{display:flex;align-items:center;gap:10px}
+.header-brand .mark{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--green);letter-spacing:.04em}
+.header-brand h1{font-size:16px;font-weight:700;letter-spacing:-.02em}
+.header-brand h1 span{color:var(--dim);font-weight:400;font-size:13px;margin-left:8px}
+.header-right{display:flex;align-items:center;gap:14px}
+.btn-sm{padding:6px 16px;border-radius:7px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;border:1px solid var(--border);background:transparent;color:var(--dim)}
+.btn-sm:hover{color:var(--text);border-color:var(--dim)}
+
+/* Layout */
+.app{display:flex;min-height:calc(100vh - 49px)}
+.sidebar{width:250px;border-right:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;flex-direction:column}
+.main{flex:1;padding:28px 36px;max-width:1200px;overflow-y:auto}
+
+/* Sidebar */
+.league-sel{padding:14px 18px;border-bottom:1px solid var(--border)}
+.league-sel select{width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-family:inherit;font-size:13px}
+.league-sel select:focus{outline:none;border-color:var(--green)}
+.sb-label{padding:10px 18px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.sb-item{display:flex;align-items:center;gap:10px;padding:10px 18px;font-size:14px;color:var(--dim);cursor:pointer;transition:all .12s;border-left:3px solid transparent;font-weight:500}
+.sb-item:hover{color:var(--text);background:var(--surface-2)}
+.sb-item.active{color:var(--green);border-left-color:var(--green);background:var(--green-dim)}
+.sb-item svg{width:17px;height:17px;flex-shrink:0}
+
+/* Page */
+.pg-title{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px}
+.pg-sub{color:var(--dim);font-size:14px;margin-bottom:24px;font-weight:300}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px}
+
+/* Table */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{padding:10px 16px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);background:var(--surface-2);white-space:nowrap}
+tbody td{padding:10px 16px;border-top:1px solid var(--border);white-space:nowrap}
+tbody tr:hover{background:var(--surface-2)}
+.rank{font-family:var(--mono);font-weight:600;color:var(--dim);width:40px;text-align:center}
+.tm-cell{display:flex;align-items:center;gap:10px}
+.tm-logo{width:28px;height:28px;border-radius:6px;object-fit:cover;background:var(--surface-2)}
+.tm-name{font-weight:700}.tm-mgr{font-size:11px;color:var(--dim)}
+.record{font-family:var(--mono);font-weight:600}
+.wpct{font-family:var(--mono)}
+
+/* Roster */
+.roster-row{display:flex;align-items:center;gap:14px;padding:10px 20px;border-top:1px solid var(--border);transition:background .1s}
+.roster-row:hover{background:var(--surface-2)}
+.pos-badge{display:inline-flex;align-items:center;justify-content:center;width:36px;height:28px;border-radius:6px;font-family:var(--mono);font-size:11px;font-weight:700;background:var(--surface-2);color:var(--dim);flex-shrink:0}
+.pos-badge.p-sp,.pos-badge.p-rp,.pos-badge.p-p{background:var(--red-dim);color:var(--red)}
+.pos-badge.p-c,.pos-badge.p-1b,.pos-badge.p-2b,.pos-badge.p-3b,.pos-badge.p-ss{background:var(--blue-dim);color:var(--blue)}
+.pos-badge.p-of,.pos-badge.p-lf,.pos-badge.p-cf,.pos-badge.p-rf{background:var(--green-dim);color:var(--green)}
+.pos-badge.p-util,.pos-badge.p-dh{background:var(--orange-dim);color:var(--orange)}
+.pos-badge.p-bn{background:var(--surface-2);color:var(--muted)}
+.pos-badge.p-il,.pos-badge.p-dl{background:var(--red-dim);color:#f87171}
+.player-info{flex:1}.player-nm{font-weight:600;font-size:14px}.player-meta{font-size:12px;color:var(--dim)}
+.player-hs{width:32px;height:32px;border-radius:50%;object-fit:cover;background:var(--surface-2)}
+.player-st{font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600}
+.st-dtd{background:var(--orange-dim);color:var(--orange)}.st-il{background:var(--red-dim);color:var(--red)}
+
+/* Matchups */
+.mu-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:12px}
+.mu-vs{display:flex;align-items:center;justify-content:space-between}
+.mu-tm{display:flex;align-items:center;gap:12px;flex:1}
+.mu-tm.right{justify-content:flex-end;text-align:right}
+.mu-score{font-family:var(--mono);font-size:22px;font-weight:700}
+.mu-div{font-size:12px;color:var(--dim);padding:0 16px;font-weight:600}
+.winning{color:var(--green)}.losing{color:var(--dim)}
+
+/* Transactions */
+.tx-row{display:flex;align-items:center;gap:12px;padding:10px 20px;border-top:1px solid var(--border);font-size:13px}
+.tx-type{padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.tx-add{background:var(--green-dim);color:var(--green)}.tx-trade{background:var(--blue-dim);color:var(--blue)}.tx-commish{background:var(--orange-dim);color:var(--orange)}
+
+/* Loading */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px;color:var(--dim)}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:60px 20px;color:var(--dim)}
+
+/* Auth gate */
+.auth-gate{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center;padding:40px}
+.auth-gate h2{font-size:28px;font-weight:800;margin-bottom:8px;letter-spacing:-.03em}
+.auth-gate p{color:var(--dim);margin-bottom:28px;max-width:400px;font-weight:300}
+.btn-lg{display:inline-flex;align-items:center;gap:10px;padding:14px 32px;border-radius:12px;font-size:16px;font-weight:600;background:var(--green);color:#0a0c10;border:none;cursor:pointer;transition:all .2s;text-decoration:none}
+.btn-lg:hover{background:#3ee8b4;transform:translateY(-1px);box-shadow:0 8px 30px rgba(45,212,160,.25)}
+.btn-lg svg{width:18px;height:18px}
+
+@media(max-width:768px){.sidebar{display:none}.main{padding:20px 16px}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-brand">
+    <a href="/" class="mark">SCFBD</a>
+    <h1>Dashboard<span id="leagueName"></span></h1>
+  </div>
+  <div class="header-right">
+    <a href="/live" class="btn-sm">Live Tracker</a>
+    <a href="/api/auth/logout" class="btn-sm" id="logoutBtn" style="display:none">Sign Out</a>
+  </div>
+</div>
+
+<!-- Auth Gate (shown if not logged in) -->
+<div class="auth-gate" id="authGate">
+  <h2>Sign in to continue</h2>
+  <p>Connect your Yahoo Fantasy account to view your leagues, roster, standings, and matchups.</p>
+  <a href="/api/auth/login" class="btn-lg">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+    Connect Yahoo Account
+  </a>
+</div>
+
+<!-- App (shown after login) -->
+<div class="app" id="appLayout" style="display:none">
+  <div class="sidebar">
+    <div class="league-sel">
+      <select id="leagueSelect" onchange="switchLeague(this.value)">
+        <option value="">Loading leagues...</option>
+      </select>
+    </div>
+    <div class="sb-label">Views</div>
+    <div class="sb-item active" data-view="roster" onclick="switchView('roster')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      My Roster
+    </div>
+    <div class="sb-item" data-view="standings" onclick="switchView('standings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+      Standings
+    </div>
+    <div class="sb-item" data-view="matchups" onclick="switchView('matchups')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 3v18"/></svg>
+      Matchups
+    </div>
+    <div class="sb-item" data-view="transactions" onclick="switchView('transactions')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      Transactions
+    </div>
+  </div>
+
+  <div class="main">
+    <div id="view-roster" class="view-panel">
+      <h2 class="pg-title">My Roster</h2>
+      <p class="pg-sub">Current active roster and bench</p>
+      <div class="card"><div id="roster-content" class="loading"><div class="spinner"></div>Loading roster...</div></div>
+    </div>
+    <div id="view-standings" class="view-panel" style="display:none">
+      <h2 class="pg-title">Standings</h2>
+      <p class="pg-sub">League standings</p>
+      <div class="card"><div id="standings-content" class="loading"><div class="spinner"></div>Loading standings...</div></div>
+    </div>
+    <div id="view-matchups" class="view-panel" style="display:none">
+      <h2 class="pg-title">Matchups</h2>
+      <p class="pg-sub">Current week scoreboard</p>
+      <div id="matchups-content" class="loading"><div class="spinner"></div>Loading matchups...</div>
+    </div>
+    <div id="view-transactions" class="view-panel" style="display:none">
+      <h2 class="pg-title">Transactions</h2>
+      <p class="pg-sub">Recent league activity</p>
+      <div class="card"><div id="transactions-content" class="loading"><div class="spinner"></div>Loading transactions...</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentLeague = null;
+
+// ─── Auth Check ───────────────────────────────────────────
+async function checkAuth() {
+  try {
+    const resp = await fetch('/api/auth/me');
+    const data = await resp.json();
+    if (data.authenticated) {
+      document.getElementById('authGate').style.display = 'none';
+      document.getElementById('appLayout').style.display = 'flex';
+      document.getElementById('logoutBtn').style.display = '';
+      loadLeagues();
+    }
+  } catch(e) { console.error('Auth check failed:', e); }
+}
+
+// ─── Yahoo API Helper ─────────────────────────────────────
+async function yahooGet(endpoint) {
+  const resp = await fetch(`/api/yahoo?endpoint=${encodeURIComponent(endpoint)}`);
+  if (resp.status === 401) { window.location.href = '/api/auth/login'; return null; }
+  if (!resp.ok) return null;
+  return resp.json();
+}
+
+// ─── View Switching ───────────────────────────────────────
+function switchView(view) {
+  document.querySelectorAll('.view-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.sb-item[data-view]').forEach(i => i.classList.remove('active'));
+  document.getElementById(`view-${view}`).style.display = 'block';
+  document.querySelector(`.sb-item[data-view="${view}"]`).classList.add('active');
+  if (currentLeague) loadViewData(view);
+}
+
+function switchLeague(key) {
+  if (!key) return;
+  currentLeague = key;
+  const active = document.querySelector('.sb-item.active')?.dataset.view || 'roster';
+  loadViewData(active);
+}
+
+// ─── Load Leagues ─────────────────────────────────────────
+async function loadLeagues() {
+  const data = await yahooGet('users;use_login=1/games;game_keys=mlb/leagues');
+  if (!data) return;
+
+  const leagues = [];
+  try {
+    const fc = data.fantasy_content || {};
+    const users = fc.users || {};
+    const user = users['0']?.user || [];
+    const games = user[1]?.games || {};
+    const gc = games.count || 0;
+    for (let i = 0; i < gc; i++) {
+      const game = games[String(i)]?.game || [];
+      if (game.length > 1) {
+        const gi = game[0];
+        const gl = game[1]?.leagues || {};
+        const lc = gl.count || 0;
+        for (let j = 0; j < lc; j++) {
+          const lg = gl[String(j)]?.league || [];
+          if (lg.length) {
+            const li = Array.isArray(lg) ? lg[0] : lg;
+            leagues.push({ key: li.league_key, name: li.name, season: gi.season, num_teams: li.num_teams });
+          }
+        }
+      }
+    }
+  } catch(e) { console.error('League parse:', e); }
+
+  const sel = document.getElementById('leagueSelect');
+  sel.innerHTML = '';
+  if (leagues.length) {
+    leagues.forEach(lg => {
+      const opt = document.createElement('option');
+      opt.value = lg.key; opt.textContent = `${lg.name} (${lg.season})`;
+      sel.appendChild(opt);
+    });
+    currentLeague = leagues[0].key;
+    document.getElementById('leagueName').textContent = leagues[0].name;
+    loadViewData('roster');
+  } else {
+    sel.innerHTML = '<option value="">No leagues found</option>';
+  }
+}
+
+function loadViewData(view) {
+  if (!currentLeague) return;
+  switch(view) {
+    case 'roster': loadRoster(); break;
+    case 'standings': loadStandings(); break;
+    case 'matchups': loadMatchups(); break;
+    case 'transactions': loadTransactions(); break;
+  }
+}
+
+// ─── Roster ───────────────────────────────────────────────
+async function loadRoster() {
+  const el = document.getElementById('roster-content');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading roster...</div>';
+
+  // Find my team
+  const td = await yahooGet(`league/${currentLeague}/teams`);
+  if (!td) { el.innerHTML = '<div class="empty">Could not load teams</div>'; return; }
+
+  let myKey = null;
+  try {
+    const teams = td.fantasy_content?.league?.[1]?.teams || {};
+    const tc = teams.count || 0;
+    for (let i = 0; i < tc; i++) {
+      const t = teams[String(i)]?.team?.[0] || [];
+      for (const item of t) if (typeof item === 'object' && item.is_owned_by_current_login === 1) {
+        for (const item2 of t) if (typeof item2 === 'object' && item2.team_key) { myKey = item2.team_key; break; }
+        break;
+      }
+      if (myKey) break;
+    }
+  } catch(e) { console.error('Team find:', e); }
+  if (!myKey) { el.innerHTML = '<div class="empty">Could not find your team</div>'; return; }
+
+  const rd = await yahooGet(`team/${myKey}/roster/players`);
+  if (!rd) { el.innerHTML = '<div class="empty">Could not load roster</div>'; return; }
+
+  const players = [];
+  try {
+    const pd = rd.fantasy_content?.team?.[1]?.roster?.['0']?.players || {};
+    const pc = pd.count || 0;
+    for (let i = 0; i < pc; i++) {
+      const p = pd[String(i)]?.player || [];
+      if (p.length < 2) continue;
+      const info = p[0], sel = p[1]?.selected_position;
+      let selPos = '';
+      if (Array.isArray(sel) && sel[0]) selPos = sel[0]?.selected_position?.position || '';
+      else if (sel) selPos = sel.position || '';
+      let name='',team='',pos='',hs='',status='';
+      for (const item of info) if (typeof item === 'object') {
+        if (item.name) name = item.name.full||'';
+        if (item.editorial_team_abbr) team = item.editorial_team_abbr;
+        if (item.display_position) pos = item.display_position;
+        if (item.headshot) hs = item.headshot.url||'';
+        if (item.status_full) status = item.status_full;
+        else if (item.status) status = item.status;
+      }
+      players.push({ name,team,pos,selPos,hs,status });
+    }
+  } catch(e) { console.error('Roster parse:', e); }
+
+  const order = ['C','1B','2B','3B','SS','LF','CF','RF','OF','Util','DH','SP','RP','P','BN','IL','IL+','DL','NA'];
+  players.sort((a,b) => (order.indexOf(a.selPos)===-1?99:order.indexOf(a.selPos)) - (order.indexOf(b.selPos)===-1?99:order.indexOf(b.selPos)));
+
+  el.innerHTML = players.map(p => {
+    const pc = `p-${(p.selPos||'bn').toLowerCase()}`;
+    const sc = p.status ? (p.status.includes('IL')||p.status.includes('DL')?'st-il':'st-dtd') : '';
+    return `<div class="roster-row"><span class="pos-badge ${pc}">${p.selPos||'—'}</span>${p.hs?`<img class="player-hs" src="${p.hs}" alt="" onerror="this.style.display='none'">`:''}
+      <div class="player-info"><div class="player-nm">${p.name}</div><div class="player-meta">${p.team} · ${p.pos}</div></div>
+      ${p.status?`<span class="player-st ${sc}">${p.status}</span>`:''}</div>`;
+  }).join('') || '<div class="empty">No players found</div>';
+}
+
+// ─── Standings ────────────────────────────────────────────
+async function loadStandings() {
+  const el = document.getElementById('standings-content');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading standings...</div>';
+  const data = await yahooGet(`league/${currentLeague}/standings`);
+  if (!data) { el.innerHTML = '<div class="empty">Could not load standings</div>'; return; }
+
+  const standings = [];
+  try {
+    const sd = data.fantasy_content?.league?.[1]?.standings?.[0]?.teams || {};
+    const tc = sd.count || 0;
+    for (let i = 0; i < tc; i++) {
+      const t = sd[String(i)]?.team || [];
+      if (t.length < 2) continue;
+      const info = t[0], ts = t[1]?.team_standings || {};
+      let name='',logo='',mgrs=[];
+      for (const item of info) if (typeof item === 'object') {
+        if (item.name) name = item.name;
+        if (item.team_logos) logo = item.team_logos?.[0]?.team_logo?.url||'';
+        if (item.managers) for (const m of item.managers) mgrs.push(m.manager?.nickname||'');
+      }
+      const oc = ts.outcome_totals||{};
+      standings.push({ rank:ts.rank, name, logo, mgrs, w:oc.wins||0, l:oc.losses||0, t:oc.ties||0, pct:oc.percentage||'.000', pf:ts.points_for||'—', pa:ts.points_against||'—', gb:ts.games_back||'—' });
+    }
+  } catch(e) { console.error('Standings parse:', e); }
+  standings.sort((a,b) => (parseInt(a.rank)||99) - (parseInt(b.rank)||99));
+
+  let html = `<div class="tw"><table><thead><tr><th style="width:40px">#</th><th>Team</th><th>Record</th><th>Win %</th><th>PF</th><th>PA</th><th>GB</th></tr></thead><tbody>`;
+  standings.forEach(t => {
+    html += `<tr><td class="rank">${t.rank}</td><td><div class="tm-cell">${t.logo?`<img class="tm-logo" src="${t.logo}" alt="">`:''}
+      <div><div class="tm-name">${t.name}</div><div class="tm-mgr">${t.mgrs.join(', ')}</div></div></div></td>
+      <td class="record">${t.w}-${t.l}${t.t>0?'-'+t.t:''}</td><td class="wpct">${t.pct}</td><td>${t.pf}</td><td>${t.pa}</td><td>${t.gb}</td></tr>`;
+  });
+  el.innerHTML = html + '</tbody></table></div>';
+}
+
+// ─── Matchups ─────────────────────────────────────────────
+async function loadMatchups() {
+  const el = document.getElementById('matchups-content');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading matchups...</div>';
+  const data = await yahooGet(`league/${currentLeague}/scoreboard`);
+  if (!data) { el.innerHTML = '<div class="empty">Could not load matchups</div>'; return; }
+
+  const matchups = [];
+  try {
+    const md = data.fantasy_content?.league?.[1]?.scoreboard?.['0']?.matchups || {};
+    const mc = md.count || 0;
+    for (let i = 0; i < mc; i++) {
+      const m = md[String(i)]?.matchup || {};
+      const tms = m['0']?.teams || {};
+      const teams = [];
+      for (let j = 0; j < (tms.count||0); j++) {
+        const t = tms[String(j)]?.team || [];
+        if (t.length < 2) continue;
+        let name='',logo='';
+        for (const item of t[0]) if (typeof item === 'object') {
+          if (item.name) name = item.name;
+          if (item.team_logos) logo = item.team_logos?.[0]?.team_logo?.url||'';
+        }
+        teams.push({ name, logo, pts: t[1]?.team_points?.total||'0' });
+      }
+      if (teams.length >= 2) matchups.push({ teams });
+    }
+  } catch(e) { console.error('Matchups parse:', e); }
+
+  el.innerHTML = matchups.map(m => {
+    const t1=m.teams[0], t2=m.teams[1], p1=parseFloat(t1.pts)||0, p2=parseFloat(t2.pts)||0;
+    return `<div class="mu-card"><div class="mu-vs"><div class="mu-tm">${t1.logo?`<img class="tm-logo" src="${t1.logo}" alt="">`:''}
+      <div><div class="tm-name">${t1.name}</div><div class="mu-score ${p1>=p2?'winning':'losing'}">${t1.pts}</div></div></div>
+      <div class="mu-div">VS</div>
+      <div class="mu-tm right"><div><div class="tm-name">${t2.name}</div><div class="mu-score ${p2>=p1?'winning':'losing'}">${t2.pts}</div></div>
+      ${t2.logo?`<img class="tm-logo" src="${t2.logo}" alt="">`:''}</div></div></div>`;
+  }).join('') || '<div class="empty">No matchups this week</div>';
+}
+
+// ─── Transactions ─────────────────────────────────────────
+async function loadTransactions() {
+  const el = document.getElementById('transactions-content');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading transactions...</div>';
+  const data = await yahooGet(`league/${currentLeague}/transactions`);
+  if (!data) { el.innerHTML = '<div class="empty">Could not load transactions</div>'; return; }
+
+  const txs = [];
+  try {
+    const td = data.fantasy_content?.league?.[1]?.transactions || {};
+    const tc = td.count || 0;
+    for (let i = 0; i < Math.min(tc, 25); i++) {
+      const t = td[String(i)]?.transaction || [];
+      if (t.length) {
+        const info = Array.isArray(t) ? t[0] : t;
+        txs.push({ type:info.type||'', ts:info.timestamp||'', trader:info.trader_team_name||'', tradee:info.tradee_team_name||'' });
+      }
+    }
+  } catch(e) { console.error('Tx parse:', e); }
+
+  el.innerHTML = txs.map(t => {
+    const tc = t.type==='trade'?'tx-trade':t.type==='commish'?'tx-commish':'tx-add';
+    const d = t.ts ? new Date(parseInt(t.ts)*1000).toLocaleDateString() : '';
+    return `<div class="tx-row"><span class="tx-type ${tc}">${t.type||'move'}</span><span style="flex:1">${t.trader} ${t.tradee?'↔ '+t.tradee:''}</span><span style="color:var(--dim);font-size:12px">${d}</span></div>`;
+  }).join('') || '<div class="empty">No recent transactions</div>';
+}
+
+// ─── Init ─────────────────────────────────────────────────
+checkAuth();
+</script>
+</body>
+</html>

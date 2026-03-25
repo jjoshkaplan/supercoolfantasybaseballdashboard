@@ -1,0 +1,14 @@
+{
+  "rewrites": [
+    { "source": "/dashboard", "destination": "/dashboard.html" },
+    { "source": "/live", "destination": "/live.html" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    }
+  ]
+}
