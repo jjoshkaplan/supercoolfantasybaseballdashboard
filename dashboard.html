@@ -270,7 +270,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
       <div class="roster-toolbar">
         <div class="roster-toolbar-left">
           <div class="tab-bar" id="rosterTabs"><button class="tab-btn active" data-tab="hitters" onclick="switchRosterTab('hitters')">Hitters</button><button class="tab-btn" data-tab="pitchers" onclick="switchRosterTab('pitchers')">Pitchers</button></div>
-          <div class="period-bar" id="periodBar"><button class="period-btn active" data-period="season" onclick="switchPeriod('season')">Season</button><button class="period-btn" data-period="lastweek" onclick="switchPeriod('lastweek')">L7</button><button class="period-btn" data-period="lastmonth" onclick="switchPeriod('lastmonth')">L30</button><button class="period-btn" data-period="prevyear" onclick="switchPeriod('prevyear')">Prev Year</button></div>
+          <div class="period-bar" id="periodBar"><button class="period-btn" data-period="today" onclick="switchPeriod('today')">Today</button><button class="period-btn active" data-period="season" onclick="switchPeriod('season')">Season</button><button class="period-btn" data-period="lastweek" onclick="switchPeriod('lastweek')">L7</button><button class="period-btn" data-period="lastmonth" onclick="switchPeriod('lastmonth')">L30</button><button class="period-btn" data-period="prevyear" onclick="switchPeriod('prevyear')">Prev Year</button></div>
         </div>
         <div class="roster-toolbar-right"><button class="btn-save" id="saveLineupBtn" onclick="saveLineup()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Save Lineup</button></div>
       </div>
@@ -301,8 +301,8 @@ let mlbSchedule=[],liveFeeds={},expandedPlayer=null,livePollTimer=null,livePollS
 
 const HITTER_STATS=['R','HR','RBI','SB','OBP'], PITCHER_STATS=['W','SV','ERA','WHIP','K'];
 const LOWER_IS_BETTER=['ERA','WHIP'];
-const PERIOD_DAYS={lastweek:7,lastmonth:30,season:162,prevyear:162};
-const TREND_REF={lastweek:'lastmonth',lastmonth:'season',season:'prevyear'};
+const PERIOD_DAYS={today:1,lastweek:7,lastmonth:30,season:162,prevyear:162};
+const TREND_REF={today:'lastweek',lastweek:'lastmonth',lastmonth:'season',season:'prevyear'};
 const PITCHER_POSITIONS=['SP','RP','P'],BENCH_POSITIONS=['BN','IL','IL+','DL','NA'];
 const POS_ORDER_H=['C','1B','2B','3B','SS','LF','CF','RF','OF','Util','DH','BN','IL','IL+','DL','NA'];
 const POS_ORDER_P=['SP','RP','P','BN','IL','IL+','DL','NA'];
@@ -420,7 +420,7 @@ function statVal(ps,dn){const sid=statId(dn);if(!sid)return'—';const f=(ps||[]
 function fmtStat(v,n){if(v==='—'||v==null||v==='')return'—';if(['OBP','SLG','OPS','AVG'].includes(n)){const x=parseFloat(v);return isNaN(x)?v:x.toFixed(3).replace(/^0/,'')}if(n==='ERA'||n==='WHIP'){const x=parseFloat(v);return isNaN(x)?v:x.toFixed(2)}return v}
 
 // ─── ROSTER ENDPOINT ────────────────────────────────────
-function rosterEP(period,withOwn){const b=`team/${myTeamKey}/roster/players`,o=withOwn?';out=stats,percent_owned':';out=stats';if(!period||period==='season')return`${b}${o}`;if(period==='prevyear')return`${b}${o};type=season;season=${parseInt(leagueSeason||2026)-1}`;return`${b}${o};type=${period}`}
+function rosterEP(period,withOwn){const b=`team/${myTeamKey}/roster/players`,o=withOwn?';out=stats,percent_owned':';out=stats';if(!period||period==='season')return`${b}${o}`;if(period==='prevyear')return`${b}${o};type=season;season=${parseInt(leagueSeason||2026)-1}`;if(period==='today')return`${b}${o};type=date;date=${new Date().toISOString().slice(0,10)}`;return`${b}${o};type=${period}`}
 
 // ─── PLAYER PARSER ──────────────────────────────────────
 function parsePlayer(pArr){
@@ -458,7 +458,7 @@ function renderRoster(){
   const ht=!!TREND_REF[currentPeriod];
   document.getElementById('roster-hitters').innerHTML=buildTable(h,HITTER_STATS,ht);
   document.getElementById('roster-pitchers').innerHTML=buildTable(p,PITCHER_STATS,ht);
-  const pL={season:'Season',lastweek:'Last 7 days',lastmonth:'Last 30 days',prevyear:`${parseInt(leagueSeason||2026)-1} Season`};
+  const pL={today:'Today',season:'Season',lastweek:'Last 7 days',lastmonth:'Last 30 days',prevyear:`${parseInt(leagueSeason||2026)-1} Season`};
   document.getElementById('rosterSub').textContent=`${h.length} hitters · ${p.length} pitchers · ${pL[currentPeriod]||currentPeriod}`}
 
 function buildTable(players,sn,ht){
