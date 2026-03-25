@@ -8,6 +8,21 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0c10;--surface:#12151c;--surface-2:#191e28;--surface-3:#212836;--border:#1e2330;--text:#e8ecf4;--dim:#6b7a94;--muted:#3e4a60;--green:#2dd4a0;--green-dim:rgba(45,212,160,.12);--red:#f06449;--red-dim:rgba(240,100,73,.12);--blue:#5b8def;--blue-dim:rgba(91,141,239,.12);--orange:#f0a030;--orange-dim:rgba(240,160,48,.12);--yellow:#f0c040;--yellow-dim:rgba(240,192,64,.12);--purple:#b07ce8;--purple-dim:rgba(176,124,232,.12);--cyan:#38bdf8;--cyan-dim:rgba(56,189,248,.12);--radius:10px;--mono:'JetBrains Mono',monospace}
+
+/* Light theme */
+[data-theme="light"]{--bg:#f4f5f7;--surface:#ffffff;--surface-2:#eef0f4;--surface-3:#e2e5eb;--border:#d8dce4;--text:#1a1d24;--dim:#5a6272;--muted:#8e95a5;--green:#0e9e73;--green-dim:rgba(14,158,115,.10);--red:#d84232;--red-dim:rgba(216,66,50,.08);--blue:#3b6fd4;--blue-dim:rgba(59,111,212,.08);--orange:#c47f18;--orange-dim:rgba(196,127,24,.08);--yellow:#a68b10;--yellow-dim:rgba(166,139,16,.08);--purple:#8b4fc8;--purple-dim:rgba(139,79,200,.08);--cyan:#0886ab;--cyan-dim:rgba(8,134,171,.08)}
+
+/* Smooth theme transition on structural elements */
+body,.header,.sidebar,.main,.card,.tab-bar,.tab-btn,.period-btn,.sb-item,.pos-select,.btn-sm,.btn-save,.auth-gate,.mu-card,.league-sel select{transition:background-color .25s ease, border-color .25s ease, color .25s ease, box-shadow .25s ease}
+
+/* Theme toggle switch */
+.theme-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:4px 0}
+.theme-toggle-track{position:relative;width:40px;height:22px;border-radius:11px;background:var(--surface-2);border:1px solid var(--border);transition:all .25s}
+.theme-toggle-track::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--dim);transition:all .25s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+[data-theme="light"] .theme-toggle-track{background:var(--green-dim);border-color:var(--green)}
+[data-theme="light"] .theme-toggle-track::after{left:20px;background:var(--green)}
+.theme-toggle-icon{width:16px;height:16px;color:var(--dim);flex-shrink:0;transition:color .25s}
+.theme-toggle:hover .theme-toggle-icon{color:var(--text)}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
 a{color:inherit;text-decoration:none}
@@ -167,8 +182,25 @@ tbody tr.editing .col-pos, tbody tr.editing .col-player{background:rgba(91,141,2
   .roster-toolbar{flex-direction:column;align-items:stretch}
   .roster-toolbar-left,.roster-toolbar-right{justify-content:flex-start}
   table .col-player{position:static}
+  .theme-toggle-track{width:36px;height:20px}
+  .theme-toggle-track::after{width:14px;height:14px}
+  [data-theme="light"] .theme-toggle-track::after{left:18px}
 }
+
+/* Light mode overrides for hardcoded values */
+[data-theme="light"] .btn-lg{color:#fff}
+[data-theme="light"] .btn-lg:hover{box-shadow:0 8px 30px rgba(14,158,115,.2)}
+[data-theme="light"] .btn-save{color:#fff}
+[data-theme="light"] .status-msg.success{color:#fff}
+[data-theme="light"] .own-fill{background:var(--green)}
+[data-theme="light"] table .col-pos,[data-theme="light"] table .col-player{background:var(--surface)}
+[data-theme="light"] thead .col-pos,[data-theme="light"] thead .col-player{background:var(--surface-2)}
+[data-theme="light"] tbody tr:hover .col-pos,[data-theme="light"] tbody tr:hover .col-player{background:var(--surface-2)}
 </style>
+<script>
+// Apply theme before render to prevent flash
+(function(){var t=localStorage.getItem('scfbd_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light')})();
+</script>
 </head>
 <body>
 
@@ -178,6 +210,11 @@ tbody tr.editing .col-pos, tbody tr.editing .col-player{background:rgba(91,141,2
     <h1>Dashboard<span id="leagueName"></span></h1>
   </div>
   <div class="header-right">
+    <div class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
+      <svg class="theme-toggle-icon" id="themeIconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg class="theme-toggle-icon" id="themeIconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      <div class="theme-toggle-track"></div>
+    </div>
     <a href="/live" class="btn-sm">Live Tracker</a>
     <a href="/api/auth-logout" class="btn-sm" id="logoutBtn" style="display:none">Sign Out</a>
   </div>
@@ -949,7 +986,52 @@ async function loadTransactions() {
   }).join('') || '<div class="empty">No recent transactions</div>';
 }
 
+// ─── THEME TOGGLE ───────────────────────────────────────
+function initTheme() {
+  const saved = localStorage.getItem('scfbd_theme');
+  if (saved === 'light') {
+    applyTheme('light');
+  } else if (saved === 'dark') {
+    applyTheme('dark');
+  } else {
+    // Respect system preference on first visit
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(prefersDark ? 'dark' : 'dark'); // default dark since the design is dark-first
+  }
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  // Update toggle icons
+  const sunIcon = document.getElementById('themeIconSun');
+  const moonIcon = document.getElementById('themeIconMoon');
+  if (sunIcon && moonIcon) {
+    if (theme === 'light') {
+      sunIcon.style.display = '';
+      moonIcon.style.display = 'none';
+    } else {
+      sunIcon.style.display = 'none';
+      moonIcon.style.display = '';
+    }
+  }
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'light' ? 'dark' : 'light';
+  applyTheme(next);
+  localStorage.setItem('scfbd_theme', next);
+}
+
+// Listen for system theme changes
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+  if (!localStorage.getItem('scfbd_theme')) {
+    applyTheme(e.matches ? 'dark' : 'light');
+  }
+});
+
 // ─── INIT ───────────────────────────────────────────────
+initTheme();
 checkAuth();
 </script>
 </body>
