@@ -357,7 +357,6 @@ let currentLeague=null,currentLeagueKey=null,myTeamKey=null,rosterTab='hitters',
 let statCategories={},rosterData=[],refData={},pendingChanges={},gameKey=null,leagueSeason=null;
 let allTeamsStats=[]; // collected from scoreboard for league rankings
 let rankSortId=null; // stat_id to sort rankings by, null = overall rank
-let prevGameKey=null; // previous season's game_key for cross-season stat queries
 // Live state
 let mlbSchedule=[],liveFeeds={},expandedPlayer=null,livePollTimer=null,livePollSec=15;
 
@@ -365,6 +364,10 @@ const HITTER_STATS=['R','HR','RBI','SB','OBP'], PITCHER_STATS=['W','SV','ERA','W
 const LOWER_IS_BETTER=['ERA','WHIP'];
 const PERIOD_DAYS={today:1,lastweek:7,lastmonth:30,season:162,prevyear:162};
 const TREND_REF={lastweek:'lastmonth',lastmonth:'season',season:'prevyear'};
+
+// MLB Stats API field → our display name
+const MLB_HIT_MAP={runs:'R',homeRuns:'HR',rbi:'RBI',stolenBases:'SB',obp:'OBP',avg:'AVG',hits:'H',doubles:'2B',triples:'3B',baseOnBalls:'BB',strikeOuts:'SO',ops:'OPS',slg:'SLG',atBats:'AB',plateAppearances:'PA',gamesPlayed:'GP'};
+const MLB_PIT_MAP={wins:'W',saves:'SV',era:'ERA',whip:'WHIP',strikeOuts:'K',losses:'L',inningsPitched:'IP',hits:'H',earnedRuns:'ER',baseOnBalls:'BB',homeRuns:'HR',gamesPlayed:'GP',gamesStarted:'GS',holds:'HLD',blownSaves:'BS'};
 const PITCHER_POSITIONS=['SP','RP','P'],BENCH_POSITIONS=['BN','IL','IL+','DL','NA'];
 const POS_ORDER_H=['C','1B','2B','3B','SS','LF','CF','RF','OF','Util','DH','BN','IL','IL+','DL','NA'];
 const POS_ORDER_P=['SP','RP','P','BN','IL','IL+','DL','NA'];
@@ -461,7 +464,7 @@ function getPlayerLiveStatus(playerName, teamAbbr){
 
 // ─── VIEWS ──────────────────────────────────────────────
 function switchView(v){document.querySelectorAll('.view-panel').forEach(p=>p.style.display='none');document.querySelectorAll('.nav-tab[data-view]').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.mob-tab[data-view]').forEach(i=>i.classList.remove('active'));document.getElementById(`view-${v}`).style.display='block';const sb=document.querySelector(`.nav-tab[data-view="${v}"]`);if(sb)sb.classList.add('active');const mb=document.querySelector(`.mob-tab[data-view="${v}"]`);if(mb)mb.classList.add('active');if(currentLeague)loadViewData(v)}
-function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};pendingChanges={};refData={};expandedPlayer=null;prevGameKey=null;updateSaveBtn();initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
+function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};pendingChanges={};refData={};expandedPlayer=null;updateSaveBtn();initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
 function switchRosterTab(t){rosterTab=t;document.querySelectorAll('#rosterTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.getElementById('roster-hitters').style.display=t==='hitters'?'':'none';document.getElementById('roster-pitchers').style.display=t==='pitchers'?'':'none'}
 function switchPeriod(p){currentPeriod=p;expandedPlayer=null;document.querySelectorAll('#periodBar .period-btn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));loadRoster()}
 function loadViewData(v){if(!currentLeague)return;({roster:loadRoster,standings:loadStandings,matchups:loadMatchups}[v]||function(){})()}
@@ -472,120 +475,108 @@ const sel=document.getElementById('leagueSelect');sel.innerHTML='';
 
 if(leagues.length){leagues.forEach(l=>{const o=document.createElement('option');o.value=l.key;o.textContent=`${l.name} (${l.season})`;sel.appendChild(o);});currentLeagueKey=leagues[0].key;currentLeague=leagues[0].key;leagueSeason=leagues[0].season;document.getElementById('leagueName').textContent=leagues[0].name;
 await initLeagueData();loadViewData('roster')}else{sel.innerHTML='<option>No leagues found</option>'}}
-async function initLeagueData(){await Promise.all([loadStatCategories(),findMyTeam(),findPrevGameKey()])}
-
-async function findPrevGameKey(){
-  if(!leagueSeason)return;
-  const prevSeason=parseInt(leagueSeason)-1;
-  const endpoints=[`games;game_codes=mlb;seasons=${prevSeason}`,`games;game_codes=mlb`];
-  for(const ep of endpoints){
-    const d=await yahooGet(ep);
-    if(!d){console.log(`[PrevYr] No response from ${ep}`);continue}
-    console.log(`[PrevYr] Response from ${ep}:`,JSON.stringify(d).slice(0,500));
-    try{const fc=d.fantasy_content||{},games=fc.games||{};
-      for(let i=0;i<(games.count||0);i++){
-        const g=games[String(i)]?.game||[];const gInfo=Array.isArray(g)?g[0]:g;
-        if(gInfo&&String(gInfo.season)===String(prevSeason)&&gInfo.game_key){
-          prevGameKey=String(gInfo.game_key);console.log(`[PrevYr] Found game_key: ${prevGameKey} for ${prevSeason}`);return}}
-    }catch(e){console.error('[PrevYr] Parse error:',e)}
-  }
-  if(!prevGameKey&&gameKey){prevGameKey=String(parseInt(gameKey)-1);console.log(`[PrevYr] Derived game_key ${prevGameKey} from current ${gameKey}`)}
-}
+async function initLeagueData(){await Promise.all([loadStatCategories(),findMyTeam()])}
 async function loadStatCategories(){const d=await yahooGet(`league/${currentLeagueKey}/settings`);if(!d)return;try{const la=d.fantasy_content?.league;if(!la)return;let s=null;for(let i=0;i<la.length;i++)if(la[i]?.settings){s=la[i].settings;break}if(!s)return;const so=Array.isArray(s)?s[0]:s;statCategories={};for(const item of(so?.stat_categories?.stats||[])){const st=item.stat||item;if(st.stat_id!=null)statCategories[String(st.stat_id)]={display_name:st.display_name||''}}}catch(e){console.error(e)}}
 async function findMyTeam(){const td=await yahooGet(`league/${currentLeagueKey}/teams`);if(!td)return;try{const teams=td.fantasy_content?.league?.[1]?.teams||{};for(let i=0;i<(teams.count||0);i++){const t=teams[String(i)]?.team?.[0]||[];let own=false,tk=null;for(const it of t)if(typeof it==='object'){if(it.is_owned_by_current_login===1)own=true;if(it.team_key)tk=it.team_key}if(own&&tk){myTeamKey=tk;return}}}catch(e){console.error(e)}}
 
 // ─── STATS ──────────────────────────────────────────────
-function statId(dn){for(const[id,c]of Object.entries(statCategories))if(c.display_name===dn)return String(id);return null}
-function statVal(ps,dn){const sid=statId(dn);if(!sid)return'—';const f=(ps||[]).find(s=>String(s.stat_id)===sid);return f?f.value:'—'}
+// Stats are now stored as { R: '5', HR: '2', OBP: '.350', ... } directly
+function statVal(stats,dn){return stats?.[dn]??'—'}
 function fmtStat(v,n){if(v==='—'||v==null||v==='')return'—';if(['OBP','SLG','OPS','AVG'].includes(n)){const x=parseFloat(v);return isNaN(x)?v:x.toFixed(3).replace(/^0/,'')}if(n==='ERA'||n==='WHIP'){const x=parseFloat(v);return isNaN(x)?v:x.toFixed(2)}return v}
 
-// ─── ROSTER ENDPOINT ────────────────────────────────────
-function rosterEP(period,withOwn){const b=`team/${myTeamKey}/roster/players`,o=withOwn?';out=stats,percent_owned':';out=stats';if(!period||period==='season')return`${b}${o}`;if(period==='today')return`${b}${o};type=date;date=${new Date().toISOString().slice(0,10)}`;if(period==='prevyear')return null;return`${b}${o};type=${period}`}
+// ─── MLB STATS API ──────────────────────────────────────
+function mlbDateRange(period){
+  const today=new Date();const fmt=d=>d.toISOString().slice(0,10);
+  const end=fmt(today);
+  if(period==='today')return{start:end,end};
+  if(period==='lastweek'){const s=new Date(today);s.setDate(s.getDate()-7);return{start:fmt(s),end}}
+  if(period==='lastmonth'){const s=new Date(today);s.setDate(s.getDate()-30);return{start:fmt(s),end}}
+  return null; // season/prevyear use season param instead
+}
 
-// ─── PREV YEAR STATS ────────────────────────────────────
-async function fetchPrevYearStats(){
-  if(!prevGameKey){console.warn('[PrevYr] No prevGameKey');return null}
-  const roster=await yahooGet(`team/${myTeamKey}/roster/players`);
-  if(!roster){console.warn('[PrevYr] Roster fetch failed');return null}
-  const playerIds=[];
-  try{const pd=roster.fantasy_content?.team?.[1]?.roster?.['0']?.players||{};
-    for(let i=0;i<(pd.count||0);i++){const pArr=pd[String(i)]?.player;if(!pArr||!Array.isArray(pArr))continue;
-      for(const item of pArr[0]){if(typeof item==='object'&&item.player_key){
-        const parts=item.player_key.split('.p.');
-        if(parts.length===2)playerIds.push({id:parts[1],currentKey:item.player_key});
-        break}}}}catch(e){console.error('[PrevYr] ID parse:',e)}
-  if(!playerIds.length){console.warn('[PrevYr] No player IDs');return null}
-  console.log(`[PrevYr] Fetching for ${playerIds.length} players, prevGameKey=${prevGameKey}`);
-  const results={};let firstLog=true;
-  for(const p of playerIds){
-    const prevKey=`${prevGameKey}.p.${p.id}`;
-    let d=await yahooGet(`player/${prevKey}/stats`);
-    if(!d)d=await yahooGet(`players;player_keys=${prevKey}/stats`);
-    if(!d){if(firstLog){console.log(`[PrevYr] No data for ${prevKey}`);firstLog=false}continue}
-    if(firstLog){console.log(`[PrevYr] Sample response:`,JSON.stringify(d).slice(0,500));firstLog=false}
-    try{
-      const fc=d.fantasy_content||{};
-      let pArr=fc.player;
-      if(!pArr&&fc.players)pArr=fc.players['0']?.player;
-      if(!pArr){const gm=fc.game;if(Array.isArray(gm))for(const gi of gm){if(gi?.players){pArr=gi.players['0']?.player;break}}}
-      if(!pArr||!Array.isArray(pArr))continue;
-      for(let k=1;k<pArr.length;k++){
-        const sub=pArr[k];if(!sub||typeof sub!=='object')continue;
-        if('player_stats'in sub){
-          let ps=sub.player_stats;
-          if(Array.isArray(ps))for(const x of ps){if(x?.player_stats){ps=x.player_stats;break}}
-          const ra=ps?.stats;
-          if(ra){const sa=ra.stat||(Array.isArray(ra)?ra:[]);
-            if(Array.isArray(sa)&&sa.length)results[p.currentKey]=sa.map(s=>({stat_id:String(s.stat_id),value:s.value}))}
-          break}}
-    }catch(e){console.error(`[PrevYr] Parse ${p.id}:`,e)}
+async function fetchMLBStats(players,period){
+  const ids=players.filter(p=>p.mlbId).map(p=>p.mlbId);
+  if(!ids.length)return{};
+  const season=period==='prevyear'?parseInt(leagueSeason||2026)-1:parseInt(leagueSeason||2026);
+  const range=mlbDateRange(period);
+
+  // Build hydration string
+  let hydrate;
+  if(range){
+    hydrate=`stats(group=[hitting,pitching],type=[byDateRange],startDate=${range.start},endDate=${range.end})`;
+  }else{
+    hydrate=`stats(group=[hitting,pitching],type=[season],season=${season})`;
   }
-  console.log(`[PrevYr] Got stats for ${Object.keys(results).length}/${playerIds.length} players`);
-  return Object.keys(results).length?results:null;
+
+  // MLB API supports up to ~80 IDs per request
+  const results={}; // mlbId → {R:'5', HR:'2', ...}
+  for(let i=0;i<ids.length;i+=50){
+    const batch=ids.slice(i,i+50).join(',');
+    try{
+      const url=`${MLB}/v1/people?personIds=${batch}&hydrate=${encodeURIComponent(hydrate)}`;
+      const resp=await fetch(url);
+      if(!resp.ok){console.warn(`[MLB] Stats fetch failed: ${resp.status}`);continue}
+      const d=await resp.json();
+      for(const person of(d.people||[])){
+        const pid=String(person.id);
+        const mapped={};
+        for(const statGroup of(person.stats||[])){
+          const splits=statGroup.splits||[];
+          const group=statGroup.group?.displayName; // 'hitting' or 'pitching'
+          const mapTable=group==='pitching'?MLB_PIT_MAP:MLB_HIT_MAP;
+          // Use the total/combined split (last one, or the one without a specific split context)
+          const split=splits.length?splits[splits.length-1]:null;
+          if(split?.stat){
+            for(const[apiField,displayName]of Object.entries(mapTable)){
+              if(split.stat[apiField]!==undefined)mapped[displayName]=String(split.stat[apiField]);
+            }
+          }
+        }
+        if(Object.keys(mapped).length)results[pid]=mapped;
+      }
+    }catch(e){console.error('[MLB] Stats fetch error:',e)}
+  }
+  console.log(`[MLB] Got stats for ${Object.keys(results).length}/${ids.length} players (${period})`);
+  // Map back to players by mlbId
+  const playerStats={};
+  for(const p of players){
+    if(p.mlbId&&results[p.mlbId])playerStats[p.playerKey]=results[p.mlbId];
+  }
+  return playerStats;
 }
 
 // ─── PLAYER PARSER ──────────────────────────────────────
 function parsePlayer(pArr){
   if(!pArr||!Array.isArray(pArr)||pArr.length<1)return null;
-  const info=pArr[0];let selPosR=null,statsR=null,pctR=null;
-  for(let k=1;k<pArr.length;k++){const s=pArr[k];if(!s||typeof s!=='object')continue;if('selected_position'in s)selPosR=s.selected_position;if('player_stats'in s)statsR=s.player_stats;if('percent_owned'in s)pctR=s.percent_owned}
+  const info=pArr[0];let selPosR=null;
+  for(let k=1;k<pArr.length;k++){const s=pArr[k];if(!s||typeof s!=='object')continue;if('selected_position'in s)selPosR=s.selected_position}
   let selPos='';if(selPosR){if(Array.isArray(selPosR)){for(const i of selPosR){if(i?.selected_position?.position){selPos=i.selected_position.position;break}if(i?.position){selPos=i.position;break}}}else if(selPosR.position)selPos=selPosR.position}
-  let name='',team='',pos='',hs='',status='',statusFull='',playerKey='',posType='',eligPos=[];
-  if(Array.isArray(info))for(const i of info){if(typeof i!=='object'||!i)continue;if(i.player_key)playerKey=i.player_key;if(i.name)name=i.name.full||'';if(i.editorial_team_abbr)team=i.editorial_team_abbr;if(i.display_position)pos=i.display_position;if(i.headshot)hs=i.headshot.url||'';if(i.status_full)statusFull=i.status_full;if(i.status)status=i.status;if(i.position_type)posType=i.position_type;if(i.eligible_positions&&Array.isArray(i.eligible_positions))for(const ep of i.eligible_positions){const p=ep?.position||(typeof ep==='string'?ep:null);if(p)eligPos.push(p)}}
-  let stats=[];if(statsR){try{let ps=statsR;if(Array.isArray(ps))for(const i of ps){if(i?.player_stats){ps=i.player_stats;break}}const ra=ps?.stats;if(ra){const sa=ra.stat||(Array.isArray(ra)?ra:[]);if(Array.isArray(sa))stats=sa.map(s=>({stat_id:String(s.stat_id),value:s.value}))}}catch(e){}}
+  let name='',team='',pos='',hs='',status='',statusFull='',playerKey='',posType='',eligPos=[],mlbId='';
+  if(Array.isArray(info))for(const i of info){if(typeof i!=='object'||!i)continue;if(i.player_key)playerKey=i.player_key;if(i.name)name=i.name.full||'';if(i.editorial_team_abbr)team=i.editorial_team_abbr;if(i.display_position)pos=i.display_position;if(i.headshot)hs=i.headshot.url||'';if(i.status_full)statusFull=i.status_full;if(i.status)status=i.status;if(i.position_type)posType=i.position_type;
+    if(i.editorial_player_key){const ep=i.editorial_player_key.split('.p.');if(ep.length===2)mlbId=ep[1]}
+    if(!mlbId&&i.player_id)mlbId=String(i.player_id);
+    if(i.eligible_positions&&Array.isArray(i.eligible_positions))for(const ep of i.eligible_positions){const p=ep?.position||(typeof ep==='string'?ep:null);if(p)eligPos.push(p)}}
   let type='hitter';if(posType==='P'||PITCHER_POSITIONS.includes(pos.split(',')[0]))type='pitcher';
-  return{playerKey,name,team,pos,selPos,hs,status,statusFull,posType,eligPos,type,stats}}
+  return{playerKey,name,team,pos,selPos,hs,status,statusFull,posType,eligPos,type,stats:{},mlbId}}
 function parseRoster(rd){const p=[];if(!rd)return p;try{const pd=rd.fantasy_content?.team?.[1]?.roster?.['0']?.players||{};for(let i=0;i<(pd.count||0);i++){const r=parsePlayer(pd[String(i)]?.player);if(r)p.push(r)}}catch(e){console.error(e)}return p}
 
-// ─── LOAD ROSTER ────────────────────────────────────────
+// ─── LOAD ROSTER (Yahoo roster + MLB Stats API) ─────────
 async function loadRoster(){
   if(!myTeamKey){showEmpty('Could not find your team');return}showLoading();
-
-  if(currentPeriod==='prevyear'){
-    // Prev year: fetch current roster (no stats), then prev year stats separately
-    const[rosterResp,prevStats]=await Promise.all([yahooGet(`team/${myTeamKey}/roster/players`),fetchPrevYearStats()]);
-    if(!rosterResp){showEmpty('Could not load roster');return}
-    rosterData=parseRoster(rosterResp);
-    // Inject prev year stats into each player
-    if(prevStats){for(const p of rosterData){if(prevStats[p.playerKey])p.stats=prevStats[p.playerKey]}}
-    // Season trend ref for prevyear
-    refData={};
-    const refResp=await yahooGet(rosterEP('season',false));
-    if(refResp)for(const p of parseRoster(refResp))refData[p.playerKey]=p.stats;
-  } else {
-    const primaryEP=rosterEP(currentPeriod,false);
-    const refP=TREND_REF[currentPeriod]||null;
-    const refEP=refP&&refP!=='prevyear'?rosterEP(refP,false):null;
-    const fetches=[yahooGet(primaryEP)];
-    if(refEP)fetches.push(yahooGet(refEP));
-    const[pr,rr]=await Promise.all(fetches);
-    if(!pr){showEmpty('Could not load roster');return}
-    rosterData=parseRoster(pr);
-    refData={};
-    if(rr)for(const p of parseRoster(rr))refData[p.playerKey]=p.stats;
-    // If ref is prevyear (for season view), fetch it separately
-    if(refP==='prevyear'){const pvs=await fetchPrevYearStats();if(pvs)refData=pvs}
-  }
+  // Step 1: Fetch roster structure from Yahoo (no stats needed)
+  const rosterResp=await yahooGet(`team/${myTeamKey}/roster/players`);
+  if(!rosterResp){showEmpty('Could not load roster');return}
+  rosterData=parseRoster(rosterResp);
+  if(!rosterData.length){showEmpty('No players found');return}
+  // Step 2: Fetch stats from MLB Stats API
+  const refP=TREND_REF[currentPeriod]||null;
+  const[primary,ref]=await Promise.all([
+    fetchMLBStats(rosterData,currentPeriod),
+    refP?fetchMLBStats(rosterData,refP):Promise.resolve({})
+  ]);
+  // Step 3: Assign stats to players
+  for(const p of rosterData){p.stats=primary[p.playerKey]||{}}
+  refData=ref||{};
   renderRoster()}
 function showLoading(){const h='<div class="loading"><div class="spinner"></div>Loading roster...</div>';document.getElementById('roster-hitters').innerHTML=h;document.getElementById('roster-pitchers').innerHTML=h}
 function showEmpty(m){const h=`<div class="empty"><h3>${m}</h3></div>`;document.getElementById('roster-hitters').innerHTML=h;document.getElementById('roster-pitchers').innerHTML=h}
