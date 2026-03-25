@@ -494,75 +494,63 @@ function mlbDateRange(period){
   return null; // season/prevyear use season param instead
 }
 
+// Fetch stats for a single player from the per-player stats endpoint
+async function fetchOnePlayerStats(mlbId,pType,season,range){
+  try{
+    // Build the stats query param and any date range params
+    let statsParam,extra='';
+    if(range){
+      statsParam='byDateRange';
+      extra=`&startDate=${range.start}&endDate=${range.end}`;
+    }else{
+      statsParam='season';
+      extra=`&season=${season}`;
+    }
+    const group=pType==='pitcher'?'pitching':'hitting';
+    const url=`${MLB}/v1/people/${mlbId}/stats?stats=${statsParam}&group=${group}${extra}`;
+    const resp=await fetch(url);
+    if(!resp.ok)return null;
+    const d=await resp.json();
+    const mapTable=pType==='pitcher'?MLB_PIT_MAP:MLB_HIT_MAP;
+    const mapped={};
+    for(const statGroup of(d.stats||[])){
+      const splits=statGroup.splits||[];
+      if(!splits.length)continue;
+      // Find the best split: prefer combined total for traded players
+      let split=null;
+      if(splits.length===1){split=splits[0]}
+      else{
+        split=splits.find(s=>!s.team||s.numTeams>1)||splits.find(s=>!s.team);
+        if(!split)split=splits[splits.length-1];
+      }
+      if(split?.stat){
+        for(const[apiField,displayName]of Object.entries(mapTable)){
+          if(split.stat[apiField]!==undefined)mapped[displayName]=String(split.stat[apiField]);
+        }
+      }
+    }
+    return Object.keys(mapped).length?mapped:null;
+  }catch(e){return null}
+}
+
 async function fetchMLBStats(players,period){
-  const ids=players.filter(p=>p.mlbId).map(p=>p.mlbId);
-  if(!ids.length)return{};
+  const withId=players.filter(p=>p.mlbId);
+  if(!withId.length)return{};
   const season=period==='prevyear'?parseInt(leagueSeason||2026)-1:parseInt(leagueSeason||2026);
   const range=mlbDateRange(period);
+  console.log(`[MLB] Fetching ${withId.length} players (${period}, season=${season}${range?', range='+range.start+'→'+range.end:''})`);
 
-  // Build hydration string
-  let hydrate;
-  if(range){
-    hydrate=`stats(group=[hitting,pitching],type=[byDateRange],startDate=${range.start},endDate=${range.end})`;
-  }else{
-    hydrate=`stats(group=[hitting,pitching],type=[season],season=${season})`;
-  }
+  // Fetch all players in parallel (per-player endpoint is most reliable)
+  const results=await Promise.all(withId.map(p=>
+    fetchOnePlayerStats(p.mlbId,p.type,season,range).then(stats=>({playerKey:p.playerKey,stats}))
+  ));
 
-  // Build a lookup of mlbId → player type so we can filter stat groups
-  const playerTypeById={};
-  for(const p of players){if(p.mlbId)playerTypeById[p.mlbId]=p.type}
-
-  // MLB API supports up to ~80 IDs per request
-  const results={}; // mlbId → {R:'5', HR:'2', ...}
-  for(let i=0;i<ids.length;i+=50){
-    const batch=ids.slice(i,i+50).join(',');
-    try{
-      // Don't encodeURIComponent the hydrate — MLB API expects raw brackets/parens
-      const url=`${MLB}/v1/people?personIds=${batch}&hydrate=${hydrate}`;
-      console.log(`[MLB] Fetching (${period}): ${url.slice(0,200)}...`);
-      const resp=await fetch(url);
-      if(!resp.ok){console.warn(`[MLB] Stats fetch failed: ${resp.status} for ${period}`,await resp.text().catch(()=>''));continue}
-      const d=await resp.json();
-      // Debug: log first player's stat structure
-      if(i===0&&d.people?.length){const fp=d.people[0];console.log(`[MLB] Sample player ${fp.fullName} (id:${fp.id}):`,fp.stats?.map(sg=>({group:sg.group?.displayName,type:sg.type?.displayName,splits:sg.splits?.length,hasStat:!!sg.splits?.[0]?.stat})))}
-      for(const person of(d.people||[])){
-        const pid=String(person.id);
-        const pType=playerTypeById[pid]||'hitter';
-        const mapped={};
-        for(const statGroup of(person.stats||[])){
-          const splits=statGroup.splits||[];
-          if(!splits.length)continue;
-          const group=statGroup.group?.displayName; // 'hitting' or 'pitching'
-          // Only use the stat group matching the player's roster type
-          // (prevents pitcher HR-allowed overwriting hitter HR, etc.)
-          if(pType==='pitcher'&&group==='hitting')continue;
-          if(pType==='hitter'&&group==='pitching')continue;
-          const mapTable=group==='pitching'?MLB_PIT_MAP:MLB_HIT_MAP;
-          // Find the best split: prefer combined/total (no team field or numTeams>1),
-          // fall back to last split for single-team players
-          let split=null;
-          if(splits.length===1){split=splits[0]}
-          else{
-            // Multi-split: look for the combined total (no team, or numTeams>1)
-            split=splits.find(s=>!s.team||s.numTeams>1)||splits.find(s=>!s.team);
-            if(!split)split=splits[splits.length-1]; // fallback to last
-          }
-          if(split?.stat){
-            for(const[apiField,displayName]of Object.entries(mapTable)){
-              if(split.stat[apiField]!==undefined)mapped[displayName]=String(split.stat[apiField]);
-            }
-          }
-        }
-        if(Object.keys(mapped).length)results[pid]=mapped;
-      }
-    }catch(e){console.error('[MLB] Stats fetch error:',e)}
-  }
-  console.log(`[MLB] Got stats for ${Object.keys(results).length}/${ids.length} players (${period}, season=${season})`);
-  // Map back to players by mlbId
   const playerStats={};
-  for(const p of players){
-    if(p.mlbId&&results[p.mlbId])playerStats[p.playerKey]=results[p.mlbId];
+  let found=0;
+  for(const r of results){
+    if(r.stats){playerStats[r.playerKey]=r.stats;found++}
   }
+  console.log(`[MLB] Got stats for ${found}/${withId.length} players (${period}, season=${season})`);
   return playerStats;
 }
 
