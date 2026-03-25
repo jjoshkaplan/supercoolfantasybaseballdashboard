@@ -647,21 +647,25 @@ async function loadMatchups(){const el=document.getElementById('matchups-content
     let t1w=0,t2w=0,ties=0;
     for(const sw of(m.statWinners||[])){if(sw.is_tied)ties++;else if(sw.winner===t1.team_key)t1w++;else if(sw.winner===t2.team_key)t2w++}
     const hasCategories=m.statWinners.length>0;
-    // Stat rows
+    // Stat table: horizontal - stats as columns, teams as rows
     let statRows='';
     if(t1.stats.length&&t2.stats.length){
-      // Get display stats from stat categories
-      const displayStats=Object.entries(statCategories).filter(([,c])=>c.display_name);
-      statRows='<div style="padding:0 20px 12px"><table style="width:100%;font-size:11px"><tbody>';
-      for(const[sid,cat]of displayStats){
-        const v1=t1.stats.find(s=>s.stat_id===sid)?.value||'—';
-        const v2=t2.stats.find(s=>s.stat_id===sid)?.value||'—';
-        const sw=m.statWinners.find(w=>w.stat_id===sid);
-        const w1=sw&&sw.winner===t1.team_key?'color:var(--green);font-weight:700':'';
-        const w2=sw&&sw.winner===t2.team_key?'color:var(--green);font-weight:700':'';
-        const tied=sw&&sw.is_tied?'color:var(--dim)':'';
-        statRows+=`<tr><td style="font-family:var(--mono);text-align:right;padding:3px 8px;${w1||tied}">${fmtStat(v1,cat.display_name)}</td><td style="text-align:center;padding:3px 8px;color:var(--muted);font-size:10px;font-weight:600;width:50px">${cat.display_name}</td><td style="font-family:var(--mono);padding:3px 8px;${w2||tied}">${fmtStat(v2,cat.display_name)}</td></tr>`}
-      statRows+='</tbody></table></div>'}
+      const ds=Object.entries(statCategories).filter(([,c])=>c.display_name);
+      // Header row: stat names
+      statRows='<div class="tw" style="padding:0 16px 12px"><table style="width:100%;font-size:11px;border-collapse:collapse">';
+      statRows+='<thead><tr><th style="padding:6px 8px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);min-width:80px">Team</th>';
+      for(const[,cat]of ds)statRows+=`<th style="padding:6px 6px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${cat.display_name}</th>`;
+      statRows+='</tr></thead><tbody>';
+      // Team 1 row
+      statRows+=`<tr><td style="padding:6px 8px;font-weight:600;font-size:12px;border-bottom:1px solid var(--border)">${t1.name}</td>`;
+      for(const[sid,cat]of ds){const v=t1.stats.find(s=>s.stat_id===sid)?.value||'—';const sw=m.statWinners.find(w=>w.stat_id===sid);const win=sw&&sw.winner===t1.team_key;const tied=sw&&sw.is_tied;
+        statRows+=`<td style="padding:6px 6px;text-align:center;font-family:var(--mono);font-size:12px;font-weight:${win?'700':'500'};color:${win?'var(--green)':tied?'var(--dim)':'var(--text)'};border-bottom:1px solid var(--border)">${fmtStat(v,cat.display_name)}</td>`}
+      statRows+='</tr>';
+      // Team 2 row
+      statRows+=`<tr><td style="padding:6px 8px;font-weight:600;font-size:12px">${t2.name}</td>`;
+      for(const[sid,cat]of ds){const v=t2.stats.find(s=>s.stat_id===sid)?.value||'—';const sw=m.statWinners.find(w=>w.stat_id===sid);const win=sw&&sw.winner===t2.team_key;const tied=sw&&sw.is_tied;
+        statRows+=`<td style="padding:6px 6px;text-align:center;font-family:var(--mono);font-size:12px;font-weight:${win?'700':'500'};color:${win?'var(--green)':tied?'var(--dim)':'var(--text)'}">${fmtStat(v,cat.display_name)}</td>`}
+      statRows+='</tr></tbody></table></div>'}
     // Category record line
     const catLine=hasCategories?`<div style="text-align:center;font-family:var(--mono);font-size:12px;font-weight:700;padding:4px 0;color:var(--dim)"><span style="color:${t1w>t2w?'var(--green)':'var(--text)'}">${t1w}</span> — <span style="color:${t2w>t1w?'var(--green)':'var(--text)'}">${t2w}</span>${ties?' — <span>'+ties+'</span>':''}</div>`:'';
     return`<div class="mu-card"><div class="mu-vs"><div class="mu-tm">${t1.logo?`<img class="tm-logo" src="${t1.logo}">`:''}
