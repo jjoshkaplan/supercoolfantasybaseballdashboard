@@ -477,16 +477,19 @@ async function initLeagueData(){await Promise.all([loadStatCategories(),findMyTe
 async function findPrevGameKey(){
   if(!leagueSeason)return;
   const prevSeason=parseInt(leagueSeason)-1;
-  const d=await yahooGet(`games;game_codes=mlb;seasons=${prevSeason}`);
-  if(!d)return;
-  try{
-    const games=d.fantasy_content?.games||{};
-    for(let i=0;i<(games.count||0);i++){
-      const g=games[String(i)]?.game||[];
-      const gInfo=Array.isArray(g)?g[0]:g;
-      if(gInfo?.game_key){prevGameKey=gInfo.game_key;console.log(`Prev game_key: ${prevGameKey} (${prevSeason})`);return}
-    }
-  }catch(e){console.error('prevGameKey lookup:',e)}
+  const endpoints=[`games;game_codes=mlb;seasons=${prevSeason}`,`games;game_codes=mlb`];
+  for(const ep of endpoints){
+    const d=await yahooGet(ep);
+    if(!d){console.log(`[PrevYr] No response from ${ep}`);continue}
+    console.log(`[PrevYr] Response from ${ep}:`,JSON.stringify(d).slice(0,500));
+    try{const fc=d.fantasy_content||{},games=fc.games||{};
+      for(let i=0;i<(games.count||0);i++){
+        const g=games[String(i)]?.game||[];const gInfo=Array.isArray(g)?g[0]:g;
+        if(gInfo&&String(gInfo.season)===String(prevSeason)&&gInfo.game_key){
+          prevGameKey=String(gInfo.game_key);console.log(`[PrevYr] Found game_key: ${prevGameKey} for ${prevSeason}`);return}}
+    }catch(e){console.error('[PrevYr] Parse error:',e)}
+  }
+  if(!prevGameKey&&gameKey){prevGameKey=String(parseInt(gameKey)-1);console.log(`[PrevYr] Derived game_key ${prevGameKey} from current ${gameKey}`)}
 }
 async function loadStatCategories(){const d=await yahooGet(`league/${currentLeagueKey}/settings`);if(!d)return;try{const la=d.fantasy_content?.league;if(!la)return;let s=null;for(let i=0;i<la.length;i++)if(la[i]?.settings){s=la[i].settings;break}if(!s)return;const so=Array.isArray(s)?s[0]:s;statCategories={};for(const item of(so?.stat_categories?.stats||[])){const st=item.stat||item;if(st.stat_id!=null)statCategories[String(st.stat_id)]={display_name:st.display_name||''}}}catch(e){console.error(e)}}
 async function findMyTeam(){const td=await yahooGet(`league/${currentLeagueKey}/teams`);if(!td)return;try{const teams=td.fantasy_content?.league?.[1]?.teams||{};for(let i=0;i<(teams.count||0);i++){const t=teams[String(i)]?.team?.[0]||[];let own=false,tk=null;for(const it of t)if(typeof it==='object'){if(it.is_owned_by_current_login===1)own=true;if(it.team_key)tk=it.team_key}if(own&&tk){myTeamKey=tk;return}}}catch(e){console.error(e)}}
@@ -497,64 +500,47 @@ function statVal(ps,dn){const sid=statId(dn);if(!sid)return'—';const f=(ps||[]
 function fmtStat(v,n){if(v==='—'||v==null||v==='')return'—';if(['OBP','SLG','OPS','AVG'].includes(n)){const x=parseFloat(v);return isNaN(x)?v:x.toFixed(3).replace(/^0/,'')}if(n==='ERA'||n==='WHIP'){const x=parseFloat(v);return isNaN(x)?v:x.toFixed(2)}return v}
 
 // ─── ROSTER ENDPOINT ────────────────────────────────────
-function rosterEP(period,withOwn){const b=`team/${myTeamKey}/roster/players`,o=withOwn?';out=stats,percent_owned':';out=stats';if(!period||period==='season')return`${b}${o}`;if(period==='today')return`${b}${o};type=date;date=${new Date().toISOString().slice(0,10)}`;if(period==='prevyear')return null; // handled separately
-  return`${b}${o};type=${period}`}
+function rosterEP(period,withOwn){const b=`team/${myTeamKey}/roster/players`,o=withOwn?';out=stats,percent_owned':';out=stats';if(!period||period==='season')return`${b}${o}`;if(period==='today')return`${b}${o};type=date;date=${new Date().toISOString().slice(0,10)}`;if(period==='prevyear')return null;return`${b}${o};type=${period}`}
 
-// Prev year: translate player keys to prev game context, query at game level
+// ─── PREV YEAR STATS ────────────────────────────────────
 async function fetchPrevYearStats(){
-  if(!prevGameKey){console.warn('No prevGameKey available');return null}
-  // Step 1: Get current roster to extract player IDs
+  if(!prevGameKey){console.warn('[PrevYr] No prevGameKey');return null}
   const roster=await yahooGet(`team/${myTeamKey}/roster/players`);
-  if(!roster)return null;
-  const playerIds=[];// {id, currentKey}
+  if(!roster){console.warn('[PrevYr] Roster fetch failed');return null}
+  const playerIds=[];
   try{const pd=roster.fantasy_content?.team?.[1]?.roster?.['0']?.players||{};
     for(let i=0;i<(pd.count||0);i++){const pArr=pd[String(i)]?.player;if(!pArr||!Array.isArray(pArr))continue;
       for(const item of pArr[0]){if(typeof item==='object'&&item.player_key){
-        // Extract player_id from key like "430.p.12345" -> "12345"
         const parts=item.player_key.split('.p.');
         if(parts.length===2)playerIds.push({id:parts[1],currentKey:item.player_key});
-        break}}}}catch(e){console.error('player ID parse:',e)}
-  if(!playerIds.length){console.warn('No player IDs found');return null}
-  console.log(`Fetching prev year stats for ${playerIds.length} players via game_key ${prevGameKey}`);
-
-  // Step 2: Construct prev-year player keys and batch query
-  const results={};// keyed by CURRENT player key
-  for(let i=0;i<playerIds.length;i+=25){
-    const batch=playerIds.slice(i,i+25);
-    const prevKeys=batch.map(p=>`${prevGameKey}.p.${p.id}`).join(',');
-    // Query at game level — no league context needed
-    const d=await yahooGet(`players;player_keys=${prevKeys}/stats`);
-    if(!d){console.warn('Prev year batch failed, trying individual...');
-      // Fallback: try one by one for this batch
-      for(const p of batch){
-        const sd=await yahooGet(`player/${prevGameKey}.p.${p.id}/stats`);
-        if(!sd)continue;
-        try{const pArr=sd.fantasy_content?.player||[];
-          let stats=[];
-          for(let k=1;k<pArr.length;k++){const sub=pArr[k];if(!sub||typeof sub!=='object')continue;
-            if('player_stats'in sub){let ps=sub.player_stats;const ra=ps?.stats;if(ra){const sa=ra.stat||(Array.isArray(ra)?ra:[]);if(Array.isArray(sa))stats=sa.map(s=>({stat_id:String(s.stat_id),value:s.value}))}break}}
-          if(stats.length)results[p.currentKey]=stats;
-        }catch(e){}}
-      continue}
-    // Parse batch response
-    try{const fc=d.fantasy_content||{};
-      // Response could be { players: { count, 0: { player: [...] }, ... } }
-      const pl=fc.players||{};
-      for(let j=0;j<(pl.count||0);j++){
-        const pArr=pl[String(j)]?.player;if(!pArr)continue;
-        // Extract player_id to map back to current key
-        let pid='';
-        for(const item of(pArr[0]||[])){if(typeof item==='object'&&item.player_key){const pts=item.player_key.split('.p.');if(pts.length===2)pid=pts[1];break}}
-        if(!pid)continue;
-        const orig=playerIds.find(p=>p.id===pid);if(!orig)continue;
-        // Extract stats from sub-resources
-        for(let k=1;k<pArr.length;k++){const sub=pArr[k];if(!sub||typeof sub!=='object')continue;
-          if('player_stats'in sub){let ps=sub.player_stats;if(Array.isArray(ps))for(const x of ps){if(x?.player_stats){ps=x.player_stats;break}}
-            const ra=ps?.stats;if(ra){const sa=ra.stat||(Array.isArray(ra)?ra:[]);if(Array.isArray(sa))results[orig.currentKey]=sa.map(s=>({stat_id:String(s.stat_id),value:s.value}))}break}}
-      }
-    }catch(e){console.error('prevyear batch parse:',e)}
+        break}}}}catch(e){console.error('[PrevYr] ID parse:',e)}
+  if(!playerIds.length){console.warn('[PrevYr] No player IDs');return null}
+  console.log(`[PrevYr] Fetching for ${playerIds.length} players, prevGameKey=${prevGameKey}`);
+  const results={};let firstLog=true;
+  for(const p of playerIds){
+    const prevKey=`${prevGameKey}.p.${p.id}`;
+    let d=await yahooGet(`player/${prevKey}/stats`);
+    if(!d)d=await yahooGet(`players;player_keys=${prevKey}/stats`);
+    if(!d){if(firstLog){console.log(`[PrevYr] No data for ${prevKey}`);firstLog=false}continue}
+    if(firstLog){console.log(`[PrevYr] Sample response:`,JSON.stringify(d).slice(0,500));firstLog=false}
+    try{
+      const fc=d.fantasy_content||{};
+      let pArr=fc.player;
+      if(!pArr&&fc.players)pArr=fc.players['0']?.player;
+      if(!pArr){const gm=fc.game;if(Array.isArray(gm))for(const gi of gm){if(gi?.players){pArr=gi.players['0']?.player;break}}}
+      if(!pArr||!Array.isArray(pArr))continue;
+      for(let k=1;k<pArr.length;k++){
+        const sub=pArr[k];if(!sub||typeof sub!=='object')continue;
+        if('player_stats'in sub){
+          let ps=sub.player_stats;
+          if(Array.isArray(ps))for(const x of ps){if(x?.player_stats){ps=x.player_stats;break}}
+          const ra=ps?.stats;
+          if(ra){const sa=ra.stat||(Array.isArray(ra)?ra:[]);
+            if(Array.isArray(sa)&&sa.length)results[p.currentKey]=sa.map(s=>({stat_id:String(s.stat_id),value:s.value}))}
+          break}}
+    }catch(e){console.error(`[PrevYr] Parse ${p.id}:`,e)}
   }
-  console.log(`Got prev year stats for ${Object.keys(results).length}/${playerIds.length} players`);
+  console.log(`[PrevYr] Got stats for ${Object.keys(results).length}/${playerIds.length} players`);
   return Object.keys(results).length?results:null;
 }
 
