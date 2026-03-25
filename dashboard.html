@@ -305,7 +305,7 @@ let mlbSchedule=[],liveFeeds={},expandedPlayer=null,livePollTimer=null,livePollS
 const HITTER_STATS=['R','HR','RBI','SB','OBP'], PITCHER_STATS=['W','SV','ERA','WHIP','K'];
 const LOWER_IS_BETTER=['ERA','WHIP'];
 const PERIOD_DAYS={today:1,lastweek:7,lastmonth:30,season:162,prevyear:162};
-const TREND_REF={today:'lastweek',lastweek:'lastmonth',lastmonth:'season',season:'prevyear'};
+const TREND_REF={lastweek:'lastmonth',lastmonth:'season',season:'prevyear'};
 const PITCHER_POSITIONS=['SP','RP','P'],BENCH_POSITIONS=['BN','IL','IL+','DL','NA'];
 const POS_ORDER_H=['C','1B','2B','3B','SS','LF','CF','RF','OF','Util','DH','BN','IL','IL+','DL','NA'];
 const POS_ORDER_P=['SP','RP','P','BN','IL','IL+','DL','NA'];
@@ -451,8 +451,20 @@ function showEmpty(m){const h=`<div class="empty"><h3>${m}</h3></div>`;document.
 
 // ─── TRENDING ───────────────────────────────────────────
 function trend(sn,cv,rs){if(!rs||cv==='—')return'';const rv=statVal(rs,sn);if(rv==='—')return'';const c=parseFloat(cv),r=parseFloat(rv);if(isNaN(c)||isNaN(r))return'';const isRate=['OBP','SLG','OPS','AVG','ERA','WHIP'].includes(sn),lb=LOWER_IS_BETTER.includes(sn);
-  if(isRate){const d=c-r;if(Math.abs(d)<.005)return'';return(lb?(d<0):(d>0))?' <span class="trend-arrow trend-up">▲</span>':' <span class="trend-arrow trend-down">▼</span>'}
-  const cd=PERIOD_DAYS[currentPeriod]||162,rd=PERIOD_DAYS[TREND_REF[currentPeriod]]||162;const d=c/cd-r/rd;if(Math.abs(d)<.01)return'';return d>0?' <span class="trend-arrow trend-up">▲</span>':' <span class="trend-arrow trend-down">▼</span>'}
+  if(isRate){
+    // Rate stats: compare directly, use relative threshold based on magnitude
+    const d=c-r;const mag=Math.max(Math.abs(c),Math.abs(r),0.001);
+    if(Math.abs(d)/mag<0.03)return''; // <3% relative change = flat
+    return(lb?(d<0):(d>0))?' <span class="trend-arrow trend-up">▲</span>':' <span class="trend-arrow trend-down">▼</span>'}
+  // Counting stats: normalize to per-day rate, then compare as percentage change
+  const cd=PERIOD_DAYS[currentPeriod]||162,rd=PERIOD_DAYS[TREND_REF[currentPeriod]]||162;
+  const curRate=c/cd,refRate=r/rd;
+  // If both are zero, flat; if only ref is zero, any positive current is up
+  if(curRate===0&&refRate===0)return'';
+  if(refRate===0)return curRate>0?' <span class="trend-arrow trend-up">▲</span>':'';
+  const pctChange=(curRate-refRate)/refRate;
+  if(Math.abs(pctChange)<0.10)return''; // <10% change in per-day pace = flat
+  return pctChange>0?' <span class="trend-arrow trend-up">▲</span>':' <span class="trend-arrow trend-down">▼</span>'}
 
 // ─── RENDER ROSTER ──────────────────────────────────────
 function renderRoster(){
