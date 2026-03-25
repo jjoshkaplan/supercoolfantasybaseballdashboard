@@ -54,18 +54,13 @@ function clearSessionCookie(res) {
 async function getValidToken(req) {
   const cookie = getSessionCookie(req);
   if (!cookie) return null;
-
   const tokens = await decryptTokens(cookie);
   if (!tokens) return null;
-
-  // Check if expired (with 60s buffer)
   if (tokens.expires_at && Date.now() > tokens.expires_at - 60000) {
-    // Try refresh
     const refreshed = await refreshAccessToken(tokens.refresh_token);
     if (refreshed) return refreshed;
     return null;
   }
-
   return tokens;
 }
 
@@ -77,12 +72,9 @@ async function refreshAccessToken(refreshToken) {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
       client_id: process.env.YAHOO_CLIENT_ID,
-      client_secret: process.env.YAHOO_CLIENT_SECRET,
     }),
   });
-
   if (!resp.ok) return null;
-
   const data = await resp.json();
   if (!data.refresh_token) data.refresh_token = refreshToken;
   return {
@@ -94,13 +86,6 @@ async function refreshAccessToken(refreshToken) {
 }
 
 module.exports = {
-  encryptTokens,
-  decryptTokens,
-  getSessionCookie,
-  setSessionCookie,
-  clearSessionCookie,
-  getValidToken,
-  refreshAccessToken,
-  COOKIE_NAME,
-  BASE_URL,
+  encryptTokens, decryptTokens, getSessionCookie, setSessionCookie,
+  clearSessionCookie, getValidToken, refreshAccessToken, COOKIE_NAME, BASE_URL,
 };

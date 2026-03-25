@@ -18,10 +18,9 @@ module.exports = async (req, res) => {
       code,
       redirect_uri: `${BASE_URL}/api/auth-callback`,
       client_id: process.env.YAHOO_CLIENT_ID,
-      client_secret: process.env.YAHOO_CLIENT_SECRET,
     };
 
-    // Include code_verifier if we have it (PKCE)
+    // Include code_verifier for PKCE
     if (codeVerifier) {
       body.code_verifier = codeVerifier;
     }
@@ -54,7 +53,6 @@ module.exports = async (req, res) => {
       ...(isLocalhost ? [] : ['Secure']),
     ].join('; ');
 
-    // Set both cookies (session + clear verifier)
     const sessionCookieHeader = res.getHeader('Set-Cookie');
     if (sessionCookieHeader) {
       res.setHeader('Set-Cookie', [sessionCookieHeader, clearVerifier]);
