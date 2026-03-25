@@ -133,7 +133,7 @@ body::after { content:''; position:fixed; inset:0; pointer-events:none; opacity:
 <nav class="topbar">
   <span class="topbar-brand">SCFBD.XYZ</span>
   <div class="topbar-links">
-    <a href="/dashboard">Dashboard</a>
+    <a href="/dashboard.html">Dashboard</a>
     <a href="/live">Live Tracker</a>
   </div>
 </nav>
@@ -160,7 +160,7 @@ body::after { content:''; position:fixed; inset:0; pointer-events:none; opacity:
   </p>
 
   <div class="cta-group">
-    <a href="/api/auth/login" class="btn btn-primary">
+    <a href="/api/auth-login" class="btn btn-primary">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
       Connect Yahoo Account
     </a>
@@ -201,10 +201,10 @@ body::after { content:''; position:fixed; inset:0; pointer-events:none; opacity:
 
 <script>
 // Check if already logged in, redirect to dashboard
-fetch('/api/auth/me').then(r=>r.json()).then(d=>{
+fetch('/api/auth-me').then(r=>r.json()).then(d=>{
   if(d.authenticated && window.location.pathname === '/') {
     document.querySelector('.btn-primary').textContent = 'Go to Dashboard';
-    document.querySelector('.btn-primary').href = '/dashboard';
+    document.querySelector('.btn-primary').href = '/dashboard.html';
   }
 }).catch(()=>{});
 </script>
