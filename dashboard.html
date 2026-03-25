@@ -13,41 +13,52 @@
 <style>
 :root{--bg:#0a0c10;--surface:#12151c;--surface-2:#191e28;--surface-3:#212836;--border:#1e2330;--text:#e8ecf4;--dim:#6b7a94;--muted:#3e4a60;--green:#2dd4a0;--green-dim:rgba(45,212,160,.12);--red:#f06449;--red-dim:rgba(240,100,73,.12);--blue:#5b8def;--blue-dim:rgba(91,141,239,.12);--orange:#f0a030;--orange-dim:rgba(240,160,48,.12);--yellow:#f0c040;--yellow-dim:rgba(240,192,64,.12);--purple:#b07ce8;--purple-dim:rgba(176,124,232,.12);--cyan:#38bdf8;--cyan-dim:rgba(56,189,248,.12);--radius:10px;--mono:'JetBrains Mono',monospace}
 [data-theme="light"]{--bg:#f4f5f7;--surface:#ffffff;--surface-2:#eef0f4;--surface-3:#e2e5eb;--border:#d8dce4;--text:#1a1d24;--dim:#5a6272;--muted:#8e95a5;--green:#0e9e73;--green-dim:rgba(14,158,115,.10);--red:#d84232;--red-dim:rgba(216,66,50,.08);--blue:#3b6fd4;--blue-dim:rgba(59,111,212,.08);--orange:#c47f18;--orange-dim:rgba(196,127,24,.08);--yellow:#a68b10;--yellow-dim:rgba(166,139,16,.08);--purple:#8b4fc8;--purple-dim:rgba(139,79,200,.08);--cyan:#0886ab;--cyan-dim:rgba(8,134,171,.08)}
-body,.header,.sidebar,.main,.card,.tab-bar,.tab-btn,.period-btn,.sb-item,.pos-select,.btn-sm,.btn-save,.auth-gate,.mu-card,.league-sel select{transition:background-color .25s ease,border-color .25s ease,color .25s ease}
-.theme-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:4px 0}
-.theme-toggle-track{position:relative;width:40px;height:22px;border-radius:11px;background:var(--surface-2);border:1px solid var(--border);transition:all .25s}
-.theme-toggle-track::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--dim);transition:all .25s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-[data-theme="light"] .theme-toggle-track{background:var(--green-dim);border-color:var(--green)}
-[data-theme="light"] .theme-toggle-track::after{left:20px;background:var(--green)}
-.theme-toggle-icon{width:16px;height:16px;color:var(--dim);flex-shrink:0;transition:color .25s}
-.theme-toggle:hover .theme-toggle-icon{color:var(--text)}
+body,.header,.main,.card,.tab-bar,.tab-btn,.period-btn,.pos-select,.btn-sm,.btn-save,.auth-gate,.mu-card{transition:background-color .25s ease,border-color .25s ease,color .25s ease}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh;line-height:1.5;overscroll-behavior:none;-webkit-text-size-adjust:100%}
 a{color:inherit;text-decoration:none}
-/* Prevent iOS zoom on select/input focus */
 select,input,textarea{font-size:16px!important}
-.header{display:flex;align-items:center;justify-content:space-between;padding:12px 28px;padding-top:calc(12px + env(safe-area-inset-top));padding-left:calc(28px + env(safe-area-inset-left));padding-right:calc(28px + env(safe-area-inset-right));border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
-.header-brand{display:flex;align-items:center;gap:10px}
+
+/* ─── HEADER ─── */
+.header{display:flex;align-items:center;gap:16px;padding:0 28px;padding-left:calc(28px + env(safe-area-inset-left));padding-right:calc(28px + env(safe-area-inset-right));padding-top:env(safe-area-inset-top);border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100;height:calc(52px + env(safe-area-inset-top))}
+.header-brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .header-brand .mark{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--green);letter-spacing:.04em}
 .header-brand h1{font-size:16px;font-weight:700;letter-spacing:-.02em}
-.header-brand h1 span{color:var(--dim);font-weight:400;font-size:13px;margin-left:8px}
-.header-right{display:flex;align-items:center;gap:14px}
-.btn-sm{padding:6px 16px;border-radius:7px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;border:1px solid var(--border);background:transparent;color:var(--dim)}
+
+/* Header nav tabs — the main view switcher */
+.header-nav{display:flex;align-items:center;gap:2px;margin-left:24px;flex-shrink:0}
+.nav-tab{padding:16px 14px;font-size:13px;font-weight:600;color:var(--dim);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.nav-tab svg{width:15px;height:15px;flex-shrink:0;display:none}
+.nav-tab:hover{color:var(--text)}
+.nav-tab.active{color:var(--green);border-bottom-color:var(--green)}
+
+/* Header right — league selector + controls */
+.header-right{display:flex;align-items:center;gap:12px;margin-left:auto;flex-shrink:0}
+.league-select{background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:6px 28px 6px 10px;border-radius:7px;font-family:inherit;font-size:13px!important;font-weight:500;cursor:pointer;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236b7a94' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+.league-select:focus{outline:none;border-color:var(--green)}
+.poll-ind{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);font-family:var(--mono)}
+.poll-dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.poll-dot.live{background:var(--green);animation:blinker 1.5s ease-in-out infinite}
+@keyframes blinker{0%,100%{opacity:1}50%{opacity:.3}}
+.theme-toggle{display:flex;align-items:center;cursor:pointer;user-select:none;padding:4px 0}
+.theme-toggle-track{position:relative;width:36px;height:20px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);transition:all .25s}
+.theme-toggle-track::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--dim);transition:all .25s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+[data-theme="light"] .theme-toggle-track{background:var(--green-dim);border-color:var(--green)}
+[data-theme="light"] .theme-toggle-track::after{left:18px;background:var(--green)}
+.btn-sm{padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;border:1px solid var(--border);background:transparent;color:var(--dim);white-space:nowrap}
 .btn-sm:hover{color:var(--text);border-color:var(--dim)}
-.app{display:flex;min-height:calc(100vh - 49px)}
-.sidebar{width:250px;border-right:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;flex-direction:column}
-.main{flex:1;padding:28px 36px;overflow-y:auto}
-.league-sel{padding:14px 18px;border-bottom:1px solid var(--border)}
-.league-sel select{width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-family:inherit;font-size:13px}
-.league-sel select:focus{outline:none;border-color:var(--green)}
-.sb-label{padding:10px 18px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-.sb-item{display:flex;align-items:center;gap:10px;padding:10px 18px;font-size:14px;color:var(--dim);cursor:pointer;transition:all .12s;border-left:3px solid transparent;font-weight:500}
-.sb-item:hover{color:var(--text);background:var(--surface-2)}
-.sb-item.active{color:var(--green);border-left-color:var(--green);background:var(--green-dim)}
-.sb-item svg{width:17px;height:17px;flex-shrink:0}
+.hdr-sep{width:1px;height:20px;background:var(--border);flex-shrink:0}
+
+/* ─── MAIN CONTENT ─── */
+.main{padding:28px 36px;padding-left:calc(36px + env(safe-area-inset-left));padding-right:calc(36px + env(safe-area-inset-right));max-width:1400px;margin:0 auto;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .pg-title{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px}
 .pg-sub{color:var(--dim);font-size:14px;margin-bottom:20px;font-weight:300}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px}
+
+/* Roster toolbar */
+.roster-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.roster-toolbar-left{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.roster-toolbar-right{display:flex;align-items:center;gap:10px}
 .tab-bar{display:flex;gap:2px;background:var(--surface-2);border-radius:8px;padding:3px;width:fit-content}
 .tab-btn{padding:7px 18px;border-radius:6px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;border:none;background:transparent;color:var(--dim);transition:all .15s;white-space:nowrap}
 .tab-btn:hover{color:var(--text)}
@@ -56,21 +67,12 @@ select,input,textarea{font-size:16px!important}
 .period-btn{padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;font-family:var(--mono);cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--dim);transition:all .15s;letter-spacing:.02em}
 .period-btn:hover{color:var(--text);border-color:var(--dim)}
 .period-btn.active{background:var(--green-dim);color:var(--green);border-color:rgba(45,212,160,.3)}
-.roster-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px}
-.roster-toolbar-left{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.roster-toolbar-right{display:flex;align-items:center;gap:10px}
 .btn-save{padding:7px 20px;border-radius:7px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:none;background:var(--green);color:#0a0c10;transition:all .15s;display:none;align-items:center;gap:6px}
 .btn-save:hover{background:#3ee8b4;transform:translateY(-1px)}
 .btn-save.visible{display:inline-flex}
 .btn-save:disabled{opacity:.5;cursor:not-allowed;transform:none}
 
-/* Live poll indicator */
-.poll-ind{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-family:var(--mono)}
-.poll-dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
-.poll-dot.live{background:var(--green);animation:blinker 1.5s ease-in-out infinite}
-@keyframes blinker{0%,100%{opacity:1}50%{opacity:.3}}
-
-/* Stats Table */
+/* ─── STATS TABLE ─── */
 .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead th{padding:9px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);background:var(--surface-2);white-space:nowrap;position:sticky;top:0;z-index:2}
@@ -102,8 +104,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .game-cell{display:flex;align-items:center;gap:8px;font-size:12px;min-width:140px}
 .gc-score{font-family:var(--mono);font-weight:700;font-size:11px;display:flex;flex-direction:column;gap:1px;line-height:1.1}
 .gc-score .away,.gc-score .home{display:flex;align-items:center;gap:3px}
-.gc-score .abbr{width:24px;color:var(--dim)}
-.gc-score .runs{width:16px;text-align:right}
+.gc-score .abbr{width:24px;color:var(--dim)}.gc-score .runs{width:16px;text-align:right}
 .gc-inn{font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap}
 .gc-status{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;letter-spacing:.03em}
 .gc-st-atbat{background:var(--green-dim);color:var(--green);animation:pulse-st 2s infinite}
@@ -117,9 +118,8 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .gc-final{color:var(--muted);font-family:var(--mono);font-size:11px}
 @keyframes pulse-st{0%,100%{box-shadow:0 0 0 0 rgba(45,212,160,.3)}70%{box-shadow:0 0 0 4px rgba(45,212,160,0)}}
 
-/* ─── EXPANDED STATCAST PANEL ─── */
-.sc-row{display:none}
-.sc-row.open{display:table-row}
+/* ─── STATCAST PANEL ─── */
+.sc-row{display:none}.sc-row.open{display:table-row}
 .sc-row td{padding:0!important;border-top:none!important;background:var(--bg)}
 .sc-panel{border:1px solid var(--border);border-radius:0 0 var(--radius) var(--radius);overflow:hidden;margin:0 8px 8px}
 .sc-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border)}
@@ -151,7 +151,18 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .sc-leg-dot{width:6px;height:6px;border-radius:50%}
 .sc-no-game{padding:24px;text-align:center;color:var(--muted);font-size:13px}
 
-/* Loading / empty / status */
+/* ─── STANDINGS / MATCHUPS / TX ─── */
+.rank{font-family:var(--mono);font-weight:600;color:var(--dim);width:40px;text-align:center}
+.tm-cell{display:flex;align-items:center;gap:10px}.tm-logo{width:28px;height:28px;border-radius:6px;object-fit:cover;background:var(--surface-2)}.tm-name{font-weight:700}.tm-mgr{font-size:11px;color:var(--dim)}
+.record{font-family:var(--mono);font-weight:600}.wpct{font-family:var(--mono)}
+.mu-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:12px}
+.mu-vs{display:flex;align-items:center;justify-content:space-between}.mu-tm{display:flex;align-items:center;gap:12px;flex:1}.mu-tm.right{justify-content:flex-end;text-align:right}
+.mu-score{font-family:var(--mono);font-size:22px;font-weight:700}.mu-div{font-size:12px;color:var(--dim);padding:0 16px;font-weight:600}.winning{color:var(--green)}.losing{color:var(--dim)}
+.tx-row{display:flex;align-items:center;gap:12px;padding:10px 20px;border-top:1px solid var(--border);font-size:13px}
+.tx-type{padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.tx-add{background:var(--green-dim);color:var(--green)}.tx-trade{background:var(--blue-dim);color:var(--blue)}.tx-commish{background:var(--orange-dim);color:var(--orange)}
+
+/* ─── LOADING / EMPTY / STATUS / AUTH ─── */
 .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px;color:var(--dim)}
 .spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -165,91 +176,51 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .btn-lg{display:inline-flex;align-items:center;gap:10px;padding:14px 32px;border-radius:12px;font-size:16px;font-weight:600;background:var(--green);color:#0a0c10;border:none;cursor:pointer;transition:all .2s;text-decoration:none}
 .btn-lg:hover{background:#3ee8b4;transform:translateY(-1px);box-shadow:0 8px 30px rgba(45,212,160,.25)}
 .btn-lg svg{width:18px;height:18px}
-.rank{font-family:var(--mono);font-weight:600;color:var(--dim);width:40px;text-align:center}
-.tm-cell{display:flex;align-items:center;gap:10px}.tm-logo{width:28px;height:28px;border-radius:6px;object-fit:cover;background:var(--surface-2)}.tm-name{font-weight:700}.tm-mgr{font-size:11px;color:var(--dim)}
-.record{font-family:var(--mono);font-weight:600}.wpct{font-family:var(--mono)}
-.mu-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:12px}
-.mu-vs{display:flex;align-items:center;justify-content:space-between}.mu-tm{display:flex;align-items:center;gap:12px;flex:1}.mu-tm.right{justify-content:flex-end;text-align:right}
-.mu-score{font-family:var(--mono);font-size:22px;font-weight:700}.mu-div{font-size:12px;color:var(--dim);padding:0 16px;font-weight:600}.winning{color:var(--green)}.losing{color:var(--dim)}
-.tx-row{display:flex;align-items:center;gap:12px;padding:10px 20px;border-top:1px solid var(--border);font-size:13px}
-.tx-type{padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-.tx-add{background:var(--green-dim);color:var(--green)}.tx-trade{background:var(--blue-dim);color:var(--blue)}.tx-commish{background:var(--orange-dim);color:var(--orange)}
-/* ─── MOBILE BOTTOM TAB BAR ─── */
-.mobile-nav{display:none}
-.mobile-league{display:none}
 
+/* ─── MOBILE BOTTOM NAV ─── */
+.mobile-nav{display:none}
+
+/* ─── MOBILE ─── */
 @media(max-width:768px){
-  .sidebar{display:none}
-  .main{padding:16px 12px;padding-bottom:calc(72px + env(safe-area-inset-bottom));padding-left:calc(12px + env(safe-area-inset-left));padding-right:calc(12px + env(safe-area-inset-right))}
-  .header{padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top));padding-left:calc(16px + env(safe-area-inset-left));padding-right:calc(16px + env(safe-area-inset-right))}
+  .header{padding:0 12px;padding-top:env(safe-area-inset-top);padding-left:calc(12px + env(safe-area-inset-left));padding-right:calc(12px + env(safe-area-inset-right));height:calc(48px + env(safe-area-inset-top));gap:10px}
   .header-brand h1{font-size:14px}
   .header-brand h1 span{display:none}
-  .header-right .btn-sm{padding:6px 10px;font-size:11px}
-  .header-right{gap:8px}
-  .app{min-height:calc(100vh - 49px);min-height:calc(100dvh - 49px)}
-
-  /* Mobile bottom navigation */
+  .header-nav{display:none}
+  .header-right .btn-sm{display:none}
+  .header-right .hdr-sep{display:none}
+  .header-right{gap:8px;margin-left:auto}
+  .league-select{max-width:140px;padding:6px 24px 6px 8px;font-size:12px!important}
+  .main{padding:16px 12px;padding-bottom:calc(72px + env(safe-area-inset-bottom));padding-left:calc(12px + env(safe-area-inset-left));padding-right:calc(12px + env(safe-area-inset-right))}
   .mobile-nav{display:none}
   .mobile-nav.visible{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:100;background:var(--surface);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
   .mob-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;font-size:10px;font-weight:600;color:var(--muted);cursor:pointer;transition:color .15s;min-height:44px;-webkit-touch-callout:none;user-select:none}
   .mob-tab svg{width:20px;height:20px;flex-shrink:0}
   .mob-tab.active{color:var(--green)}
   .mob-tab:active{opacity:.7}
-
-  /* Mobile league selector */
-  .mobile-league{display:block;padding:8px 12px;padding-left:calc(12px + env(safe-area-inset-left));padding-right:calc(12px + env(safe-area-inset-right));border-bottom:1px solid var(--border);background:var(--surface)}
-  .mobile-league select{width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:inherit;font-size:16px!important;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236b7a94' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
-
-  /* Toolbar adjustments */
   .roster-toolbar{flex-direction:column;align-items:stretch;gap:10px;margin-bottom:12px}
   .roster-toolbar-left{flex-direction:column;gap:8px}
-  .tab-bar{width:100%}
-  .tab-btn{flex:1;text-align:center;padding:10px 12px;min-height:44px}
-  .period-bar{width:100%;justify-content:stretch}
-  .period-btn{flex:1;text-align:center;padding:8px 8px;min-height:44px;font-size:11px}
-
-  /* Table mobile fixes */
+  .tab-bar{width:100%}.tab-btn{flex:1;text-align:center;padding:10px 12px;min-height:44px}
+  .period-bar{width:100%;justify-content:stretch}.period-btn{flex:1;text-align:center;padding:8px 6px;min-height:44px;font-size:11px}
   table .col-player{position:static}
-  table .col-pos{left:0;width:44px;min-width:44px}
+  table .col-pos{width:44px;min-width:44px}
   .pos-select{min-width:38px;padding:6px 4px;min-height:32px}
-  .player-cell{gap:6px}
-  .player-hs{width:24px;height:24px}
-  .player-info .name{font-size:12px}
-  .player-info .meta{font-size:10px}
-  tbody td{padding:7px 8px}
-  thead th{padding:8px 8px}
-
-  /* Game cell mobile */
-  .game-cell{gap:5px;min-width:100px;font-size:11px}
-  .gc-score{font-size:10px}
-  .gc-status{font-size:9px;padding:2px 5px}
-
-  /* Statcast panel mobile */
-  .sc-body{flex-direction:column}
-  .sc-left{flex:none;border-right:none;border-bottom:1px solid var(--border)}
-  .sc-panel{margin:0 4px 4px}
-  .sc-left,.sc-right{padding:8px}
+  .player-cell{gap:6px}.player-hs{width:24px;height:24px}
+  .player-info .name{font-size:12px}.player-info .meta{font-size:10px}
+  tbody td{padding:7px 8px}thead th{padding:8px 8px}
+  .game-cell{gap:5px;min-width:100px;font-size:11px}.gc-score{font-size:10px}.gc-status{font-size:9px;padding:2px 5px}
+  .sc-body{flex-direction:column}.sc-left{flex:none;border-right:none;border-bottom:1px solid var(--border)}
+  .sc-panel{margin:0 4px 4px}.sc-left,.sc-right{padding:8px}
   .sc-left svg,.sc-right svg{max-width:100%;height:auto}
-
-  /* Touch target enforcement */
-  .btn-sm,.btn-save,.tab-btn,.period-btn,.sb-item,.mob-tab{min-height:44px;display:flex;align-items:center;justify-content:center}
-
-  /* Auth gate mobile */
+  .btn-sm,.btn-save,.tab-btn,.period-btn,.mob-tab{min-height:44px;display:flex;align-items:center;justify-content:center}
   .auth-gate{padding:40px 24px;padding-top:calc(60px + env(safe-area-inset-top))}
-  .auth-gate h2{font-size:24px}
-  .auth-gate p{font-size:14px}
+  .auth-gate h2{font-size:24px}.auth-gate p{font-size:14px}
   .btn-lg{padding:14px 24px;font-size:15px;width:100%;justify-content:center}
-
-  /* Matchups mobile */
-  .mu-card{padding:12px 14px}
-  .mu-score{font-size:18px}
-
-  /* Pull to refresh feel */
-  .main{-webkit-overflow-scrolling:touch;overflow-y:auto}
-
-  /* Status toast position above bottom nav */
+  .mu-card{padding:12px 14px}.mu-score{font-size:18px}
   .status-msg{bottom:calc(72px + env(safe-area-inset-bottom) + 8px)}
+  .pg-title{font-size:18px}.pg-sub{font-size:13px;margin-bottom:12px}
 }
+
+/* ─── LIGHT OVERRIDES ─── */
 [data-theme="light"] .btn-lg{color:#fff}[data-theme="light"] .btn-save{color:#fff}[data-theme="light"] .status-msg.success{color:#fff}
 [data-theme="light"] table .col-pos,[data-theme="light"] table .col-player{background:var(--surface)}
 [data-theme="light"] thead .col-pos,[data-theme="light"] thead .col-player{background:var(--surface-2)}
@@ -258,35 +229,38 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 <script>(function(){var t=localStorage.getItem('scfbd_theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');var m=document.getElementById('metaThemeColor');if(m)m.content='#ffffff'}})()</script>
 </head>
 <body>
+
+<!-- ─── HEADER ─── -->
 <div class="header">
-  <div class="header-brand"><a href="/" class="mark">SCFBD</a><h1>Dashboard<span id="leagueName"></span></h1></div>
+  <div class="header-brand">
+    <a href="/" class="mark">SCFBD</a>
+    <h1>Dashboard <span id="leagueName" style="color:var(--dim);font-weight:400;font-size:13px;margin-left:4px"></span></h1>
+  </div>
+  <nav class="header-nav" id="headerNav">
+    <div class="nav-tab active" data-view="roster" onclick="switchView('roster')">Roster</div>
+    <div class="nav-tab" data-view="standings" onclick="switchView('standings')">Standings</div>
+    <div class="nav-tab" data-view="matchups" onclick="switchView('matchups')">Matchups</div>
+    <div class="nav-tab" data-view="transactions" onclick="switchView('transactions')">Activity</div>
+  </nav>
   <div class="header-right">
+    <select class="league-select" id="leagueSelect" onchange="switchLeague(this.value)"><option value="">Loading...</option></select>
+    <div class="hdr-sep"></div>
     <div class="poll-ind"><div class="poll-dot" id="pollDot"></div><span id="pollStatus">—</span></div>
-    <div class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
-      <svg class="theme-toggle-icon" id="themeIconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-      <svg class="theme-toggle-icon" id="themeIconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-      <div class="theme-toggle-track"></div>
-    </div>
-    <a href="/live" class="btn-sm">Full Live View</a>
+    <div class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"><div class="theme-toggle-track"></div></div>
+    <a href="/live" class="btn-sm">Live View</a>
     <a href="/api/auth-logout" class="btn-sm" id="logoutBtn" style="display:none">Sign Out</a>
   </div>
 </div>
+
+<!-- ─── AUTH GATE ─── -->
 <div class="auth-gate" id="authGate">
   <h2>Sign in to continue</h2>
   <p>Connect your Yahoo Fantasy account to view your leagues, roster, standings, and matchups.</p>
   <a href="/api/auth-login" class="btn-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>Connect Yahoo Account</a>
 </div>
-<div class="app" id="appLayout" style="display:none">
-  <div class="sidebar">
-    <div class="league-sel"><select id="leagueSelect" onchange="switchLeague(this.value)"><option value="">Loading leagues...</option></select></div>
-    <div class="sb-label">Views</div>
-    <div class="sb-item active" data-view="roster" onclick="switchView('roster')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>My Roster</div>
-    <div class="sb-item" data-view="standings" onclick="switchView('standings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>Standings</div>
-    <div class="sb-item" data-view="matchups" onclick="switchView('matchups')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 3v18"/></svg>Matchups</div>
-    <div class="sb-item" data-view="transactions" onclick="switchView('transactions')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Transactions</div>
-  </div>
-  <!-- Mobile league selector (visible only on mobile) -->
-  <div class="mobile-league" id="mobileLeague"><select id="mobileLeagueSelect" onchange="switchLeague(this.value)"><option value="">Loading...</option></select></div>
+
+<!-- ─── APP ─── -->
+<div id="appLayout" style="display:none">
   <div class="main">
     <div id="view-roster" class="view-panel">
       <h2 class="pg-title">My Roster</h2>
@@ -296,7 +270,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
           <div class="tab-bar" id="rosterTabs"><button class="tab-btn active" data-tab="hitters" onclick="switchRosterTab('hitters')">Hitters</button><button class="tab-btn" data-tab="pitchers" onclick="switchRosterTab('pitchers')">Pitchers</button></div>
           <div class="period-bar" id="periodBar"><button class="period-btn active" data-period="season" onclick="switchPeriod('season')">Season</button><button class="period-btn" data-period="lastweek" onclick="switchPeriod('lastweek')">L7</button><button class="period-btn" data-period="lastmonth" onclick="switchPeriod('lastmonth')">L30</button><button class="period-btn" data-period="prevyear" onclick="switchPeriod('prevyear')">Prev Year</button></div>
         </div>
-        <div class="roster-toolbar-right"><button class="btn-save" id="saveLineupBtn" onclick="saveLineup()" title="Save lineup changes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Save Lineup</button></div>
+        <div class="roster-toolbar-right"><button class="btn-save" id="saveLineupBtn" onclick="saveLineup()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Save Lineup</button></div>
       </div>
       <div class="card"><div id="roster-hitters" class="tw"></div><div id="roster-pitchers" class="tw" style="display:none"></div></div>
     </div>
@@ -305,13 +279,15 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
     <div id="view-transactions" class="view-panel" style="display:none"><h2 class="pg-title">Transactions</h2><p class="pg-sub">Recent league activity</p><div class="card"><div id="transactions-content" class="loading"><div class="spinner"></div>Loading transactions...</div></div></div>
   </div>
 </div>
-<!-- Mobile Bottom Nav -->
+
+<!-- ─── MOBILE BOTTOM NAV ─── -->
 <nav class="mobile-nav" id="mobileNav">
   <div class="mob-tab active" data-view="roster" onclick="switchView('roster')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Roster</div>
   <div class="mob-tab" data-view="standings" onclick="switchView('standings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>Standings</div>
   <div class="mob-tab" data-view="matchups" onclick="switchView('matchups')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 3v18"/></svg>Matchups</div>
   <div class="mob-tab" data-view="transactions" onclick="switchView('transactions')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Activity</div>
 </nav>
+
 <script>
 const MLB='https://statsapi.mlb.com/api';
 
@@ -333,7 +309,7 @@ const PAbbr={'Four-Seam Fastball':'FF',Fastball:'FF',Sinker:'SI','Two-Seam Fastb
 function pitchColor(t){return PC[t]||'#8891a5'} function pitchAbbr(t){return PAbbr[t]||'--'}
 
 // ─── AUTH / YAHOO ───────────────────────────────────────
-async function checkAuth(){try{const r=await fetch('/api/auth-me'),d=await r.json();if(d.authenticated){document.getElementById('authGate').style.display='none';document.getElementById('appLayout').style.display='flex';document.getElementById('logoutBtn').style.display='';document.getElementById('mobileNav').classList.add('visible');loadLeagues();startLivePoll()}}catch(e){console.error(e)}}
+async function checkAuth(){try{const r=await fetch('/api/auth-me'),d=await r.json();if(d.authenticated){document.getElementById('authGate').style.display='none';document.getElementById('appLayout').style.display='block';document.getElementById('logoutBtn').style.display='';document.getElementById('mobileNav').classList.add('visible');loadLeagues();startLivePoll()}}catch(e){console.error(e)}}
 async function yahooGet(ep){const r=await fetch(`/api/yahoo?endpoint=${encodeURIComponent(ep)}`);if(r.status===401){window.location.href='/api/auth-login';return null}return r.ok?r.json():null}
 async function yahooPut(ep,xml){const r=await fetch(`/api/yahoo?endpoint=${encodeURIComponent(ep)}`,{method:'PUT',headers:{'Content-Type':'application/xml'},body:xml});if(r.status===401){window.location.href='/api/auth-login';return null}return r}
 
@@ -420,8 +396,8 @@ function getPlayerLiveStatus(playerName, teamAbbr){
 }
 
 // ─── VIEWS ──────────────────────────────────────────────
-function switchView(v){document.querySelectorAll('.view-panel').forEach(p=>p.style.display='none');document.querySelectorAll('.sb-item[data-view]').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.mob-tab[data-view]').forEach(i=>i.classList.remove('active'));document.getElementById(`view-${v}`).style.display='block';const sb=document.querySelector(`.sb-item[data-view="${v}"]`);if(sb)sb.classList.add('active');const mb=document.querySelector(`.mob-tab[data-view="${v}"]`);if(mb)mb.classList.add('active');if(currentLeague)loadViewData(v)}
-function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};pendingChanges={};refData={};expandedPlayer=null;updateSaveBtn();initLeagueData().then(()=>loadViewData(document.querySelector('.sb-item.active')?.dataset.view||'roster'))}
+function switchView(v){document.querySelectorAll('.view-panel').forEach(p=>p.style.display='none');document.querySelectorAll('.nav-tab[data-view]').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.mob-tab[data-view]').forEach(i=>i.classList.remove('active'));document.getElementById(`view-${v}`).style.display='block';const sb=document.querySelector(`.nav-tab[data-view="${v}"]`);if(sb)sb.classList.add('active');const mb=document.querySelector(`.mob-tab[data-view="${v}"]`);if(mb)mb.classList.add('active');if(currentLeague)loadViewData(v)}
+function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};pendingChanges={};refData={};expandedPlayer=null;updateSaveBtn();initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
 function switchRosterTab(t){rosterTab=t;document.querySelectorAll('#rosterTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.getElementById('roster-hitters').style.display=t==='hitters'?'':'none';document.getElementById('roster-pitchers').style.display=t==='pitchers'?'':'none'}
 function switchPeriod(p){currentPeriod=p;expandedPlayer=null;document.querySelectorAll('#periodBar .period-btn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));loadRoster()}
 function loadViewData(v){if(!currentLeague)return;({roster:loadRoster,standings:loadStandings,matchups:loadMatchups,transactions:loadTransactions}[v]||function(){})()}
@@ -429,8 +405,8 @@ function loadViewData(v){if(!currentLeague)return;({roster:loadRoster,standings:
 // ─── LEAGUES ────────────────────────────────────────────
 async function loadLeagues(){const data=await yahooGet('users;use_login=1/games;game_keys=mlb/leagues');if(!data)return;const leagues=[];try{const fc=data.fantasy_content||{},u=fc.users?.['0']?.user||[],games=u[1]?.games||{};for(let i=0;i<(games.count||0);i++){const g=games[String(i)]?.game||[];if(g.length>1){const gi=g[0];if(!gameKey)gameKey=gi.game_key;const gl=g[1]?.leagues||{};for(let j=0;j<(gl.count||0);j++){const lg=gl[String(j)]?.league||[];if(lg.length){const li=Array.isArray(lg)?lg[0]:lg;leagues.push({key:li.league_key,name:li.name,season:gi.season})}}}}}catch(e){console.error(e)}
 const sel=document.getElementById('leagueSelect');sel.innerHTML='';
-const mSel=document.getElementById('mobileLeagueSelect');if(mSel)mSel.innerHTML='';
-if(leagues.length){leagues.forEach(l=>{const o=document.createElement('option');o.value=l.key;o.textContent=`${l.name} (${l.season})`;sel.appendChild(o);if(mSel){const o2=o.cloneNode(true);mSel.appendChild(o2)}});currentLeagueKey=leagues[0].key;currentLeague=leagues[0].key;leagueSeason=leagues[0].season;document.getElementById('leagueName').textContent=leagues[0].name;
+
+if(leagues.length){leagues.forEach(l=>{const o=document.createElement('option');o.value=l.key;o.textContent=`${l.name} (${l.season})`;sel.appendChild(o);});currentLeagueKey=leagues[0].key;currentLeague=leagues[0].key;leagueSeason=leagues[0].season;document.getElementById('leagueName').textContent=leagues[0].name;
 await initLeagueData();loadViewData('roster')}else{sel.innerHTML='<option>No leagues found</option>'}}
 async function initLeagueData(){await Promise.all([loadStatCategories(),findMyTeam()])}
 async function loadStatCategories(){const d=await yahooGet(`league/${currentLeagueKey}/settings`);if(!d)return;try{const la=d.fantasy_content?.league;if(!la)return;let s=null;for(let i=0;i<la.length;i++)if(la[i]?.settings){s=la[i].settings;break}if(!s)return;const so=Array.isArray(s)?s[0]:s;statCategories={};for(const item of(so?.stat_categories?.stats||[])){const st=item.stat||item;if(st.stat_id!=null)statCategories[String(st.stat_id)]={display_name:st.display_name||''}}}catch(e){console.error(e)}}
@@ -595,7 +571,7 @@ async function loadTransactions(){const el=document.getElementById('transactions
 
 // ─── THEME ──────────────────────────────────────────────
 function initTheme(){applyTheme(localStorage.getItem('scfbd_theme')==='light'?'light':'dark')}
-function applyTheme(t){document.documentElement.setAttribute('data-theme',t);const s=document.getElementById('themeIconSun'),m=document.getElementById('themeIconMoon');if(s&&m){s.style.display=t==='light'?'':'none';m.style.display=t==='light'?'none':''}const mc=document.getElementById('metaThemeColor');if(mc)mc.content=t==='light'?'#ffffff':'#0a0c10'}
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);const mc=document.getElementById('metaThemeColor');if(mc)mc.content=t==='light'?'#ffffff':'#0a0c10'}
 function toggleTheme(){const n=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';applyTheme(n);localStorage.setItem('scfbd_theme',n)}
 
 // ─── INIT ───────────────────────────────────────────────
