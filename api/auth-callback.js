@@ -1,4 +1,4 @@
-const { encryptTokens, setSessionCookie, BASE_URL } = require('../../lib/auth');
+const { encryptTokens, setSessionCookie, BASE_URL } = require('./_auth');
 
 module.exports = async (req, res) => {
   const code = new URL(req.url, BASE_URL).searchParams.get('code');
@@ -14,7 +14,7 @@ module.exports = async (req, res) => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: `${BASE_URL}/api/auth/callback`,
+        redirect_uri: `${BASE_URL}/api/auth-callback`,
         client_id: process.env.YAHOO_CLIENT_ID,
         client_secret: process.env.YAHOO_CLIENT_SECRET,
       }),
@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
     const tokenData = await tokenResp.json();
     const jwe = await encryptTokens(tokenData);
     setSessionCookie(res, jwe);
-    res.writeHead(302, { Location: '/dashboard' });
+    res.writeHead(302, { Location: '/dashboard.html' });
     res.end();
   } catch (e) {
     console.error('Callback error:', e);
