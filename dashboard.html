@@ -279,7 +279,16 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
       <div class="card"><div id="roster-hitters" class="tw"></div><div id="roster-pitchers" class="tw" style="display:none"></div></div>
     </div>
     <div id="view-standings" class="view-panel" style="display:none"><h2 class="pg-title">Standings</h2><p class="pg-sub">League standings</p><div class="card"><div id="standings-content" class="loading"><div class="spinner"></div>Loading standings...</div></div></div>
-    <div id="view-matchups" class="view-panel" style="display:none"><h2 class="pg-title">Matchups</h2><p class="pg-sub">Current week scoreboard</p><div id="matchups-content" class="loading"><div class="spinner"></div>Loading matchups...</div></div>
+    <div id="view-matchups" class="view-panel" style="display:none">
+      <h2 class="pg-title">Matchups</h2>
+      <p class="pg-sub">Current week scoreboard</p>
+      <div class="tab-bar" id="muTabs" style="margin-bottom:16px">
+        <button class="tab-btn active" data-mutab="scores" onclick="switchMuTab('scores')">Matchups</button>
+        <button class="tab-btn" data-mutab="rankings" onclick="switchMuTab('rankings')">League Rankings</button>
+      </div>
+      <div id="mu-scores"><div id="matchups-content" class="loading"><div class="spinner"></div>Loading matchups...</div></div>
+      <div id="mu-rankings" style="display:none"><div id="rankings-content" class="loading"><div class="spinner"></div>Loading rankings...</div></div>
+    </div>
   </div>
 </div>
 
@@ -294,8 +303,9 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 const MLB='https://statsapi.mlb.com/api';
 
 // ─── STATE ──────────────────────────────────────────────
-let currentLeague=null,currentLeagueKey=null,myTeamKey=null,rosterTab='hitters',currentPeriod='season';
+let currentLeague=null,currentLeagueKey=null,myTeamKey=null,rosterTab='hitters',currentPeriod='season',muTab='scores';
 let statCategories={},rosterData=[],refData={},pendingChanges={},gameKey=null,leagueSeason=null;
+let allTeamsStats=[]; // collected from scoreboard for league rankings
 // Live state
 let mlbSchedule=[],liveFeeds={},expandedPlayer=null,livePollTimer=null,livePollSec=15;
 
@@ -631,45 +641,94 @@ function showStatus(m,t){const e=document.createElement('div');e.className=`stat
 // ─── STANDINGS / MATCHUPS / TX ──────────────────────────
 async function loadStandings(){const el=document.getElementById('standings-content');el.innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';const d=await yahooGet(`league/${currentLeagueKey}/standings`);if(!d){el.innerHTML='<div class="empty">Could not load</div>';return}const st=[];try{const sd=d.fantasy_content?.league?.[1]?.standings?.[0]?.teams||{};for(let i=0;i<(sd.count||0);i++){const t=sd[String(i)]?.team||[];if(t.length<2)continue;const info=t[0],ts=t[1]?.team_standings||{};let n='',l='',mg=[];for(const it of info)if(typeof it==='object'){if(it.name)n=it.name;if(it.team_logos)l=it.team_logos?.[0]?.team_logo?.url||'';if(it.managers)for(const m of it.managers)mg.push(m.manager?.nickname||'')}const oc=ts.outcome_totals||{};st.push({rank:ts.rank,name:n,logo:l,mgrs:mg,w:oc.wins||0,l:oc.losses||0,t:oc.ties||0,pct:oc.percentage||'.000',pf:ts.points_for||'—',pa:ts.points_against||'—',gb:ts.games_back||'—'})}}catch(e){}st.sort((a,b)=>(parseInt(a.rank)||99)-(parseInt(b.rank)||99));let h='<div class="tw"><table><thead><tr><th style="width:40px">#</th><th>Team</th><th>Record</th><th>Win %</th><th>PF</th><th>PA</th><th>GB</th></tr></thead><tbody>';st.forEach(t=>{h+=`<tr><td class="rank">${t.rank}</td><td><div class="tm-cell">${t.logo?`<img class="tm-logo" src="${t.logo}">`:''}
 <div><div class="tm-name">${t.name}</div><div class="tm-mgr">${t.mgrs.join(', ')}</div></div></div></td><td class="record">${t.w}-${t.l}${t.t>0?'-'+t.t:''}</td><td class="wpct">${t.pct}</td><td>${t.pf}</td><td>${t.pa}</td><td>${t.gb}</td></tr>`});el.innerHTML=h+'</tbody></table></div>'}
-async function loadMatchups(){const el=document.getElementById('matchups-content');el.innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';const d=await yahooGet(`league/${currentLeagueKey}/scoreboard`);if(!d){el.innerHTML='<div class="empty">Could not load</div>';return}const mu=[];try{const md=d.fantasy_content?.league?.[1]?.scoreboard?.['0']?.matchups||{};for(let i=0;i<(md.count||0);i++){const m=md[String(i)]?.matchup||{},tms=m['0']?.teams||{},teams=[];
-    // Parse stat_winners if available
-    let statWinners=[];try{const sw=m.stat_winners;if(Array.isArray(sw))for(const item of sw){const w=item.stat_winner||item;if(w)statWinners.push({stat_id:String(w.stat_id||''),winner:w.winner_team_key||'',is_tied:w.is_tied||0})}}catch(e){}
-    for(let j=0;j<(tms.count||0);j++){const t=tms[String(j)]?.team||[];if(t.length<2)continue;let n='',l='',tk='';
-      for(const it of t[0])if(typeof it==='object'){if(it.name)n=it.name;if(it.team_logos)l=it.team_logos?.[0]?.team_logo?.url||'';if(it.team_key)tk=it.team_key}
-      // Parse team_stats
-      let stats=[];for(let k=1;k<t.length;k++){const sub=t[k];if(sub?.team_stats){const ts=sub.team_stats;const sa=ts?.stats?.stat||(Array.isArray(ts?.stats)?ts.stats:[]);if(Array.isArray(sa))stats=sa.map(s=>({stat_id:String(s.stat_id),value:s.value}));break}}
-      teams.push({name:n,logo:l,pts:t[1]?.team_points?.total||'0',team_key:tk,stats})}
-    if(teams.length>=2)mu.push({teams,statWinners})}}catch(e){console.error('Matchups parse:',e)}
-  // Render
+async function loadMatchups(){
+  const el=document.getElementById('matchups-content');el.innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';
+  document.getElementById('rankings-content').innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';
+  const d=await yahooGet(`league/${currentLeagueKey}/scoreboard`);if(!d){el.innerHTML='<div class="empty">Could not load</div>';return}
+  const mu=[];allTeamsStats=[];
+  try{const md=d.fantasy_content?.league?.[1]?.scoreboard?.['0']?.matchups||{};
+    for(let i=0;i<(md.count||0);i++){const m=md[String(i)]?.matchup||{},tms=m['0']?.teams||{},teams=[];
+      let statWinners=[];try{const sw=m.stat_winners;if(Array.isArray(sw))for(const item of sw){const w=item.stat_winner||item;if(w)statWinners.push({stat_id:String(w.stat_id||''),winner:w.winner_team_key||'',is_tied:w.is_tied||0})}}catch(e){}
+      for(let j=0;j<(tms.count||0);j++){const t=tms[String(j)]?.team||[];if(t.length<2)continue;let n='',l='',tk='';
+        for(const it of t[0])if(typeof it==='object'){if(it.name)n=it.name;if(it.team_logos)l=it.team_logos?.[0]?.team_logo?.url||'';if(it.team_key)tk=it.team_key}
+        let stats=[];for(let k=1;k<t.length;k++){const sub=t[k];if(sub?.team_stats){const ts=sub.team_stats;const sa=ts?.stats?.stat||(Array.isArray(ts?.stats)?ts.stats:[]);if(Array.isArray(sa))stats=sa.map(s=>({stat_id:String(s.stat_id),value:s.value}));break}}
+        const tm={name:n,logo:l,pts:t[1]?.team_points?.total||'0',team_key:tk,stats};
+        teams.push(tm);
+        if(!allTeamsStats.find(x=>x.team_key===tk))allTeamsStats.push(tm)}
+      if(teams.length>=2)mu.push({teams,statWinners})}}catch(e){console.error('Matchups parse:',e)}
+  // Render matchups
   el.innerHTML=mu.map(m=>{
     const t1=m.teams[0],t2=m.teams[1],p1=parseFloat(t1.pts)||0,p2=parseFloat(t2.pts)||0;
-    // Count category wins for H2H
     let t1w=0,t2w=0,ties=0;
     for(const sw of(m.statWinners||[])){if(sw.is_tied)ties++;else if(sw.winner===t1.team_key)t1w++;else if(sw.winner===t2.team_key)t2w++}
     const hasCategories=m.statWinners.length>0;
-    // Stat table: horizontal - stats as columns, teams as rows
     let statRows='';
     if(t1.stats.length&&t2.stats.length){
       const ds=Object.entries(statCategories).filter(([,c])=>c.display_name);
-      // Header row: stat names
       statRows='<div class="tw" style="padding:0 16px 12px"><table style="width:100%;font-size:11px;border-collapse:collapse">';
       statRows+='<thead><tr><th style="padding:6px 8px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);min-width:80px">Team</th>';
       for(const[,cat]of ds)statRows+=`<th style="padding:6px 6px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${cat.display_name}</th>`;
       statRows+='</tr></thead><tbody>';
-      // Team 1 row
       statRows+=`<tr><td style="padding:6px 8px;font-weight:600;font-size:12px;border-bottom:1px solid var(--border)">${t1.name}</td>`;
       for(const[sid,cat]of ds){const v=t1.stats.find(s=>s.stat_id===sid)?.value||'—';const sw=m.statWinners.find(w=>w.stat_id===sid);const win=sw&&sw.winner===t1.team_key;const tied=sw&&sw.is_tied;
         statRows+=`<td style="padding:6px 6px;text-align:center;font-family:var(--mono);font-size:12px;font-weight:${win?'700':'500'};color:${win?'var(--green)':tied?'var(--dim)':'var(--text)'};border-bottom:1px solid var(--border)">${fmtStat(v,cat.display_name)}</td>`}
       statRows+='</tr>';
-      // Team 2 row
       statRows+=`<tr><td style="padding:6px 8px;font-weight:600;font-size:12px">${t2.name}</td>`;
       for(const[sid,cat]of ds){const v=t2.stats.find(s=>s.stat_id===sid)?.value||'—';const sw=m.statWinners.find(w=>w.stat_id===sid);const win=sw&&sw.winner===t2.team_key;const tied=sw&&sw.is_tied;
         statRows+=`<td style="padding:6px 6px;text-align:center;font-family:var(--mono);font-size:12px;font-weight:${win?'700':'500'};color:${win?'var(--green)':tied?'var(--dim)':'var(--text)'}">${fmtStat(v,cat.display_name)}</td>`}
       statRows+='</tr></tbody></table></div>'}
-    // Category record line
     const catLine=hasCategories?`<div style="text-align:center;font-family:var(--mono);font-size:12px;font-weight:700;padding:4px 0;color:var(--dim)"><span style="color:${t1w>t2w?'var(--green)':'var(--text)'}">${t1w}</span> — <span style="color:${t2w>t1w?'var(--green)':'var(--text)'}">${t2w}</span>${ties?' — <span>'+ties+'</span>':''}</div>`:'';
     return`<div class="mu-card"><div class="mu-vs"><div class="mu-tm">${t1.logo?`<img class="tm-logo" src="${t1.logo}">`:''}
-<div><div class="tm-name">${t1.name}</div><div class="mu-score ${p1>=p2?'winning':'losing'}">${t1.pts}</div></div></div><div class="mu-div">${hasCategories?`${t1w}-${t2w}${ties?'-'+ties:''}`:'VS'}</div><div class="mu-tm right"><div><div class="tm-name">${t2.name}</div><div class="mu-score ${p2>=p1?'winning':'losing'}">${t2.pts}</div></div>${t2.logo?`<img class="tm-logo" src="${t2.logo}">`:''}</div></div>${catLine}${statRows}</div>`}).join('')||'<div class="empty">No matchups this week</div>'}
+<div><div class="tm-name">${t1.name}</div><div class="mu-score ${p1>=p2?'winning':'losing'}">${t1.pts}</div></div></div><div class="mu-div">${hasCategories?`${t1w}-${t2w}${ties?'-'+ties:''}`:'VS'}</div><div class="mu-tm right"><div><div class="tm-name">${t2.name}</div><div class="mu-score ${p2>=p1?'winning':'losing'}">${t2.pts}</div></div>${t2.logo?`<img class="tm-logo" src="${t2.logo}">`:''}</div></div>${catLine}${statRows}</div>`}).join('')||'<div class="empty">No matchups this week</div>';
+  renderLeagueRankings()}
+
+function switchMuTab(tab){
+  muTab=tab;
+  document.querySelectorAll('#muTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.mutab===tab));
+  document.getElementById('mu-scores').style.display=tab==='scores'?'':'none';
+  document.getElementById('mu-rankings').style.display=tab==='rankings'?'':'none'}
+
+function renderLeagueRankings(){
+  const el=document.getElementById('rankings-content');
+  if(!allTeamsStats.length||!Object.keys(statCategories).length){el.innerHTML='<div class="empty">No data available</div>';return}
+  const ds=Object.entries(statCategories).filter(([,c])=>c.display_name);
+  const n=allTeamsStats.length;
+  // Compute rank per stat for each team
+  const ranks={};// { team_key: { stat_id: rank } }
+  for(const[sid,cat]of ds){
+    const lb=LOWER_IS_BETTER.includes(cat.display_name);
+    const sorted=[...allTeamsStats].sort((a,b)=>{
+      const va=parseFloat(a.stats.find(s=>s.stat_id===sid)?.value)||0;
+      const vb=parseFloat(b.stats.find(s=>s.stat_id===sid)?.value)||0;
+      return lb?(va-vb):(vb-va)});
+    sorted.forEach((t,i)=>{if(!ranks[t.team_key])ranks[t.team_key]={};ranks[t.team_key][sid]=i+1})}
+  // Sort teams by total rank points (sum of ranks, lower = better)
+  const teamsWithTotal=allTeamsStats.map(t=>{
+    const r=ranks[t.team_key]||{};
+    const total=Object.values(r).reduce((a,b)=>a+b,0);
+    return{...t,ranks:r,totalRank:total}});
+  teamsWithTotal.sort((a,b)=>a.totalRank-b.totalRank);
+  // Render table
+  let h='<div class="card"><div class="tw"><table style="width:100%;font-size:12px;border-collapse:collapse">';
+  h+='<thead><tr><th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);width:32px">#</th>';
+  h+='<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);min-width:100px">Team</th>';
+  for(const[,cat]of ds)h+=`<th style="padding:8px 6px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${cat.display_name}</th>`;
+  h+='</tr></thead><tbody>';
+  teamsWithTotal.forEach((t,idx)=>{
+    const isMe=t.team_key&&myTeamKey&&t.team_key===myTeamKey;
+    h+=`<tr style="${isMe?'background:var(--green-dim)':''}">`;
+    h+=`<td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-weight:700;color:var(--dim);border-top:1px solid var(--border)">${idx+1}</td>`;
+    h+=`<td style="padding:6px 10px;font-weight:600;border-top:1px solid var(--border);white-space:nowrap">${t.logo?`<img src="${t.logo}" style="width:20px;height:20px;border-radius:4px;vertical-align:middle;margin-right:6px">`:''}${t.name}</td>`;
+    for(const[sid,cat]of ds){
+      const v=t.stats.find(s=>s.stat_id===sid)?.value||'—';
+      const rank=t.ranks[sid]||n;
+      // Color: top third green, bottom third red, middle neutral
+      const third=Math.ceil(n/3);
+      const clr=rank<=third?'var(--green)':rank>n-third?'var(--red)':'var(--text)';
+      const fw=rank<=third?'700':'500';
+      h+=`<td style="padding:6px 6px;text-align:center;font-family:var(--mono);font-size:12px;border-top:1px solid var(--border);color:${clr};font-weight:${fw}"><div>${fmtStat(v,cat.display_name)}</div><div style="font-size:9px;color:var(--muted);font-weight:600">${rank}${rank===1?'st':rank===2?'nd':rank===3?'rd':'th'}</div></td>`}
+    h+='</tr>'});
+  el.innerHTML=h+'</tbody></table></div></div>'}
 
 // ─── THEME ──────────────────────────────────────────────
 function initTheme(){applyTheme(localStorage.getItem('scfbd_theme')==='light'?'light':'dark')}
