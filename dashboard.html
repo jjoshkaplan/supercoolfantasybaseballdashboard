@@ -203,27 +203,65 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .pg-title-row{gap:8px}
   .pg-title-row .btn-save{padding:4px 10px;font-size:10px;border-radius:5px;gap:4px;min-height:28px}
   .pg-title-row .btn-save svg{width:11px;height:11px}
-  .tab-bar{width:100%}.tab-btn{flex:1;text-align:center;padding:10px 12px;min-height:44px}
-  .period-bar{width:100%;justify-content:stretch}.period-btn{flex:1;text-align:center;padding:8px 6px;min-height:44px;font-size:11px}
-  table .col-player{position:static;min-width:120px}
+
+  /* Scrollable tab bars — no cramming */
+  .tab-bar{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap}
+  .tab-bar::-webkit-scrollbar{display:none}
+  .tab-btn{flex:0 0 auto;text-align:center;padding:10px 14px;min-height:44px;font-size:12px}
+
+  /* Scrollable period bar */
+  .period-bar{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap}
+  .period-bar::-webkit-scrollbar{display:none}
+  .period-btn{flex:0 0 auto;text-align:center;padding:8px 12px;min-height:44px;font-size:11px}
+
+  /* Roster table */
+  table .col-player{position:static;min-width:110px}
   table .col-pos{width:32px;min-width:32px;padding-left:4px;padding-right:2px}
   .pos-select{min-width:30px;padding:4px 2px;min-height:28px;font-size:10px!important;border-radius:4px}
   .player-cell{gap:5px}.player-hs{width:22px;height:22px}
   .player-info .name{font-size:12px}.player-info .meta{font-size:9px}
   tbody td.num{font-size:11px}
   .trend-arrow{font-size:8px}
-  tbody td{padding:6px 6px}thead th{padding:7px 6px;font-size:9px}
-  .game-cell{gap:5px;min-width:100px;font-size:11px}.gc-score{font-size:10px}.gc-status{font-size:9px;padding:2px 5px}
+  tbody td{padding:6px 5px}thead th{padding:7px 5px;font-size:9px}
+
+  /* Game cell */
+  .game-cell{gap:4px;min-width:85px;font-size:10px}.gc-score{font-size:9px}.gc-score .abbr{width:20px}.gc-inn{font-size:9px}
+  .gc-status{font-size:8px;padding:2px 4px}
+
+  /* Statcast */
   .sc-body{flex-direction:column}.sc-left{flex:none;border-right:none;border-bottom:1px solid var(--border)}
   .sc-panel{margin:0 4px 4px}.sc-left,.sc-right{padding:8px}
   .sc-left svg,.sc-right svg{max-width:100%;height:auto}
+
+  /* Touch targets */
   .btn-sm,.tab-btn,.period-btn,.mob-tab{min-height:44px;display:flex;align-items:center;justify-content:center}
+
+  /* Auth gate */
   .auth-gate{padding:40px 24px;padding-top:calc(60px + env(safe-area-inset-top))}
   .auth-gate h2{font-size:24px}.auth-gate p{font-size:14px}
   .btn-lg{padding:14px 24px;font-size:15px;width:100%;justify-content:center}
-  .mu-card{padding:12px 14px}.mu-score{font-size:18px}
+
+  /* Matchup cards */
+  .mu-card{padding:10px 10px;margin-bottom:10px}.mu-score{font-size:16px}
+  .mu-vs{gap:4px}.mu-tm{gap:6px}.mu-div{padding:0 6px;font-size:11px}
+  .tm-name{font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tm-logo{width:22px;height:22px;border-radius:4px}
+
+  /* Matchup stat table mobile */
+  .mu-card .tw{padding:0 4px 8px!important}
+  .mu-card .tw table{font-size:10px!important}
+  .mu-card .tw th{padding:5px 4px!important;font-size:8px!important}
+  .mu-card .tw td{padding:4px 3px!important;font-size:10px!important}
+
+  /* Rankings table mobile */
+  #rankings-content .card{border-radius:8px}
+  #rankings-content table{font-size:10px}
+  #rankings-content th{padding:6px 4px!important;font-size:8px!important}
+  #rankings-content td{padding:5px 3px!important;font-size:10px!important}
+  #rankings-content td div:last-child{font-size:8px!important}
+
   .status-msg{bottom:calc(72px + env(safe-area-inset-bottom) + 8px)}
-  .pg-title{font-size:18px}.pg-sub{font-size:13px;margin-bottom:12px}
+  .pg-title{font-size:18px}.pg-sub{font-size:12px;margin-bottom:10px}
 }
 
 /* ─── LIGHT OVERRIDES ─── */
@@ -273,7 +311,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
       <div class="roster-toolbar">
         <div class="roster-toolbar-left">
           <div class="tab-bar" id="rosterTabs"><button class="tab-btn active" data-tab="hitters" onclick="switchRosterTab('hitters')">Hitters</button><button class="tab-btn" data-tab="pitchers" onclick="switchRosterTab('pitchers')">Pitchers</button></div>
-          <div class="period-bar" id="periodBar"><button class="period-btn" data-period="today" onclick="switchPeriod('today')">Today</button><button class="period-btn active" data-period="season" onclick="switchPeriod('season')">Season</button><button class="period-btn" data-period="lastweek" onclick="switchPeriod('lastweek')">L7</button><button class="period-btn" data-period="lastmonth" onclick="switchPeriod('lastmonth')">L30</button><button class="period-btn" data-period="prevyear" onclick="switchPeriod('prevyear')">Prev Year</button></div>
+          <div class="period-bar" id="periodBar"><button class="period-btn" data-period="today" onclick="switchPeriod('today')">Today</button><button class="period-btn active" data-period="season" onclick="switchPeriod('season')">Season</button><button class="period-btn" data-period="lastweek" onclick="switchPeriod('lastweek')">L7</button><button class="period-btn" data-period="lastmonth" onclick="switchPeriod('lastmonth')">L30</button><button class="period-btn" data-period="prevyear" onclick="switchPeriod('prevyear')">Prev Yr</button></div>
         </div>
       </div>
       <div class="card"><div id="roster-hitters" class="tw"></div><div id="roster-pitchers" class="tw" style="display:none"></div></div>
@@ -306,6 +344,7 @@ const MLB='https://statsapi.mlb.com/api';
 let currentLeague=null,currentLeagueKey=null,myTeamKey=null,rosterTab='hitters',currentPeriod='season',muTab='scores';
 let statCategories={},rosterData=[],refData={},pendingChanges={},gameKey=null,leagueSeason=null;
 let allTeamsStats=[]; // collected from scoreboard for league rankings
+let rankSortId=null; // stat_id to sort rankings by, null = overall rank
 // Live state
 let mlbSchedule=[],liveFeeds={},expandedPlayer=null,livePollTimer=null,livePollSec=15;
 
@@ -688,13 +727,15 @@ function switchMuTab(tab){
   document.getElementById('mu-scores').style.display=tab==='scores'?'':'none';
   document.getElementById('mu-rankings').style.display=tab==='rankings'?'':'none'}
 
+function sortRankings(sid){rankSortId=rankSortId===sid?null:sid;renderLeagueRankings()}
+
 function renderLeagueRankings(){
   const el=document.getElementById('rankings-content');
   if(!allTeamsStats.length||!Object.keys(statCategories).length){el.innerHTML='<div class="empty">No data available</div>';return}
   const ds=Object.entries(statCategories).filter(([,c])=>c.display_name);
   const n=allTeamsStats.length;
   // Compute rank per stat for each team
-  const ranks={};// { team_key: { stat_id: rank } }
+  const ranks={};
   for(const[sid,cat]of ds){
     const lb=LOWER_IS_BETTER.includes(cat.display_name);
     const sorted=[...allTeamsStats].sort((a,b)=>{
@@ -702,17 +743,31 @@ function renderLeagueRankings(){
       const vb=parseFloat(b.stats.find(s=>s.stat_id===sid)?.value)||0;
       return lb?(va-vb):(vb-va)});
     sorted.forEach((t,i)=>{if(!ranks[t.team_key])ranks[t.team_key]={};ranks[t.team_key][sid]=i+1})}
-  // Sort teams by total rank points (sum of ranks, lower = better)
+  // Build teams with ranks
   const teamsWithTotal=allTeamsStats.map(t=>{
     const r=ranks[t.team_key]||{};
     const total=Object.values(r).reduce((a,b)=>a+b,0);
     return{...t,ranks:r,totalRank:total}});
-  teamsWithTotal.sort((a,b)=>a.totalRank-b.totalRank);
-  // Render table
+  // Sort: by selected stat column or by overall rank
+  if(rankSortId){
+    const lb=LOWER_IS_BETTER.includes(statCategories[rankSortId]?.display_name);
+    teamsWithTotal.sort((a,b)=>{
+      const va=parseFloat(a.stats.find(s=>s.stat_id===rankSortId)?.value)||0;
+      const vb=parseFloat(b.stats.find(s=>s.stat_id===rankSortId)?.value)||0;
+      return lb?(va-vb):(vb-va)})
+  } else {
+    teamsWithTotal.sort((a,b)=>a.totalRank-b.totalRank)}
+  // Render
+  const thStyle='padding:8px 6px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s';
   let h='<div class="card"><div class="tw"><table style="width:100%;font-size:12px;border-collapse:collapse">';
-  h+='<thead><tr><th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);width:32px">#</th>';
-  h+='<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);min-width:100px">Team</th>';
-  for(const[,cat]of ds)h+=`<th style="padding:8px 6px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${cat.display_name}</th>`;
+  h+='<thead><tr>';
+  // Overall rank column header
+  const ovActive=!rankSortId;
+  h+=`<th onclick="sortRankings(null)" style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700;border-bottom:1px solid var(--border);width:32px;cursor:pointer;color:${ovActive?'var(--green)':'var(--muted)'}">#</th>`;
+  h+=`<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);min-width:100px">Team</th>`;
+  for(const[sid,cat]of ds){
+    const isActive=rankSortId===sid;
+    h+=`<th onclick="sortRankings('${sid}')" style="${thStyle};color:${isActive?'var(--green)':'var(--muted)'}"><span style="display:inline-flex;align-items:center;gap:2px">${cat.display_name}${isActive?' ▼':''}</span></th>`}
   h+='</tr></thead><tbody>';
   teamsWithTotal.forEach((t,idx)=>{
     const isMe=t.team_key&&myTeamKey&&t.team_key===myTeamKey;
@@ -722,11 +777,11 @@ function renderLeagueRankings(){
     for(const[sid,cat]of ds){
       const v=t.stats.find(s=>s.stat_id===sid)?.value||'—';
       const rank=t.ranks[sid]||n;
-      // Color: top third green, bottom third red, middle neutral
       const third=Math.ceil(n/3);
       const clr=rank<=third?'var(--green)':rank>n-third?'var(--red)':'var(--text)';
       const fw=rank<=third?'700':'500';
-      h+=`<td style="padding:6px 6px;text-align:center;font-family:var(--mono);font-size:12px;border-top:1px solid var(--border);color:${clr};font-weight:${fw}"><div>${fmtStat(v,cat.display_name)}</div><div style="font-size:9px;color:var(--muted);font-weight:600">${rank}${rank===1?'st':rank===2?'nd':rank===3?'rd':'th'}</div></td>`}
+      const isCol=rankSortId===sid;
+      h+=`<td style="padding:6px 6px;text-align:center;font-family:var(--mono);font-size:12px;border-top:1px solid var(--border);color:${clr};font-weight:${fw};${isCol?'background:var(--surface-2)':''}"><div>${fmtStat(v,cat.display_name)}</div><div style="font-size:9px;color:var(--muted);font-weight:600">${rank}${rank===1?'st':rank===2?'nd':rank===3?'rd':'th'}</div></td>`}
     h+='</tr>'});
   el.innerHTML=h+'</tbody></table></div></div>'}
 
