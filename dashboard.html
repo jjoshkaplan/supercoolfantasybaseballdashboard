@@ -1206,7 +1206,9 @@ async function loadMatchups(){
     const hasCategories=m.statWinners.length>0;
     let statRows='';
     if(t1.stats.length&&t2.stats.length){
-      const ds=Object.entries(statCategories).filter(([,c])=>c.display_name&&!['H','AB'].includes(c.display_name));
+      const HIDE_CATS=['H','AB','H/AB','Hits','At Bats'];
+      const ds=Object.entries(statCategories).filter(([,c])=>c.display_name&&!HIDE_CATS.includes(c.display_name));
+      console.log('[Matchups] All stat categories:',Object.entries(statCategories).map(([id,c])=>`${id}=${c.display_name}`).join(', '));
       statRows='<div class="tw" style="padding:0 16px 12px"><table style="width:100%;font-size:11px;border-collapse:collapse">';
       statRows+='<thead><tr><th style="padding:6px 8px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);min-width:80px">Team</th>';
       for(const[,cat]of ds)statRows+=`<th style="padding:6px 6px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${cat.display_name}</th>`;
@@ -1235,7 +1237,8 @@ function sortRankings(sid){rankSortId=rankSortId===sid?null:sid;renderLeagueRank
 function renderLeagueRankings(){
   const el=document.getElementById('rankings-content');
   if(!allTeamsStats.length||!Object.keys(statCategories).length){el.innerHTML='<div class="empty">No data available</div>';return}
-  const ds=Object.entries(statCategories).filter(([,c])=>c.display_name&&!['H','AB'].includes(c.display_name));
+  const HIDE_CATS=['H','AB','H/AB','Hits','At Bats'];
+  const ds=Object.entries(statCategories).filter(([,c])=>c.display_name&&!HIDE_CATS.includes(c.display_name));
   const n=allTeamsStats.length;
   // Compute rank per stat for each team
   const ranks={};
