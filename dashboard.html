@@ -1171,13 +1171,30 @@ async function loadMatchups(){
   const el=document.getElementById('matchups-content');el.innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';
   document.getElementById('rankings-content').innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';
   const d=await yahooGet(`league/${currentLeagueKey}/scoreboard`);if(!d){el.innerHTML='<div class="empty">Could not load</div>';return}
+  console.log('[Matchups] Raw scoreboard response:',JSON.stringify(d).slice(0,1000));
   const mu=[];allTeamsStats=[];
   try{const md=d.fantasy_content?.league?.[1]?.scoreboard?.['0']?.matchups||{};
+    console.log('[Matchups] Matchup count:',md.count);
     for(let i=0;i<(md.count||0);i++){const m=md[String(i)]?.matchup||{},tms=m['0']?.teams||{},teams=[];
       let statWinners=[];try{const sw=m.stat_winners;if(Array.isArray(sw))for(const item of sw){const w=item.stat_winner||item;if(w)statWinners.push({stat_id:String(w.stat_id||''),winner:w.winner_team_key||'',is_tied:w.is_tied||0})}}catch(e){}
       for(let j=0;j<(tms.count||0);j++){const t=tms[String(j)]?.team||[];if(t.length<2)continue;let n='',l='',tk='';
         for(const it of t[0])if(typeof it==='object'){if(it.name)n=it.name;if(it.team_logos)l=it.team_logos?.[0]?.team_logo?.url||'';if(it.team_key)tk=it.team_key}
-        let stats=[];for(let k=1;k<t.length;k++){const sub=t[k];if(sub?.team_stats){const ts=sub.team_stats;const sa=ts?.stats?.stat||(Array.isArray(ts?.stats)?ts.stats:[]);if(Array.isArray(sa))stats=sa.map(s=>({stat_id:String(s.stat_id),value:s.value}));break}}
+        // Parse team stats — try multiple response shapes
+        let stats=[];
+        for(let k=1;k<t.length;k++){
+          const sub=t[k];if(!sub)continue;
+          // Shape 1: {team_stats: {stats: {stat: [...]}}}
+          if(sub.team_stats){
+            const ts=sub.team_stats;
+            let sa=null;
+            if(ts.stats?.stat&&Array.isArray(ts.stats.stat))sa=ts.stats.stat;
+            else if(Array.isArray(ts.stats))sa=ts.stats;
+            else if(ts.stats?.stat)sa=[ts.stats.stat];
+            // Shape 2: stats is array of {stat:{stat_id,value}}
+            if(!sa){try{const inner=Object.values(ts.stats||{});if(inner.length)sa=inner.flatMap(x=>x.stat?[x.stat]:Array.isArray(x)?x:[])}catch(e){}}
+            if(Array.isArray(sa)){stats=sa.map(s=>{const st=s.stat||s;return{stat_id:String(st.stat_id),value:st.value}}).filter(s=>s.stat_id&&s.value!==undefined)}
+            if(i===0&&j===0)console.log('[Matchups] Team stats shape:',JSON.stringify(ts).slice(0,500),'parsed:',stats.length,'stats');
+            break}}
         const tm={name:n,logo:l,pts:t[1]?.team_points?.total||'0',team_key:tk,stats};
         teams.push(tm);
         if(!allTeamsStats.find(x=>x.team_key===tk))allTeamsStats.push(tm)}
