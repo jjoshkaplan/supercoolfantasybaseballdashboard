@@ -439,7 +439,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 <div id="appLayout" style="display:none">
   <div class="main">
     <div id="view-roster" class="view-panel">
-      <div class="pg-title-row"><h2 class="pg-title">My Roster</h2><button class="btn-save" id="saveLineupBtn" onclick="saveLineup()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Save Lineup</button></div>
+      <div class="pg-title-row"><h2 class="pg-title">My Roster</h2></div>
       <p class="pg-sub" id="rosterSub">Loading roster data...</p>
       <div class="roster-toolbar">
         <div class="roster-toolbar-left">
@@ -495,7 +495,7 @@ const MLB='https://statsapi.mlb.com/api';
 
 // ─── STATE ──────────────────────────────────────────────
 let currentLeague=null,currentLeagueKey=null,myTeamKey=null,rosterTab='hitters',currentPeriod='today',muTab='scores';
-let statCategories={},rosterData=[],refData={},pendingChanges={},gameKey=null,leagueSeason=null;
+let statCategories={},rosterData=[],refData={},gameKey=null,leagueSeason=null;
 let allTeamsStats=[]; // collected from scoreboard for league rankings
 let rankSortId=null; // stat_id to sort rankings by, null = overall rank
 // Live state
@@ -540,7 +540,6 @@ function pitchColor(t){return PC[t]||'#8891a5'} function pitchAbbr(t){return PAb
 // ─── AUTH / YAHOO ───────────────────────────────────────
 async function checkAuth(){try{const r=await fetch('/api/auth-me'),d=await r.json();if(d.authenticated){document.getElementById('authGate').style.display='none';document.getElementById('appLayout').style.display='block';document.getElementById('logoutBtn').style.display='';document.getElementById('mobileNav').classList.add('visible');loadLeagues();startLivePoll()}}catch(e){console.error(e)}}
 async function yahooGet(ep){const r=await fetch(`/api/yahoo?endpoint=${encodeURIComponent(ep)}`);if(r.status===401){window.location.href='/api/auth-login';return null}return r.ok?r.json():null}
-async function yahooPut(ep,xml){const r=await fetch(`/api/yahoo?endpoint=${encodeURIComponent(ep)}`,{method:'PUT',headers:{'Content-Type':'application/xml'},body:xml});if(r.status===401){window.location.href='/api/auth-login';return null}return r}
 
 // ─── MLB LIVE POLLING ───────────────────────────────────
 async function fetchMLBSchedule(){try{const n=new Date(),td=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;const r=await fetch(`${MLB}/v1/schedule?sportId=1&date=${td}&hydrate=probablePitcher,team,linescore`);const d=await r.json();mlbSchedule=(d.dates||[]).flatMap(x=>x.games||[])}catch(e){console.error(e)}}
@@ -705,7 +704,7 @@ function getPlayerLiveStatus(playerName, teamAbbr, playerType){
 
 // ─── VIEWS ──────────────────────────────────────────────
 function switchView(v){document.querySelectorAll('.view-panel').forEach(p=>p.style.display='none');document.querySelectorAll('.nav-tab[data-view]').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.mob-tab[data-view]').forEach(i=>i.classList.remove('active'));document.getElementById(`view-${v}`).style.display='block';const sb=document.querySelector(`.nav-tab[data-view="${v}"]`);if(sb)sb.classList.add('active');const mb=document.querySelector(`.mob-tab[data-view="${v}"]`);if(mb)mb.classList.add('active');if(currentLeague)loadViewData(v)}
-function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};pendingChanges={};refData={};expandedPlayer=null;splitsCache={};todayPanelMode={};waiverPlayers=[];waiverOffset=0;expandedWaiver=null;wwCompareStats={};sparklineCache={};sparklineLoading.clear();updateSaveBtn();initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
+function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};refData={};expandedPlayer=null;splitsCache={};todayPanelMode={};waiverPlayers=[];waiverOffset=0;expandedWaiver=null;wwCompareStats={};sparklineCache={};sparklineLoading.clear();initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
 function switchRosterTab(t){rosterTab=t;document.querySelectorAll('#rosterTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.getElementById('roster-hitters').style.display=t==='hitters'?'':'none';document.getElementById('roster-pitchers').style.display=t==='pitchers'?'':'none'}
 function switchPeriod(p){currentPeriod=p;expandedPlayer=null;todayPanelMode={};document.querySelectorAll('#periodBar .period-btn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));loadRoster()}
 function updatePeriodLabels(){const sy=parseInt(leagueSeason||2026);const m={season:String(sy),prevyear:String(sy-1)};document.querySelectorAll('#periodBar .period-btn').forEach(b=>{if(m[b.dataset.period])b.textContent=m[b.dataset.period]})}
@@ -1143,9 +1142,8 @@ function buildTable(players,sn,ht){
   let bench=false;
   for(const p of players){
     if(BENCH_POSITIONS.includes(p.selPos)&&!bench){bench=true;html+=`<tr><td colspan="${cols}" style="padding:3px 12px;background:var(--surface-2);border-top:2px solid var(--border)"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">Bench / IL</span></td></tr>`}
-    const ch=pendingChanges[p.playerKey]&&pendingChanges[p.playerKey]!==p.selPos;
     const isExp=expandedPlayer===p.playerKey;
-    html+=`<tr class="${ch?'editing':''} ${isExp?'expanded':''}" onclick="toggleExpand('${p.playerKey}',event)">`;
+    html+=`<tr class="${isExp?'expanded':''}" onclick="toggleExpand('${p.playerKey}',event)">`;
     // Pos
     html+=`<td class="col-pos">${posSelect(p)}</td>`;
     // Player
@@ -1193,10 +1191,7 @@ function getPlayerABs(f,playerName){
   return[]}
 
 function posSelect(p){
-  const c=pendingChanges[p.playerKey]||p.selPos,el=p.eligPos.length?p.eligPos:[p.selPos];
-  const opts=[...new Set([...el,'BN','IL','IL+','DL','NA'].filter(Boolean))];
-  const cc=pendingChanges[p.playerKey]&&pendingChanges[p.playerKey]!==p.selPos?'changed':'';
-  return`<select class="pos-select ${cc}" onclick="event.stopPropagation()" onchange="onPosChange('${p.playerKey}','${p.selPos}',this.value)">${opts.map(o=>`<option value="${o}"${o===c?' selected':''}>${o}</option>`).join('')}</select>`}
+  return`<span class="pos-select" style="cursor:default">${p.selPos}</span>`}
 
 // ─── EXPAND / STATCAST ──────────────────────────────────
 function toggleExpand(pk,ev){if(ev.target.tagName==='SELECT'||ev.target.tagName==='OPTION')return;expandedPlayer=expandedPlayer===pk?null:pk;renderRoster()}
@@ -1808,9 +1803,7 @@ function buildStatcastLive(p,ls){
   return html+'</div>'}
 
 // ─── LINEUP ─────────────────────────────────────────────
-function onPosChange(pk,orig,nw){if(nw===orig)delete pendingChanges[pk];else pendingChanges[pk]=nw;updateSaveBtn();renderRoster()}
-function updateSaveBtn(){const b=document.getElementById('saveLineupBtn'),c=Object.keys(pendingChanges).length;b.classList.toggle('visible',c>0);b.textContent=c>0?`Save Lineup (${c})`:'Save Lineup'}
-async function saveLineup(){const ch=Object.entries(pendingChanges);if(!ch.length||!myTeamKey)return;const b=document.getElementById('saveLineupBtn');b.disabled=true;b.textContent='Saving...';const n=new Date(),d=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;const px=ch.map(([k,p])=>`<player><player_key>${k}</player_key><position>${p}</position></player>`).join('');const xml=`<?xml version='1.0'?><fantasy_content><roster><coverage_type>date</coverage_type><date>${d}</date><players>${px}</players></roster></fantasy_content>`;console.log('[SaveLineup] XML:',xml);try{const r=await yahooPut(`team/${myTeamKey}/roster`,xml);if(r&&r.ok){pendingChanges={};updateSaveBtn();showStatus('Lineup saved!','success');loadRoster()}else{let detail='';try{const j=await r.json();detail=j.detail||j.error||'';console.error('[SaveLineup] Yahoo error:',j)}catch(e2){console.error('[SaveLineup] Response not JSON')}showStatus(detail?`Save failed: ${detail.slice(0,80)}`:'Save failed — check positions','error')}}catch(e){console.error('[SaveLineup] Exception:',e);showStatus('Save failed','error')}b.disabled=false}
+
 function showStatus(m,t){const e=document.createElement('div');e.className=`status-msg ${t}`;e.textContent=m;document.body.appendChild(e);setTimeout(()=>e.remove(),3000)}
 
 // ─── STANDINGS / MATCHUPS / TX ──────────────────────────
