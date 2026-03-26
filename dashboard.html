@@ -251,6 +251,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .header-nav{display:none}
   .header-right .btn-sm{display:none}
   .header-right .hdr-sep{display:none}
+  #hdrCompareBtn{display:none!important}
   .header-right{gap:8px;margin-left:auto}
   .league-select{max-width:140px;padding:6px 24px 6px 8px;font-size:12px!important}
   .main{width:100%;padding:12px 4px;padding-bottom:calc(68px + env(safe-area-inset-bottom));padding-left:calc(4px + env(safe-area-inset-left));padding-right:calc(4px + env(safe-area-inset-right));overflow-x:hidden;max-width:100vw}
@@ -369,6 +370,78 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 [data-theme="light"] table .col-pos,[data-theme="light"] table .col-player{background:var(--surface)}
 [data-theme="light"] thead .col-pos,[data-theme="light"] thead .col-player{background:var(--surface-2)}
 [data-theme="light"] tbody tr:hover .col-pos,[data-theme="light"] tbody tr:hover .col-player{background:var(--surface-2)}
+
+/* ─── WAIVER WIRE ─── */
+.ww-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.ww-pos-bar{display:flex;gap:2px;background:var(--surface-2);border-radius:8px;padding:3px;flex-wrap:wrap}
+.ww-pos-btn{padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;font-family:var(--mono);cursor:pointer;border:none;background:transparent;color:var(--dim);transition:all .15s;white-space:nowrap;letter-spacing:.02em}
+.ww-pos-btn:hover{color:var(--text)}
+.ww-pos-btn.active{background:var(--surface);color:var(--green);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.ww-actions{display:flex;gap:8px;margin-left:auto;align-items:center}
+.ww-compare-badge{display:none;align-items:center;gap:6px;padding:6px 16px;border-radius:7px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:none;background:var(--blue);color:#fff;transition:all .15s}
+.ww-compare-badge.visible{display:inline-flex}
+.ww-compare-badge:hover{background:#6d9df2;transform:translateY(-1px)}
+.ww-compare-badge .badge-count{background:rgba(255,255,255,.25);padding:1px 7px;border-radius:10px;font-size:11px}
+table .col-own{width:60px;text-align:right}
+.ww-add-btn{padding:3px 10px;border-radius:5px;font-size:10px;font-weight:700;font-family:var(--mono);cursor:pointer;border:1px solid var(--green);background:var(--green-dim);color:var(--green);transition:all .15s;white-space:nowrap}
+.ww-add-btn:hover{background:var(--green);color:#0a0c10}
+.ww-cmp-btn{padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;font-family:var(--mono);cursor:pointer;border:1px solid var(--blue);background:var(--blue-dim);color:var(--blue);transition:all .15s;white-space:nowrap}
+.ww-cmp-btn:hover{background:var(--blue);color:#fff}
+.ww-cmp-btn.in-compare{border-color:var(--red);background:var(--red-dim);color:var(--red)}
+.ww-cmp-btn.in-compare:hover{background:var(--red);color:#fff}
+.ww-load-more{display:block;margin:16px auto;padding:10px 28px;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--dim);transition:all .15s}
+.ww-load-more:hover{color:var(--text);border-color:var(--dim)}
+
+/* ─── COMPARE MODAL ─── */
+.compare-overlay{display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);overflow-y:auto;padding:40px 20px}
+.compare-overlay.open{display:flex;justify-content:center;align-items:flex-start}
+.compare-modal{background:var(--bg);border:1px solid var(--border);border-radius:14px;width:100%;max-width:900px;max-height:calc(100vh - 80px);overflow-y:auto;position:relative}
+.compare-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:2;border-radius:14px 14px 0 0}
+.compare-header h3{font-size:16px;font-weight:700}
+.compare-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.compare-close:hover{color:var(--text);border-color:var(--dim)}
+.compare-body{padding:20px}
+.compare-grid{display:grid;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.compare-row{display:grid;border-bottom:1px solid var(--border)}
+.compare-row:last-child{border-bottom:none}
+.compare-row.header{background:var(--surface-2)}
+.compare-cell{padding:10px 12px;font-size:13px;border-right:1px solid var(--border);display:flex;align-items:center}
+.compare-cell:last-child{border-right:none}
+.compare-cell.label{font-weight:700;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-family:var(--mono);background:var(--surface-2)}
+.compare-cell.best{color:var(--green);font-weight:700}
+.compare-cell .cmp-player{display:flex;align-items:center;gap:8px}
+.compare-cell .cmp-hs{width:28px;height:28px;border-radius:50%;object-fit:cover;background:var(--surface-2)}
+.compare-cell .cmp-name{font-weight:700;font-size:13px}
+.compare-cell .cmp-meta{font-size:11px;color:var(--dim)}
+.compare-cell .cmp-remove{margin-left:auto;cursor:pointer;color:var(--muted);font-size:12px;padding:2px 6px;border-radius:4px;transition:all .15s}
+.compare-cell .cmp-remove:hover{color:var(--red);background:var(--red-dim)}
+.compare-section-title{padding:10px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono);background:var(--surface);border-bottom:1px solid var(--border)}
+.compare-pctile-row{display:flex;align-items:center;gap:0}
+.compare-pctile-cell{flex:1;padding:6px 10px;border-right:1px solid var(--border);text-align:center}
+.compare-pctile-cell:last-child{border-right:none}
+.compare-pctile-cell .pct-dot{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;font-family:var(--mono);font-size:10px;font-weight:800;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.3)}
+.compare-empty{text-align:center;padding:40px;color:var(--dim);font-size:14px}
+
+/* ─── SPARKLINES ─── */
+.sparkline{display:inline-block;vertical-align:middle;margin-left:4px}
+.sparkline svg{display:block}
+
+/* ─── MOBILE OVERRIDES FOR NEW FEATURES ─── */
+@media(max-width:768px){
+  .ww-toolbar{flex-direction:column;align-items:stretch;gap:6px}
+  .ww-pos-bar{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap}
+  .ww-pos-bar::-webkit-scrollbar{display:none}
+  .ww-pos-btn{flex:0 0 auto;padding:8px 10px;min-height:36px;font-size:10px}
+  .ww-actions{margin-left:0;justify-content:flex-end}
+  .compare-overlay{padding:0}
+  .compare-modal{max-width:100%;border-radius:0;max-height:100vh}
+  .compare-header{border-radius:0}
+  .compare-body{padding:10px}
+  .compare-cell{padding:6px 8px;font-size:11px}
+  .compare-cell.label{font-size:9px}
+  .compare-pctile-cell .pct-dot{width:22px;height:22px;font-size:9px}
+  .sparkline{margin-left:2px}
+}
 </style>
 <script>(function(){var t=localStorage.getItem('scfbd_theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');var m=document.getElementById('metaThemeColor');if(m)m.content='#ffffff'}})()</script>
 </head>
@@ -384,10 +457,12 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
     <div class="nav-tab active" data-view="roster" onclick="switchView('roster')">Roster</div>
     <div class="nav-tab" data-view="standings" onclick="switchView('standings')">Standings</div>
     <div class="nav-tab" data-view="matchups" onclick="switchView('matchups')">Matchups</div>
+    <div class="nav-tab" data-view="waivers" onclick="switchView('waivers')">Waivers</div>
   </nav>
   <div class="header-right">
     <select class="league-select" id="leagueSelect" onchange="switchLeague(this.value)"><option value="">Loading...</option></select>
     <div class="hdr-sep"></div>
+    <button class="ww-compare-badge" id="hdrCompareBtn" onclick="showCompare()" style="display:none">Compare <span class="badge-count" id="hdrCompareBadge">0</span></button>
     <div class="poll-ind"><div class="poll-dot" id="pollDot"></div><span id="pollStatus">—</span></div>
     <div class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"><div class="theme-toggle-track"></div></div>
     <a href="/api/auth-logout" class="btn-sm" id="logoutBtn" style="display:none">Sign Out</a>
@@ -426,6 +501,41 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
       <div id="mu-scores"><div id="matchups-content" class="loading"><div class="spinner"></div>Loading matchups...</div></div>
       <div id="mu-rankings" style="display:none"><div id="rankings-content" class="loading"><div class="spinner"></div>Loading rankings...</div></div>
     </div>
+    <div id="view-waivers" class="view-panel" style="display:none">
+      <h2 class="pg-title">Waiver Wire</h2>
+      <p class="pg-sub" id="waiversSub">Scan available free agents</p>
+      <div class="ww-toolbar">
+        <div class="ww-pos-bar" id="wwPosBar">
+          <button class="ww-pos-btn active" data-wwpos="ALL" onclick="switchWaiverPos('ALL')">All</button>
+          <button class="ww-pos-btn" data-wwpos="C" onclick="switchWaiverPos('C')">C</button>
+          <button class="ww-pos-btn" data-wwpos="1B" onclick="switchWaiverPos('1B')">1B</button>
+          <button class="ww-pos-btn" data-wwpos="2B" onclick="switchWaiverPos('2B')">2B</button>
+          <button class="ww-pos-btn" data-wwpos="3B" onclick="switchWaiverPos('3B')">3B</button>
+          <button class="ww-pos-btn" data-wwpos="SS" onclick="switchWaiverPos('SS')">SS</button>
+          <button class="ww-pos-btn" data-wwpos="OF" onclick="switchWaiverPos('OF')">OF</button>
+          <button class="ww-pos-btn" data-wwpos="SP" onclick="switchWaiverPos('SP')">SP</button>
+          <button class="ww-pos-btn" data-wwpos="RP" onclick="switchWaiverPos('RP')">RP</button>
+        </div>
+        <div class="ww-actions">
+          <button class="ww-compare-badge" id="compareBtn" onclick="showCompare()">Compare <span class="badge-count" id="compareBadge">0</span></button>
+        </div>
+      </div>
+      <div class="card"><div id="waivers-content" class="tw"></div></div>
+      <button class="ww-load-more" id="wwLoadMore" onclick="loadMoreWaivers()" style="display:none">Load more players</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── COMPARE MODAL ─── -->
+<div class="compare-overlay" id="compareOverlay" onclick="if(event.target===this)hideCompare()">
+  <div class="compare-modal">
+    <div class="compare-header">
+      <h3>Player Comparison</h3>
+      <button class="compare-close" onclick="hideCompare()">✕</button>
+    </div>
+    <div class="compare-body" id="compareBody">
+      <div class="compare-empty">Add players to compare from the Roster or Waivers tab</div>
+    </div>
   </div>
 </div>
 
@@ -434,6 +544,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   <div class="mob-tab active" data-view="roster" onclick="switchView('roster')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Roster</div>
   <div class="mob-tab" data-view="standings" onclick="switchView('standings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>Standings</div>
   <div class="mob-tab" data-view="matchups" onclick="switchView('matchups')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 3v18"/></svg>Matchups</div>
+  <div class="mob-tab" data-view="waivers" onclick="switchView('waivers')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>Waivers</div>
 </nav>
 
 <script>
@@ -453,6 +564,15 @@ let todayPanelMode={}; // {playerKey: 'today'|'lastnight'} — per-player toggle
 let mlbPlayerMap=null; // {normalizedName → personId}
 let mlbPlayerMeta=null; // {personId → {pitchHand, batSide}}
 let splitsCache={}; // {mlbId_group → splits data}
+
+// Waiver Wire state
+let waiverPlayers=[],waiverPosFilter='ALL',waiverSort={key:'ownership',dir:'desc'};
+let waiverLoading=false,waiverOffset=0;
+// Compare state
+let compareList=[]; // [{playerKey, name, team, pos, hs, type, mlbId, stats:{period→{stat→val}}}]
+// Sparkline state
+let sparklineCache={}; // {mlbId → [{date,stats}]}
+let sparklineLoading=new Set();
 
 const HITTER_STATS=['R','HR','RBI','SB','OBP'], PITCHER_STATS=['W','SV','ERA','WHIP','K'];
 const LOWER_IS_BETTER=['ERA','WHIP'];
@@ -640,11 +760,11 @@ function getPlayerLiveStatus(playerName, teamAbbr, playerType){
 
 // ─── VIEWS ──────────────────────────────────────────────
 function switchView(v){document.querySelectorAll('.view-panel').forEach(p=>p.style.display='none');document.querySelectorAll('.nav-tab[data-view]').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.mob-tab[data-view]').forEach(i=>i.classList.remove('active'));document.getElementById(`view-${v}`).style.display='block';const sb=document.querySelector(`.nav-tab[data-view="${v}"]`);if(sb)sb.classList.add('active');const mb=document.querySelector(`.mob-tab[data-view="${v}"]`);if(mb)mb.classList.add('active');if(currentLeague)loadViewData(v)}
-function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};pendingChanges={};refData={};expandedPlayer=null;splitsCache={};todayPanelMode={};updateSaveBtn();initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
+function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};pendingChanges={};refData={};expandedPlayer=null;splitsCache={};todayPanelMode={};waiverPlayers=[];waiverOffset=0;sparklineCache={};sparklineLoading.clear();updateSaveBtn();initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
 function switchRosterTab(t){rosterTab=t;document.querySelectorAll('#rosterTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.getElementById('roster-hitters').style.display=t==='hitters'?'':'none';document.getElementById('roster-pitchers').style.display=t==='pitchers'?'':'none'}
 function switchPeriod(p){currentPeriod=p;expandedPlayer=null;todayPanelMode={};document.querySelectorAll('#periodBar .period-btn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));loadRoster()}
 function updatePeriodLabels(){const sy=parseInt(leagueSeason||2026);const m={season:String(sy),prevyear:String(sy-1)};document.querySelectorAll('#periodBar .period-btn').forEach(b=>{if(m[b.dataset.period])b.textContent=m[b.dataset.period]})}
-function loadViewData(v){if(!currentLeague)return;({roster:loadRoster,standings:loadStandings,matchups:loadMatchups}[v]||function(){})()}
+function loadViewData(v){if(!currentLeague)return;({roster:loadRoster,standings:loadStandings,matchups:loadMatchups,waivers:loadWaivers}[v]||function(){})()}
 
 // ─── LEAGUES ────────────────────────────────────────────
 async function loadLeagues(){const data=await yahooGet('users;use_login=1/games;game_keys=mlb/leagues');if(!data)return;const leagues=[];try{const fc=data.fantasy_content||{},u=fc.users?.['0']?.user||[],games=u[1]?.games||{};for(let i=0;i<(games.count||0);i++){const g=games[String(i)]?.game||[];if(g.length>1){const gi=g[0];if(!gameKey)gameKey=gi.game_key;const gl=g[1]?.leagues||{};for(let j=0;j<(gl.count||0);j++){const lg=gl[String(j)]?.league||[];if(lg.length){const li=Array.isArray(lg)?lg[0]:lg;leagues.push({key:li.league_key,name:li.name,season:gi.season})}}}}}catch(e){console.error(e)}
@@ -1003,7 +1123,11 @@ async function loadRoster(){
   }
   console.log(`[Roster] Stats assigned to ${assigned}/${rosterData.length} players`);
   refData=ref||{};
-  renderRoster()}
+  renderRoster();
+  // Fetch sparkline data for all players with MLB IDs (non-blocking, batch re-render)
+  const sparkPromises=rosterData.filter(p=>p.mlbId&&!sparklineCache[p.mlbId]).map(p=>fetchSparklineData(p.mlbId,p.type));
+  if(sparkPromises.length)Promise.all(sparkPromises).then(()=>{if(document.querySelector('.nav-tab[data-view="roster"].active'))renderRoster()});
+}
 
 function computeLiveHitterStats(abs){
   const pa=abs.filter(a=>!a.isPitching);if(!pa.length)return{};
@@ -1068,14 +1192,15 @@ function renderRoster(){
 
 function buildTable(players,sn,ht){
   if(!players.length)return'<div class="empty"><h3>No players</h3></div>';
-  const cols=3+sn.length;// pos, player, game, stats...
+  const cols=4+sn.length;// pos, player, game, stats..., compare btn
   let html='<table><thead><tr><th class="col-pos">Pos</th><th class="col-player">Player</th><th>Game</th>';
-  for(const s of sn)html+=`<th class="num">${s}</th>`;html+='</tr></thead><tbody>';
+  for(const s of sn)html+=`<th class="num">${s}</th>`;html+='<th style="width:40px"></th></tr></thead><tbody>';
   let bench=false;
   for(const p of players){
     if(BENCH_POSITIONS.includes(p.selPos)&&!bench){bench=true;html+=`<tr><td colspan="${cols}" style="padding:3px 12px;background:var(--surface-2);border-top:2px solid var(--border)"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">Bench / IL</span></td></tr>`}
     const ch=pendingChanges[p.playerKey]&&pendingChanges[p.playerKey]!==p.selPos;
     const isExp=expandedPlayer===p.playerKey;
+    const inCmp=compareList.some(c=>c.playerKey===p.playerKey);
     html+=`<tr class="${ch?'editing':''} ${isExp?'expanded':''}" onclick="toggleExpand('${p.playerKey}',event)">`;
     // Pos
     html+=`<td class="col-pos">${posSelect(p)}</td>`;
@@ -1086,9 +1211,13 @@ function buildTable(players,sn,ht){
       <div class="player-info"><div class="name">${p.name}</div><div class="meta">${p.team} · ${p.pos} ${sh}</div></div></div></td>`;
     // Game status
     html+=`<td>${buildGameCell(p)}</td>`;
-    // Stats
+    // Stats with sparklines
     const pr=refData[p.playerKey]||null;
-    for(const s of sn){const v=statVal(p.stats,s),f=fmtStat(v,s);const a=ht?trend(s,v,pr):'';html+=`<td class="num"><span class="trend">${f}${a}</span></td>`}
+    for(const s of sn){const v=statVal(p.stats,s),f=fmtStat(v,s);const a=ht?trend(s,v,pr):'';
+      const sparkHtml=(currentPeriod!=='today'&&p.mlbId)?buildSparklineSVG(sparklineCache[p.mlbId],s,p.type):'';
+      html+=`<td class="num"><span class="trend">${f}${a}${sparkHtml}</span></td>`}
+    // Compare button
+    html+=`<td style="text-align:center"><button class="ww-cmp-btn ${inCmp?'in-compare':''}" onclick="event.stopPropagation();addRosterPlayerToCompare('${p.playerKey}')" title="${inCmp?'Remove from compare':'Add to compare'}" style="padding:2px 6px">${inCmp?'✕':'⇄'}</button></td>`;
     html+='</tr>';
     // Expanded statcast row
     html+=`<tr class="sc-row ${isExp?'open':''}" id="sc-${p.playerKey}"><td colspan="${cols}">${isExp?buildStatcast(p):''}</td></tr>`;
@@ -1869,6 +1998,378 @@ function renderLeagueRankings(){
       h+=`<td style="padding:6px 6px;text-align:center;font-family:var(--mono);font-size:12px;border-top:1px solid var(--border);color:${clr};font-weight:${fw};${isCol?'background:var(--surface-2)':''}"><div>${fmtStat(v,cat.display_name)}</div><div style="font-size:9px;color:var(--muted);font-weight:600">${rank}${rank===1?'st':rank===2?'nd':rank===3?'rd':'th'}</div></td>`}
     h+='</tr>'});
   el.innerHTML=h+'</tbody></table></div></div>'}
+
+// ─── WAIVER WIRE ────────────────────────────────────────
+function switchWaiverPos(pos){waiverPosFilter=pos;waiverOffset=0;waiverPlayers=[];document.querySelectorAll('#wwPosBar .ww-pos-btn').forEach(b=>b.classList.toggle('active',b.dataset.wwpos===pos));loadWaivers()}
+
+async function loadWaivers(){
+  if(!currentLeagueKey||waiverLoading)return;
+  waiverLoading=true;
+  const el=document.getElementById('waivers-content');
+  if(!waiverOffset)el.innerHTML='<div class="loading"><div class="spinner"></div>Loading free agents...</div>';
+  await buildMLBPlayerMap();
+  const posParam=waiverPosFilter==='ALL'?'':`;position=${waiverPosFilter}`;
+  const ep=`league/${currentLeagueKey}/players;status=FA;sort=AR${posParam};start=${waiverOffset};count=25`;
+  const data=await yahooGet(ep);
+  waiverLoading=false;
+  if(!data){el.innerHTML='<div class="empty">Could not load free agents</div>';return}
+  const parsed=parseWaiverResponse(data);
+  if(!parsed.length&&!waiverOffset){el.innerHTML='<div class="empty">No free agents found</div>';return}
+  // Resolve MLB IDs
+  for(const p of parsed){p.mlbId=resolveMLBId(p.name)}
+  // Fetch L14 stats for these players
+  const season=parseInt(leagueSeason||2026);
+  const today=new Date();const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const end=fmt(today);const d14=new Date(today);d14.setDate(d14.getDate()-14);const start=fmt(d14);
+  const withId=parsed.filter(p=>p.mlbId);
+  if(withId.length){
+    const results=await Promise.all(withId.map(p=>
+      fetchOnePlayerStats(p.mlbId,p.type,season,{start,end}).then(stats=>({playerKey:p.playerKey,stats}))
+    ));
+    for(const r of results){if(r.stats){const p=parsed.find(x=>x.playerKey===r.playerKey);if(p)p.stats=r.stats}}
+  }
+  // Also fetch season stats
+  const seasonResults=await Promise.all(withId.map(p=>
+    fetchOnePlayerStats(p.mlbId,p.type,season,null).then(stats=>({playerKey:p.playerKey,stats}))
+  ));
+  for(const r of seasonResults){if(r.stats){const p=parsed.find(x=>x.playerKey===r.playerKey);if(p)p.seasonStats=r.stats}}
+  waiverPlayers=waiverOffset?[...waiverPlayers,...parsed]:parsed;
+  waiverOffset+=parsed.length;
+  renderWaivers();
+  // Fetch sparklines for waiver players too (non-blocking, batch re-render)
+  const wwSparkPromises=parsed.filter(p=>p.mlbId&&!sparklineCache[p.mlbId]).map(p=>fetchSparklineData(p.mlbId,p.type));
+  if(wwSparkPromises.length)Promise.all(wwSparkPromises).then(()=>{if(document.querySelector('.nav-tab[data-view="waivers"].active'))renderWaivers()});
+  document.getElementById('waiversSub').textContent=`${waiverPlayers.length} free agents · ${waiverPosFilter==='ALL'?'All positions':waiverPosFilter} · L14 stats`;
+  document.getElementById('wwLoadMore').style.display=parsed.length>=25?'':'none';
+}
+function loadMoreWaivers(){loadWaivers()}
+
+function parseWaiverResponse(data){
+  const players=[];
+  try{
+    const fc=data.fantasy_content||{};const lg=fc.league||[];
+    let pd=null;for(const item of lg){if(item&&item.players){pd=item.players;break}}
+    if(!pd)return players;
+    for(let i=0;i<(pd.count||0);i++){
+      const pArr=pd[String(i)]?.player;if(!pArr)continue;
+      const info=Array.isArray(pArr[0])?pArr[0]:pArr;
+      let name='',team='',pos='',hs='',playerKey='',posType='',ownership=0,eligPos=[];
+      for(const item of info){if(!item||typeof item!=='object')continue;
+        if(item.player_key)playerKey=item.player_key;
+        if(item.name)name=item.name.full||'';
+        if(item.editorial_team_abbr)team=item.editorial_team_abbr;
+        if(item.display_position)pos=item.display_position;
+        if(item.headshot)hs=item.headshot.url||'';
+        if(item.position_type)posType=item.position_type;
+        if(item.eligible_positions&&Array.isArray(item.eligible_positions))for(const ep of item.eligible_positions){const p=ep?.position||(typeof ep==='string'?ep:null);if(p)eligPos.push(p)}
+        if(item.percent_owned){const po=item.percent_owned;ownership=parseFloat(po.value||po.coverage_value||0)}
+      }
+      let type='hitter';if(posType==='P'||PITCHER_POSITIONS.includes(pos.split(',')[0]))type='pitcher';
+      players.push({playerKey,name,team,pos,hs,type,posType,eligPos,ownership,stats:{},seasonStats:{},mlbId:''})
+    }
+  }catch(e){console.error('[Waivers] Parse error:',e)}
+  return players;
+}
+
+function sortWaivers(key){
+  if(waiverSort.key===key)waiverSort.dir=waiverSort.dir==='desc'?'asc':'desc';
+  else{waiverSort={key,dir:'desc'}}
+  renderWaivers();
+}
+
+function renderWaivers(){
+  if(!waiverPlayers.length){document.getElementById('waivers-content').innerHTML='<div class="empty">No free agents</div>';return}
+  const sorted=[...waiverPlayers];
+  const{key:sk,dir:sd}=waiverSort;
+  sorted.sort((a,b)=>{
+    let va,vb;
+    if(sk==='ownership'){va=a.ownership;vb=b.ownership}
+    else if(sk==='name'){va=a.name;vb=b.name;return sd==='asc'?va.localeCompare(vb):vb.localeCompare(va)}
+    else{va=parseFloat(statVal(a.stats,sk))||0;vb=parseFloat(statVal(b.stats,sk))||0}
+    return sd==='desc'?(vb-va):(va-vb)});
+  const isP=waiverPosFilter==='SP'||waiverPosFilter==='RP';
+  const sn=isP?PITCHER_STATS:HITTER_STATS;
+  const seasonSn=isP?['W','SV','K','ERA','WHIP','IP']:['HR','RBI','SB','R','OBP','AVG'];
+  const arrow=c=>waiverSort.key===c?`<span style="color:var(--green)">${waiverSort.dir==='desc'?'▼':'▲'}</span>`:'';
+  let html=`<table><thead><tr><th style="width:40px" class="num" onclick="sortWaivers('ownership')">Own%${arrow('ownership')}</th><th>Player</th><th>Game</th>`;
+  for(const s of sn)html+=`<th class="num" onclick="sortWaivers('${s}')" style="cursor:pointer">${s} ${arrow(s)}</th>`;
+  html+=`<th class="num">Season</th><th style="width:80px"></th></tr></thead><tbody>`;
+  for(const p of sorted){
+    const inCmp=compareList.some(c=>c.playerKey===p.playerKey);
+    const sc=p.ownership>=20?'color:var(--green)':p.ownership>=5?'color:var(--text)':'color:var(--dim)';
+    // Sparkline for first non-pitcher stat
+    const sparkStat=isP?'K':'HR';
+    const sparkHtml=p.mlbId?buildSparklineSVG(sparklineCache[p.mlbId],sparkStat,p.type):'';
+    html+=`<tr>`;
+    html+=`<td class="num" style="font-family:var(--mono);font-size:12px;font-weight:600;${sc}">${p.ownership.toFixed(0)}%</td>`;
+    html+=`<td><div class="player-cell">${p.hs?`<img class="player-hs" src="${p.hs}" alt="" onerror="this.style.display='none'">`:''}
+      <div class="player-info"><div class="name">${p.name}${sparkHtml}</div><div class="meta">${p.team} · ${p.pos}</div></div></div></td>`;
+    // Game column
+    const game=findGameForTeam(p.team);
+    if(game){const aw=game.teams.away.team.abbreviation,hm=game.teams.home.team.abbreviation;const isAway=p.team===aw;
+      const st=game.status.abstractGameState;
+      if(st==='Preview')html+=`<td><span class="gc-preview">${isAway?'@'+hm:'v'+aw} ${new Date(game.gameDate).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</span></td>`;
+      else html+=`<td><span class="gc-preview">${isAway?'@'+hm:'v'+aw}</span></td>`}
+    else html+=`<td><span class="gc-preview">—</span></td>`;
+    // L14 Stats
+    for(const s of sn){const v=statVal(p.stats,s),f=fmtStat(v,s);html+=`<td class="num">${f}</td>`}
+    // Season summary
+    const seasonBits=seasonSn.slice(0,3).map(s=>{const v=statVal(p.seasonStats,s);return v!=='—'?`${s}:${fmtStat(v,s)}`:''}).filter(Boolean).join(' ');
+    html+=`<td class="num" style="font-size:10px;color:var(--dim)">${seasonBits||'—'}</td>`;
+    // Action buttons
+    const pidx=waiverPlayers.indexOf(p);
+    html+=`<td style="text-align:right"><button class="ww-cmp-btn ${inCmp?'in-compare':''}" onclick="event.stopPropagation();toggleWaiverCompare(${pidx})">${inCmp?'✕':'+ Cmp'}</button></td>`;
+    html+='</tr>';
+  }
+  html+='</tbody></table>';
+  document.getElementById('waivers-content').innerHTML=html;
+  updateCompareBtn();
+}
+
+// ─── COMPARE TOOL ───────────────────────────────────────
+function toggleWaiverCompare(idx){
+  const p=waiverPlayers[idx];if(!p)return;
+  toggleComparePlayer(p);
+}
+function toggleComparePlayer(p){
+  const idx=compareList.findIndex(c=>c.playerKey===p.playerKey);
+  if(idx>=0){compareList.splice(idx,1)}
+  else{if(compareList.length>=3){showStatus('Max 3 players to compare','error');return}
+    compareList.push({playerKey:p.playerKey,name:p.name,team:p.team,pos:p.pos,hs:p.hs||'',type:p.type,mlbId:p.mlbId||'',stats:{},seasonStats:p.seasonStats||{},l14Stats:p.stats||{}})}
+  updateCompareBtn();
+  // Re-render current view to update buttons
+  const cv=document.querySelector('.nav-tab.active')?.dataset.view;
+  if(cv==='waivers')renderWaivers();
+  if(cv==='roster')renderRoster();
+}
+
+function addRosterPlayerToCompare(pk){
+  const p=rosterData.find(x=>x.playerKey===pk);if(!p)return;
+  toggleComparePlayer({playerKey:p.playerKey,name:p.name,team:p.team,pos:p.pos,hs:p.hs||'',type:p.type,mlbId:p.mlbId||'',stats:p.stats||{},seasonStats:{}});
+}
+
+function updateCompareBtn(){
+  const btn=document.getElementById('compareBtn');
+  const badge=document.getElementById('compareBadge');
+  const hdrBtn=document.getElementById('hdrCompareBtn');
+  const hdrBadge=document.getElementById('hdrCompareBadge');
+  const n=compareList.length;
+  btn.classList.toggle('visible',n>0);
+  badge.textContent=n;
+  if(hdrBtn){hdrBtn.style.display=n>0?'inline-flex':'none';hdrBadge.textContent=n}
+}
+
+function showCompare(){
+  if(!compareList.length){showStatus('Add players first','error');return}
+  document.getElementById('compareOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
+  renderCompare();
+}
+function hideCompare(){document.getElementById('compareOverlay').classList.remove('open');document.body.style.overflow=''}
+
+async function renderCompare(){
+  const el=document.getElementById('compareBody');
+  if(!compareList.length){el.innerHTML='<div class="compare-empty">Add players to compare from the Roster or Waivers tab</div>';return}
+  const n=compareList.length;
+  const cols=n+1; // label column + player columns
+  const gtc=`120px repeat(${n}, 1fr)`;
+  // Ensure we have stats for all players
+  await buildMLBPlayerMap();
+  const season=parseInt(leagueSeason||2026);
+  const today=new Date();const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const end=fmt(today);const d14=new Date(today);d14.setDate(d14.getDate()-14);const start14=fmt(d14);
+  const d30=new Date(today);d30.setDate(d30.getDate()-30);const start30=fmt(d30);
+  // Fetch missing stats in parallel
+  for(const p of compareList){
+    if(!p.mlbId){p.mlbId=resolveMLBId(p.name)}
+    if(!p.mlbId)continue;
+    const[l14,szn,l30]=await Promise.all([
+      Object.keys(p.l14Stats||{}).length?Promise.resolve(p.l14Stats):fetchOnePlayerStats(p.mlbId,p.type,season,{start:start14,end}),
+      Object.keys(p.seasonStats||{}).length?Promise.resolve(p.seasonStats):fetchOnePlayerStats(p.mlbId,p.type,season,null),
+      fetchOnePlayerStats(p.mlbId,p.type,season,{start:start30,end})
+    ]);
+    p.l14Stats=l14||{};p.seasonStats=szn||{};p.l30Stats=l30||{};
+    // Also check roster for current stats
+    const rp=rosterData.find(r=>r.playerKey===p.playerKey);
+    if(rp&&Object.keys(rp.stats).length)p.currentStats=rp.stats;
+  }
+  // Fetch savant percentiles
+  const type=compareList[0].type==='pitcher'?'pitcher':'batter';
+  const pctKey=`${season}_${type}`;
+  if(!savantCache[pctKey])await fetchSavantPercentiles(season,type);
+  const pctData=savantCache[pctKey]||{};
+  // Fetch sparklines for compare players
+  for(const p of compareList){if(p.mlbId&&!sparklineCache[p.mlbId])await fetchSparklineData(p.mlbId,p.type)}
+
+  let html='<div class="compare-grid" style="grid-template-columns:'+gtc+'">';
+  // Header row with player cards
+  html+=`<div class="compare-row header" style="display:grid;grid-template-columns:${gtc}">`;
+  html+=`<div class="compare-cell label">Player</div>`;
+  for(const p of compareList){
+    html+=`<div class="compare-cell"><div class="cmp-player">${p.hs?`<img class="cmp-hs" src="${p.hs}" onerror="this.style.display='none'">`:''}
+    <div><div class="cmp-name">${p.name}</div><div class="cmp-meta">${p.team} · ${p.pos}</div></div>
+    <span class="cmp-remove" onclick="event.stopPropagation();removeComparePlayer('${p.playerKey}')">✕</span></div></div>`}
+  html+='</div>';
+
+  // Determine stat columns based on player types
+  const allPitcher=compareList.every(p=>p.type==='pitcher');
+  const statSets=allPitcher?
+    [{label:'L14',key:'l14Stats',stats:['W','SV','K','ERA','WHIP','IP']},{label:'L30',key:'l30Stats',stats:['W','SV','K','ERA','WHIP','IP']},{label:'Season',key:'seasonStats',stats:['W','SV','K','ERA','WHIP','IP','GP']}]:
+    [{label:'L14',key:'l14Stats',stats:['HR','RBI','R','SB','OBP','AVG','OPS']},{label:'L30',key:'l30Stats',stats:['HR','RBI','R','SB','OBP','AVG','OPS']},{label:'Season',key:'seasonStats',stats:['HR','RBI','R','SB','OBP','AVG','OPS','GP']}];
+
+  for(const set of statSets){
+    html+=`<div class="compare-section-title" style="grid-column:1/-1">${set.label} Stats</div>`;
+    for(const s of set.stats){
+      html+=`<div class="compare-row" style="display:grid;grid-template-columns:${gtc}">`;
+      html+=`<div class="compare-cell label">${s}</div>`;
+      const vals=compareList.map(p=>{const raw=statVal(p[set.key]||{},s);return{raw,num:parseFloat(raw)||0,display:fmtStat(raw,s)}});
+      const lb=LOWER_IS_BETTER.includes(s);
+      const validNums=vals.filter(v=>v.raw!=='—');
+      let bestIdx=-1;
+      if(validNums.length>1){const best=lb?Math.min(...validNums.map(v=>v.num)):Math.max(...validNums.map(v=>v.num));
+        bestIdx=vals.findIndex(v=>v.raw!=='—'&&v.num===best)}
+      for(let i=0;i<vals.length;i++){
+        // Sparkline
+        const p=compareList[i];
+        const sparkHtml=(set.label==='L14'&&p.mlbId)?buildSparklineSVG(sparklineCache[p.mlbId],s,p.type):'';
+        html+=`<div class="compare-cell${i===bestIdx?' best':''}" style="font-family:var(--mono);font-size:13px;font-weight:600;justify-content:center">${vals[i].display}${sparkHtml}</div>`}
+      html+='</div>'}
+  }
+
+  // Savant percentiles section
+  const sections=allPitcher?PITCHER_SECTIONS:HITTER_SECTIONS;
+  const hasAnyPct=compareList.some(p=>p.mlbId&&pctData[p.mlbId]);
+  if(hasAnyPct){
+    html+=`<div class="compare-section-title" style="grid-column:1/-1">Savant Percentiles (${season})</div>`;
+    for(const[sectionName,metrics]of sections){
+      for(const[col,label]of metrics){
+        const vals=compareList.map(p=>{const d=p.mlbId?pctData[p.mlbId]:null;if(!d)return null;return parsePctile(d[col])});
+        if(vals.every(v=>v==null))continue;
+        // For percentiles, higher is usually better (except for pitcher xwOBA etc — keep it simple, higher = better for percentile rank)
+        const validPcts=vals.filter(v=>v!=null);
+        let bestIdx=-1;
+        if(validPcts.length>1){const best=Math.max(...validPcts);bestIdx=vals.findIndex(v=>v===best)}
+        html+=`<div class="compare-row" style="display:grid;grid-template-columns:${gtc}">`;
+        html+=`<div class="compare-cell label">${label}</div>`;
+        for(let i=0;i<vals.length;i++){
+          const v=vals[i];
+          if(v==null){html+=`<div class="compare-cell" style="justify-content:center;color:var(--muted)">—</div>`}
+          else{const col=pctColor(v);html+=`<div class="compare-cell${i===bestIdx?' best':''}" style="justify-content:center"><span class="pct-dot" style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:${col};font-family:var(--mono);font-size:11px;font-weight:800;color:#fff">${v}</span></div>`}}
+        html+='</div>'}}
+  }
+
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+function removeComparePlayer(pk){
+  compareList=compareList.filter(c=>c.playerKey!==pk);
+  updateCompareBtn();
+  if(compareList.length)renderCompare();
+  else hideCompare();
+  const cv=document.querySelector('.nav-tab.active')?.dataset.view;
+  if(cv==='waivers')renderWaivers();
+  if(cv==='roster')renderRoster();
+}
+
+// ─── SPARKLINES (Rolling 14-Day Trends) ─────────────────
+async function fetchSparklineData(mlbId,playerType){
+  if(sparklineCache[mlbId]||sparklineLoading.has(mlbId))return;
+  sparklineLoading.add(mlbId);
+  const season=parseInt(leagueSeason||2026);
+  const group=playerType==='pitcher'?'pitching':'hitting';
+  try{
+    // Fetch last 45 days of game logs to have enough for 14-day rolling windows
+    const today=new Date();const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const end=fmt(today);const d45=new Date(today);d45.setDate(d45.getDate()-45);const start=fmt(d45);
+    let data=await safeFetchJSON(`${MLB}/v1/people/${mlbId}/stats?stats=gameLog&group=${group}&season=${season}&gameType=R&startDate=${start}&endDate=${end}`);
+    if(!data?.stats?.[0]?.splits?.length){
+      // Try previous season
+      const prevSeason=season-1;
+      data=await safeFetchJSON(`${MLB}/v1/people/${mlbId}/stats?stats=gameLog&group=${group}&season=${prevSeason}&gameType=R&startDate=${start}&endDate=${end}`)}
+    const splits=data?.stats?.[0]?.splits||[];
+    const games=splits.map(s=>({date:s.date||'',stat:s.stat||{}})).filter(g=>g.date);
+    sparklineCache[mlbId]=games;
+  }catch(e){sparklineCache[mlbId]=[];console.warn('[Sparkline] Error fetching:',mlbId,e)}
+  sparklineLoading.delete(mlbId);
+}
+
+function computeRolling14(games,statField,isRate,group){
+  if(!games||games.length<3)return[];
+  // Sort by date ascending
+  const sorted=[...games].sort((a,b)=>a.date.localeCompare(b.date));
+  const points=[];
+  for(let i=0;i<sorted.length;i++){
+    // Window: last 14 days from this game's date
+    const endDate=new Date(sorted[i].date);
+    const startDate=new Date(endDate);startDate.setDate(startDate.getDate()-14);
+    const window=sorted.filter(g=>{const d=new Date(g.date);return d>=startDate&&d<=endDate});
+    if(window.length<2)continue;
+    let val;
+    if(isRate){
+      // For rate stats, compute properly
+      if(statField==='avg'||statField==='obp'||statField==='slg'||statField==='ops'){
+        let h=0,ab=0,bb=0,hbp=0,sf=0,tb=0;
+        for(const g of window){const s=g.stat;
+          h+=parseInt(s.hits||0);ab+=parseInt(s.atBats||0);bb+=parseInt(s.baseOnBalls||0);
+          hbp+=parseInt(s.hitByPitch||0);sf+=parseInt(s.sacFlies||0);
+          const singles=parseInt(s.hits||0)-parseInt(s.doubles||0)-parseInt(s.triples||0)-parseInt(s.homeRuns||0);
+          tb+=singles+2*parseInt(s.doubles||0)+3*parseInt(s.triples||0)+4*parseInt(s.homeRuns||0)}
+        if(statField==='avg')val=ab>0?h/ab:0;
+        else if(statField==='obp'){const d=ab+bb+hbp+sf;val=d>0?(h+bb+hbp)/d:0}
+        else if(statField==='slg')val=ab>0?tb/ab:0;
+        else if(statField==='ops'){const d=ab+bb+hbp+sf;val=(d>0?(h+bb+hbp)/d:0)+(ab>0?tb/ab:0)}
+      } else if(statField==='era'){
+        let er=0,totalOuts=0;
+        for(const g of window){const s=g.stat;er+=parseInt(s.earnedRuns||0);
+          const ip=s.inningsPitched||'0';const parts=ip.split('.');totalOuts+=parseInt(parts[0]||0)*3+parseInt(parts[1]||0)}
+        val=totalOuts>0?(er*9)/(totalOuts/3):0;
+      } else if(statField==='whip'){
+        let h=0,bb=0,totalOuts=0;
+        for(const g of window){const s=g.stat;h+=parseInt(s.hits||0);bb+=parseInt(s.baseOnBalls||0);
+          const ip=s.inningsPitched||'0';const parts=ip.split('.');totalOuts+=parseInt(parts[0]||0)*3+parseInt(parts[1]||0)}
+        val=totalOuts>0?(h+bb)/(totalOuts/3):0;
+      } else{val=parseFloat(sorted[i].stat[statField])||0}
+    }else{
+      // Counting stats: sum over window
+      val=window.reduce((sum,g)=>sum+(parseFloat(g.stat[statField])||0),0);
+    }
+    points.push({date:sorted[i].date,val})
+  }
+  return points;
+}
+
+// Map display stat names to MLB API game log field names
+const SPARK_FIELD_MAP={
+  'R':'runs','HR':'homeRuns','RBI':'rbi','SB':'stolenBases',
+  'OBP':'obp','AVG':'avg','OPS':'ops','H':'hits','BB':'baseOnBalls',
+  'K':'strikeOuts','W':'wins','SV':'saves','ERA':'era','WHIP':'whip','IP':'inningsPitched'
+};
+const SPARK_RATE_STATS=['OBP','AVG','OPS','ERA','WHIP','SLG'];
+
+function buildSparklineSVG(games,statName,playerType){
+  if(!games||games.length<4)return'';
+  const field=SPARK_FIELD_MAP[statName];if(!field)return'';
+  const isRate=SPARK_RATE_STATS.includes(statName);
+  const group=playerType==='pitcher'?'pitching':'hitting';
+  const points=computeRolling14(games,field,isRate,group);
+  if(points.length<3)return'';
+  const vals=points.map(p=>p.val);
+  const min=Math.min(...vals),max=Math.max(...vals);
+  const range=max-min;if(range===0)return'';
+  const w=48,h=16,pad=1;
+  const step=(w-pad*2)/(vals.length-1);
+  let path='';
+  const lb=LOWER_IS_BETTER.includes(statName);
+  const lastV=vals[vals.length-1],firstV=vals[0];
+  const improving=lb?(lastV<firstV):(lastV>firstV);
+  const col=improving?'var(--green)':'var(--red)';
+  for(let i=0;i<vals.length;i++){
+    const x=pad+i*step;
+    const y=pad+(h-pad*2)*(1-(vals[i]-min)/range);
+    path+=(i===0?'M':'L')+`${x.toFixed(1)},${y.toFixed(1)}`}
+  return`<span class="sparkline"><svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><path d="${path}" fill="none" stroke="${col}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${(pad+(vals.length-1)*step).toFixed(1)}" cy="${(pad+(h-pad*2)*(1-(lastV-min)/range)).toFixed(1)}" r="1.5" fill="${col}"/></svg></span>`;
+}
 
 // ─── THEME ──────────────────────────────────────────────
 function initTheme(){applyTheme(localStorage.getItem('scfbd_theme')==='light'?'light':'dark')}
