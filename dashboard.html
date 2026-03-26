@@ -850,12 +850,7 @@ function buildGameCell(p){
     if(abs.length&&p.type==='hitter'){
       const h=abs.filter(a=>a.isHit).length;
       const ab=abs.filter(a=>!['Walk','Hit By Pitch','Sac Fly','Sac Bunt','Intent Walk','Catcher Interference'].includes(a.event)).length;
-      gameLine=`<span style="font-family:var(--mono);font-size:10px;font-weight:700;color:${h>0?'var(--green)':'var(--dim)'};margin-left:4px">${h}/${ab}</span>`}
-    else if(abs.length&&p.type==='pitcher'){
-      const ip=abs.filter(a=>a.isPitching).length;
-      const k=abs.filter(a=>a.isPitching&&a.event==='Strikeout').length;
-      const hits=abs.filter(a=>a.isPitching&&a.isHit).length;
-      if(ip)gameLine=`<span style="font-family:var(--mono);font-size:10px;font-weight:700;color:var(--dim);margin-left:4px">${ip}BF ${k}K ${hits}H</span>`}}
+      gameLine=`<span style="font-family:var(--mono);font-size:10px;font-weight:700;color:${h>0?'var(--green)':'var(--dim)'};margin-left:4px">${h}/${ab}</span>`}}
   return`<div class="game-cell"><div class="gc-score"><div class="away"><span class="abbr">${aw}</span><span class="runs">${aR}</span></div><div class="home"><span class="abbr">${hm}</span><span class="runs">${hR}</span></div></div><span class="gc-inn">${stateLabel}</span>${ls.label&&ls.status!=='final'&&ls.status!=='preview'?`<span class="gc-status ${ls.cls}">${ls.label}</span>`:''}${gameLine}</div>`}
 
 // Get a player's at-bats from a feed, matching by name
@@ -1144,6 +1139,35 @@ function buildStatcast(p){
   const pABs=getPlayerABs(f,p.name);
   if(pABs.length){
     const isP=p.type==='pitcher';
+    // Pitcher summary stats bar
+    if(isP){
+      const faced=pABs.filter(a=>a.isPitching);
+      const bf=faced.length;
+      const k=faced.filter(a=>a.event==='Strikeout').length;
+      const hitsA=faced.filter(a=>a.isHit).length;
+      const bb=faced.filter(a=>['Walk','Intent Walk'].includes(a.event)).length;
+      const hbp=faced.filter(a=>a.event==='Hit By Pitch').length;
+      const hr=faced.filter(a=>a.event==='Home Run').length;
+      const outs=faced.filter(a=>a.isOut).length;
+      const ipFull=Math.floor(outs/3);const ipRem=outs%3;
+      const ipStr=`${ipFull}.${ipRem}`;
+      const er=hr; // rough estimate
+      const era=outs>0?((er*27)/outs).toFixed(2):'—';
+      const whip=outs>0?(((hitsA+bb)*3)/outs).toFixed(2):'—';
+      const totalPitches=faced.reduce((s,a)=>s+(a.pitchCount||0),0);
+      html+=`<div style="display:flex;flex-wrap:wrap;gap:1px;border-top:1px solid var(--border);background:var(--border)">`;
+      const ss=(l,v,c)=>`<div style="flex:1;min-width:0;padding:6px 4px;text-align:center;background:var(--surface)"><div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${c||'var(--text)'}">${v}</div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">${l}</div></div>`;
+      html+=ss('IP',ipStr);
+      html+=ss('BF',bf);
+      html+=ss('P',totalPitches||'—');
+      html+=ss('K',k,k>=6?'var(--green)':'');
+      html+=ss('H',hitsA,hitsA>=5?'var(--red)':'');
+      html+=ss('BB',bb,bb>=4?'var(--red)':'');
+      html+=ss('HR',hr,hr>0?'var(--red)':'');
+      html+=ss('HBP',hbp);
+      html+=ss('ERA',era);
+      html+=ss('WHIP',whip);
+      html+=`</div>`}
     html+=`<div style="border-top:1px solid var(--border);padding:8px 14px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono);margin-bottom:6px">${isP?'Batters Faced':'At-Bats'}</div>`;
     for(const ab of pABs){
       const isHit=ab.isHit;const isHR=ab.event==='Home Run';const isK=ab.event==='Strikeout';const isBB=['Walk','Intent Walk','Hit By Pitch'].includes(ab.event);
