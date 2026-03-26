@@ -487,6 +487,11 @@ async function pollLive(){
   const lg=mlbSchedule.filter(g=>g.status.abstractGameState==='Live');
   const fs=await Promise.all(lg.map(g=>fetchFeed(g.gamePk)));
   fs.forEach((f,i)=>{if(f)liveFeeds[lg[i].gamePk]=f});
+  // Also fetch feeds for Final games we don't have yet (preserves game data after game ends)
+  const finalNeedFetch=mlbSchedule.filter(g=>g.status.abstractGameState==='Final'&&!liveFeeds[g.gamePk]);
+  if(finalNeedFetch.length){
+    const ffs=await Promise.all(finalNeedFetch.map(g=>fetchFeed(g.gamePk)));
+    ffs.forEach((f,i)=>{if(f)liveFeeds[finalNeedFetch[i].gamePk]=f})}
   const liveCount=lg.length;
   dot.className=liveCount>0?'poll-dot live':'poll-dot';
   st.textContent=liveCount>0?`${liveCount} live`:`No live games`;
@@ -1101,7 +1106,71 @@ function buildStatcast(p){
   if(!ls.feed||ls.status==='preview')return`<div class="sc-panel"><div class="sc-no-game">${ls.status==='preview'?'Game has not started yet':'No live data available'}</div></div>`;
   const f=ls.feed,g=ls.game;
   const aw=g.teams.away.team.abbreviation,hm=g.teams.home.team.abbreviation;
-  // Header
+
+  // ── POST-GAME: condensed player-only view ──
+  if(ls.status==='final'){
+    const pABs=getPlayerABs(f,p.name);
+    if(!pABs.length)return`<div class="sc-panel"><div class="sc-header"><div class="sc-header-left"><span>${aw} ${f.away.runs} — ${hm} ${f.home.runs}</span><span class="sc-game-info">Final</span></div></div><div class="sc-no-game">No plate appearances</div></div>`;
+    const isP=p.type==='pitcher';
+    let html=`<div class="sc-panel"><div class="sc-header"><div class="sc-header-left"><span>${aw} ${f.away.runs} — ${hm} ${f.home.runs}</span><span class="sc-game-info">Final</span></div></div>`;
+    if(isP){
+      // Pitcher summary stats bar
+      const faced=pABs.filter(a=>a.isPitching);
+      const bf=faced.length;
+      const k=faced.filter(a=>a.event==='Strikeout').length;
+      const hitsA=faced.filter(a=>a.isHit).length;
+      const bb=faced.filter(a=>['Walk','Intent Walk'].includes(a.event)).length;
+      const hbp=faced.filter(a=>a.event==='Hit By Pitch').length;
+      const hr=faced.filter(a=>a.event==='Home Run').length;
+      const outs=faced.filter(a=>a.isOut).length;
+      const ipFull=Math.floor(outs/3);const ipRem=outs%3;
+      const ipStr=`${ipFull}.${ipRem}`;
+      const er=hr;
+      const era=outs>0?((er*27)/outs).toFixed(2):'—';
+      const whip=outs>0?(((hitsA+bb)*3)/outs).toFixed(2):'—';
+      const totalPitches=faced.reduce((s,a)=>s+(a.pitchCount||0),0);
+      html+=`<div style="display:flex;flex-wrap:wrap;gap:1px;background:var(--border)">`;
+      const ss=(l,v,c)=>`<div style="flex:1;min-width:0;padding:6px 4px;text-align:center;background:var(--surface)"><div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${c||'var(--text)'}">${v}</div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">${l}</div></div>`;
+      html+=ss('IP',ipStr);html+=ss('BF',bf);html+=ss('P',totalPitches||'—');
+      html+=ss('K',k,k>=6?'var(--green)':'');html+=ss('H',hitsA,hitsA>=5?'var(--red)':'');
+      html+=ss('BB',bb,bb>=4?'var(--red)':'');html+=ss('HR',hr,hr>0?'var(--red)':'');
+      html+=ss('HBP',hbp);html+=ss('ERA',era);html+=ss('WHIP',whip);
+      html+=`</div>`;
+    } else {
+      // Hitter summary stats bar
+      const pa=pABs.filter(a=>!a.isPitching);
+      const hits=pa.filter(a=>a.isHit);
+      const noABevents=['Walk','Hit By Pitch','Sac Fly','Sac Bunt','Intent Walk','Catcher Interference'];
+      const atBats=pa.filter(a=>!noABevents.includes(a.event));
+      const h=hits.length,ab=atBats.length,hr=pa.filter(a=>a.event==='Home Run').length;
+      const rbi=pa.reduce((s,a)=>s+(a.rbi||0),0);
+      const bb=pa.filter(a=>['Walk','Intent Walk'].includes(a.event)).length;
+      const k=pa.filter(a=>a.event==='Strikeout').length;
+      const sb=pa.filter(a=>a.event==='Stolen Base').length;
+      html+=`<div style="display:flex;flex-wrap:wrap;gap:1px;background:var(--border)">`;
+      const ss=(l,v,c)=>`<div style="flex:1;min-width:0;padding:6px 4px;text-align:center;background:var(--surface)"><div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${c||'var(--text)'}">${v}</div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">${l}</div></div>`;
+      html+=ss('AB',ab);html+=ss('H',h,h>0?'var(--green)':'');
+      html+=ss('HR',hr,hr>0?'var(--green)':'');html+=ss('RBI',rbi,rbi>0?'var(--green)':'');
+      html+=ss('BB',bb);html+=ss('K',k,k>=3?'var(--red)':'');
+      html+=`</div>`;
+    }
+    // At-bat / batters faced log
+    html+=`<div style="padding:8px 14px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono);margin-bottom:6px">${isP?'Batters Faced':'At-Bats'}</div>`;
+    for(const ab of pABs){
+      const isHit=ab.isHit;const isHR=ab.event==='Home Run';const isK=ab.event==='Strikeout';const isBB=['Walk','Intent Walk','Hit By Pitch'].includes(ab.event);
+      let evCol='var(--dim)';if(isHR)evCol='var(--red)';else if(isHit)evCol='var(--green)';else if(isBB)evCol='var(--blue)';else if(isK)evCol='var(--muted)';
+      const evIcon=isHR?'💣':isHit?'✓':isK?'K':isBB?'BB':ab.isOut?'✗':'·';
+      const vs=isP?(ab.vsBatter?`vs ${ab.vsBatter}`:''):(ab.vsPitcher?`vs ${ab.vsPitcher}`:'');
+      const evDetails=[];
+      if(ab.exitVelo)evDetails.push(`${Math.round(ab.exitVelo)} mph`);
+      if(ab.launchAngle!=null)evDetails.push(`${Math.round(ab.launchAngle)}°`);
+      if(ab.pitchCount)evDetails.push(`${ab.pitchCount}P`);
+      if(ab.rbi)evDetails.push(`${ab.rbi} RBI`);
+      html+=`<div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;font-family:var(--mono);border-bottom:1px solid var(--border)"><span style="width:28px;color:var(--muted);font-size:10px">${ab.inning}</span><span style="width:16px;text-align:center;font-size:12px">${evIcon}</span><span style="font-weight:700;color:${evCol};min-width:70px">${ab.event}</span><span style="color:var(--dim);font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${vs}</span><span style="color:var(--muted);font-size:10px">${evDetails.join(' · ')}</span></div>`}
+    html+='</div>';
+    return html+'</div>'}
+
+  // ── LIVE GAME: full statcast panel ──
   let html=`<div class="sc-panel"><div class="sc-header"><div class="sc-header-left"><span>${aw} ${f.away.runs} — ${hm} ${f.home.runs}</span><span class="sc-game-info">${f.inning_half==='Top'?'▲':'▼'} ${f.inning_ordinal} · ${f.count.outs} out</span></div></div>`;
   // Count + bases
   const mk=(n,m,cl)=>Array.from({length:m},(_,i)=>`<div class="sc-pip ${i<n?cl:''}"></div>`).join('');
