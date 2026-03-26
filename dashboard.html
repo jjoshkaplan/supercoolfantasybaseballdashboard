@@ -516,6 +516,11 @@ let wwComparePeriod='last14'; // L7, L14, L30, Season
 let wwCompareStats={}; // {playerKey → {period → stats}}
 let wwCompareLoading=false;
 let wwSavantPlayer=null; // playerKey of player showing Savant in ww comparison
+// Standings expansion state
+let standingsData=[]; // parsed standings rows
+let expandedStTeam=null; // team_key of expanded standings team
+let stTeamRosters={}; // {team_key → {players[], loaded, period, stats{}}}
+let stTeamPeriod='today'; // current period for expanded team roster
 // Sparkline state
 let sparklineCache={}; // {mlbId → [{date,stats}]}
 let sparklineLoading=new Set();
@@ -705,7 +710,7 @@ function getPlayerLiveStatus(playerName, teamAbbr, playerType){
 
 // ─── VIEWS ──────────────────────────────────────────────
 function switchView(v){document.querySelectorAll('.view-panel').forEach(p=>p.style.display='none');document.querySelectorAll('.nav-tab[data-view]').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.mob-tab[data-view]').forEach(i=>i.classList.remove('active'));document.getElementById(`view-${v}`).style.display='block';const sb=document.querySelector(`.nav-tab[data-view="${v}"]`);if(sb)sb.classList.add('active');const mb=document.querySelector(`.mob-tab[data-view="${v}"]`);if(mb)mb.classList.add('active');if(currentLeague)loadViewData(v)}
-function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};refData={};expandedPlayer=null;splitsCache={};todayPanelMode={};waiverPlayers=[];waiverOffset=0;expandedWaiver=null;wwCompareStats={};sparklineCache={};sparklineLoading.clear();initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
+function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};refData={};expandedPlayer=null;splitsCache={};todayPanelMode={};waiverPlayers=[];waiverOffset=0;expandedWaiver=null;wwCompareStats={};sparklineCache={};sparklineLoading.clear();standingsData=[];expandedStTeam=null;stTeamRosters={};stTeamPeriod='today';initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
 function switchRosterTab(t){rosterTab=t;document.querySelectorAll('#rosterTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.getElementById('roster-hitters').style.display=t==='hitters'?'':'none';document.getElementById('roster-pitchers').style.display=t==='pitchers'?'':'none'}
 function switchPeriod(p){currentPeriod=p;expandedPlayer=null;todayPanelMode={};document.querySelectorAll('#periodBar .period-btn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));loadRoster()}
 function updatePeriodLabels(){const sy=parseInt(leagueSeason||2026);const m={season:String(sy),prevyear:String(sy-1)};document.querySelectorAll('#periodBar .period-btn').forEach(b=>{if(m[b.dataset.period])b.textContent=m[b.dataset.period]})}
@@ -1849,8 +1854,169 @@ function buildStatcastLive(p,ls){
 function showStatus(m,t){const e=document.createElement('div');e.className=`status-msg ${t}`;e.textContent=m;document.body.appendChild(e);setTimeout(()=>e.remove(),3000)}
 
 // ─── STANDINGS / MATCHUPS / TX ──────────────────────────
-async function loadStandings(){const el=document.getElementById('standings-content');el.innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';const d=await yahooGet(`league/${currentLeagueKey}/standings`);if(!d){el.innerHTML='<div class="empty">Could not load</div>';return}const st=[];try{const sd=d.fantasy_content?.league?.[1]?.standings?.[0]?.teams||{};for(let i=0;i<(sd.count||0);i++){const t=sd[String(i)]?.team||[];if(t.length<2)continue;const info=t[0],ts=t[1]?.team_standings||{};let n='',l='',mg=[];for(const it of info)if(typeof it==='object'){if(it.name)n=it.name;if(it.team_logos)l=it.team_logos?.[0]?.team_logo?.url||'';if(it.managers)for(const m of it.managers)mg.push(m.manager?.nickname||'')}const oc=ts.outcome_totals||{};st.push({rank:ts.rank,name:n,logo:l,mgrs:mg,w:oc.wins||0,l:oc.losses||0,t:oc.ties||0,pct:oc.percentage||'.000',pf:ts.points_for||'—',pa:ts.points_against||'—',gb:ts.games_back||'—'})}}catch(e){}st.sort((a,b)=>(parseInt(a.rank)||99)-(parseInt(b.rank)||99));let h='<div class="tw"><table><thead><tr><th style="width:40px">#</th><th>Team</th><th>Record</th><th>Win %</th><th>PF</th><th>PA</th><th>GB</th></tr></thead><tbody>';st.forEach(t=>{h+=`<tr><td class="rank">${t.rank}</td><td><div class="tm-cell">${t.logo?`<img class="tm-logo" src="${t.logo}">`:''}
-<div><div class="tm-name">${t.name}</div><div class="tm-mgr">${t.mgrs.join(', ')}</div></div></div></td><td class="record">${t.w}-${t.l}${t.t>0?'-'+t.t:''}</td><td class="wpct">${t.pct}</td><td>${t.pf}</td><td>${t.pa}</td><td>${t.gb}</td></tr>`});el.innerHTML=h+'</tbody></table></div>'}
+async function loadStandings(){const el=document.getElementById('standings-content');el.innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';const d=await yahooGet(`league/${currentLeagueKey}/standings`);if(!d){el.innerHTML='<div class="empty">Could not load</div>';return}standingsData=[];try{const sd=d.fantasy_content?.league?.[1]?.standings?.[0]?.teams||{};for(let i=0;i<(sd.count||0);i++){const t=sd[String(i)]?.team||[];if(t.length<2)continue;const info=t[0],ts=t[1]?.team_standings||{};let n='',l='',mg=[],tk='';for(const it of info)if(typeof it==='object'){if(it.name)n=it.name;if(it.team_logos)l=it.team_logos?.[0]?.team_logo?.url||'';if(it.managers)for(const m of it.managers)mg.push(m.manager?.nickname||'');if(it.team_key)tk=it.team_key}const oc=ts.outcome_totals||{};standingsData.push({rank:ts.rank,name:n,logo:l,mgrs:mg,team_key:tk,w:oc.wins||0,l:oc.losses||0,t:oc.ties||0,pct:oc.percentage||'.000',pf:ts.points_for||'—',pa:ts.points_against||'—',gb:ts.games_back||'—'})}}catch(e){}standingsData.sort((a,b)=>(parseInt(a.rank)||99)-(parseInt(b.rank)||99));renderStandings()}
+
+function renderStandings(){
+  const el=document.getElementById('standings-content');
+  let h='<div class="tw"><table><thead><tr><th style="width:40px">#</th><th>Team</th><th>Record</th><th>Win %</th><th>PF</th><th>PA</th><th>GB</th></tr></thead><tbody>';
+  standingsData.forEach(t=>{
+    const isExp=expandedStTeam===t.team_key;
+    const isMe=t.team_key&&myTeamKey&&t.team_key===myTeamKey;
+    h+=`<tr class="${isExp?'expanded':''}" onclick="toggleStTeam('${t.team_key}')" style="cursor:pointer${isMe?';background:var(--green-dim)':''}">`;
+    h+=`<td class="rank">${t.rank}</td><td><div class="tm-cell">${t.logo?`<img class="tm-logo" src="${t.logo}">`:''}
+<div><div class="tm-name">${t.name}</div><div class="tm-mgr">${t.mgrs.join(', ')}</div></div></div></td><td class="record">${t.w}-${t.l}${t.t>0?'-'+t.t:''}</td><td class="wpct">${t.pct}</td><td>${t.pf}</td><td>${t.pa}</td><td>${t.gb}</td></tr>`;
+    // Expanded roster row
+    h+=`<tr class="sc-row ${isExp?'open':''}" style="${isExp?'display:table-row':''}"><td colspan="7" style="padding:0!important;border-top:none!important;background:var(--bg)">${isExp?buildStTeamRoster(t):''}</td></tr>`;
+  });
+  el.innerHTML=h+'</tbody></table></div>';
+}
+
+function toggleStTeam(tk){
+  if(expandedStTeam===tk){expandedStTeam=null}else{expandedStTeam=tk;loadStTeamRoster(tk)}
+  renderStandings();
+}
+
+function switchStPeriod(period,ev){
+  if(ev)ev.stopPropagation();
+  stTeamPeriod=period;
+  if(expandedStTeam)loadStTeamStats(expandedStTeam);
+}
+
+async function loadStTeamRoster(tk){
+  if(stTeamRosters[tk]?.loaded){
+    // Already have roster, just fetch stats for current period
+    loadStTeamStats(tk);return;
+  }
+  stTeamRosters[tk]={players:[],loaded:false,loading:true,stats:{}};
+  renderStandings();
+  await buildMLBPlayerMap();
+  const resp=await yahooGet(`team/${tk}/roster/players`);
+  if(!resp){stTeamRosters[tk]={players:[],loaded:true,loading:false,stats:{}};renderStandings();return}
+  const players=parseRoster(resp);
+  for(const p of players){p.mlbId=resolveMLBId(p.name)}
+  stTeamRosters[tk]={players,loaded:true,loading:false,stats:{}};
+  loadStTeamStats(tk);
+}
+
+async function loadStTeamStats(tk){
+  const cache=stTeamRosters[tk];
+  if(!cache||!cache.loaded)return;
+  const period=stTeamPeriod;
+  if(cache.stats[period]){renderStandings();return} // already fetched this period
+  cache.loadingStats=true;
+  renderStandings();
+  const season=parseInt(leagueSeason||2026);
+  const today=new Date();const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const end=fmt(today);
+  let range=null;
+  if(period==='today')range={start:end,end};
+  else if(period==='lastweek'){const s=new Date(today);s.setDate(s.getDate()-7);range={start:fmt(s),end}}
+  else if(period==='last14'){const s=new Date(today);s.setDate(s.getDate()-14);range={start:fmt(s),end}}
+  else if(period==='lastmonth'){const s=new Date(today);s.setDate(s.getDate()-30);range={start:fmt(s),end}}
+  const useSeason=period==='season'?season:season;
+  const withId=cache.players.filter(p=>p.mlbId);
+  if(withId.length){
+    const results=await Promise.all(withId.map(p=>
+      fetchOnePlayerStats(p.mlbId,p.type,useSeason,range).then(stats=>({playerKey:p.playerKey,stats}))
+    ));
+    const statsMap={};for(const r of results)if(r.stats)statsMap[r.playerKey]=r.stats;
+    cache.stats[period]=statsMap;
+  }else{cache.stats[period]={}}
+  cache.loadingStats=false;
+  if(expandedStTeam===tk)renderStandings();
+}
+
+function buildStTeamRoster(t){
+  const cache=stTeamRosters[t.team_key];
+  if(!cache||cache.loading)return'<div style="padding:20px;text-align:center;color:var(--dim);font-size:12px"><div class="spinner" style="margin:0 auto 8px"></div>Loading roster...</div>';
+  if(!cache.loaded||!cache.players.length)return'<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">No roster data</div>';
+
+  const period=stTeamPeriod;
+  const sy=parseInt(leagueSeason||2026);
+  const periodLabels={today:'Today',lastweek:'L7',last14:'L14',lastmonth:'L30',season:String(sy)};
+  const statsMap=cache.stats[period]||{};
+
+  let html='<div style="padding:8px;background:var(--bg)" onclick="event.stopPropagation()">';
+  // Period toggle
+  html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">';
+  html+=`<span style="font-size:12px;font-weight:700;color:var(--text)">${t.name}</span>`;
+  html+='<div class="ww-period-bar">';
+  for(const[key,label]of Object.entries(periodLabels)){
+    html+=`<button class="period-btn ${stTeamPeriod===key?'active':''}" onclick="switchStPeriod('${key}',event)">${label}</button>`}
+  html+='</div></div>';
+
+  if(cache.loadingStats){html+='<div style="padding:16px;text-align:center;color:var(--dim);font-size:12px"><div class="spinner" style="margin:0 auto 8px"></div>Loading stats...</div></div>';return html}
+
+  const hitters=cache.players.filter(p=>p.type==='hitter').sort((a,b)=>(POS_ORDER_H.indexOf(a.selPos)===-1?99:POS_ORDER_H.indexOf(a.selPos))-(POS_ORDER_H.indexOf(b.selPos)===-1?99:POS_ORDER_H.indexOf(b.selPos)));
+  const pitchers=cache.players.filter(p=>p.type==='pitcher').sort((a,b)=>(POS_ORDER_P.indexOf(a.selPos)===-1?99:POS_ORDER_P.indexOf(a.selPos))-(POS_ORDER_P.indexOf(b.selPos)===-1?99:POS_ORDER_P.indexOf(b.selPos)));
+
+  // Build hitters table
+  if(hitters.length){
+    html+=buildStRosterTable(hitters,HITTER_STATS,statsMap,'Hitters');
+  }
+  // Build pitchers table
+  if(pitchers.length){
+    html+=buildStRosterTable(pitchers,PITCHER_STATS,statsMap,'Pitchers');
+  }
+  html+='</div>';
+  return html;
+}
+
+function buildStRosterTable(players,sn,statsMap,title){
+  // Compute percentile ranks for color coding
+  const statRanks={};
+  const withStats=players.filter(p=>sn.some(s=>statVal(statsMap[p.playerKey]||{},s)!=='—'));
+  if(withStats.length>2){
+    for(const s of sn){
+      const entries=[];
+      for(const p of withStats){
+        const v=parseFloat(statVal(statsMap[p.playerKey]||{},s));
+        if(!isNaN(v))entries.push({pk:p.playerKey,val:v})}
+      if(entries.length>2){
+        const lb=LOWER_IS_BETTER.includes(s);
+        entries.sort((a,b)=>lb?(a.val-b.val):(b.val-a.val));
+        statRanks[s]={};
+        for(let i=0;i<entries.length;i++)statRanks[s][entries[i].pk]=i/(entries.length-1);
+      }
+    }
+  }
+  function cellStyle(pk,stat){
+    if(!statRanks[stat]||statRanks[stat][pk]===undefined)return'';
+    const pctile=statRanks[stat][pk];
+    if(pctile>0.35&&pctile<0.65)return'';
+    const isGood=pctile<=0.35;
+    const severity=isGood?((0.35-pctile)/0.35):((pctile-0.65)/0.35);
+    const clampSev=Math.min(1,severity);
+    const opacity=(0.04+clampSev*0.22).toFixed(2);
+    const color=isGood?'45,212,160':'240,100,73';
+    const textColor=isGood?'var(--green)':'var(--red)';
+    const fw=clampSev>0.6?'700':'600';
+    return`background:rgba(${color},${opacity});color:${textColor};font-weight:${fw}`;
+  }
+
+  let html=`<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono);padding:6px 8px;background:var(--surface-2);border:1px solid var(--border);border-bottom:none;border-radius:var(--radius) var(--radius) 0 0">${title}</div>`;
+  html+='<div class="tw" style="border:1px solid var(--border);border-radius:0 0 var(--radius) var(--radius);overflow:hidden"><table style="font-size:12px"><thead><tr><th style="width:36px;padding:6px 4px">Pos</th><th style="min-width:100px;padding:6px 8px">Player</th>';
+  for(const s of sn)html+=`<th class="num" style="padding:6px 4px">${s}</th>`;
+  html+='</tr></thead><tbody>';
+  let bench=false;
+  for(const p of players){
+    if(BENCH_POSITIONS.includes(p.selPos)&&!bench){bench=true;html+=`<tr><td colspan="${2+sn.length}" style="padding:2px 8px;background:var(--surface-2);border-top:2px solid var(--border)"><span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">Bench / IL</span></td></tr>`}
+    const st=statsMap[p.playerKey]||{};
+    const sc=p.status&&(p.status.includes('IL')||p.status.includes('DL'))?'il':p.status?'dtd':'';
+    const sh=p.statusFull?`<span class="status ${sc}">${p.status}</span>`:'';
+    html+=`<tr>`;
+    html+=`<td style="padding:4px;text-align:center"><span class="pos-select" style="cursor:default;font-size:9px;min-width:28px;padding:2px 3px">${p.selPos}</span></td>`;
+    html+=`<td style="padding:4px 8px"><div class="player-cell" style="gap:5px">${p.hs?`<img class="player-hs" src="${p.hs}" style="width:20px;height:20px" onerror="this.style.display='none'">`:''}`;
+    html+=`<div class="player-info"><div class="name" style="font-size:11px">${p.name}</div><div class="meta" style="font-size:9px">${p.team} · ${p.pos} ${sh}</div></div></div></td>`;
+    for(const s of sn){
+      const v=statVal(st,s),f=fmtStat(v,s);
+      const cs=cellStyle(p.playerKey,s);
+      html+=`<td class="num" style="padding:4px;font-size:11px;${cs}">${f}</td>`}
+    html+='</tr>';
+  }
+  html+='</tbody></table></div></div>';
+  return html;
+}
 async function loadMatchups(){
   const el=document.getElementById('matchups-content');el.innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';
   document.getElementById('rankings-content').innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';
