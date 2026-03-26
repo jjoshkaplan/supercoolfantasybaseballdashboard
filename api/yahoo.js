@@ -2,6 +2,10 @@ const { getValidToken, encryptTokens, setSessionCookie, refreshAccessToken } = r
 
 const YAHOO_API = 'https://fantasysports.yahooapis.com/fantasy/v2';
 
+// Disable Vercel's default body parser so XML PUT/POST bodies are read raw from the stream
+// Without this, Vercel may consume the stream but fail to store XML in req.body properly
+module.exports.config = { api: { bodyParser: false } };
+
 module.exports = async (req, res) => {
   // Handle CORS preflight for PUT/POST
   if (req.method === 'OPTIONS') {
@@ -32,6 +36,10 @@ module.exports = async (req, res) => {
   let body = null;
   if (method === 'PUT' || method === 'POST') {
     body = await readBody(req);
+  }
+
+  if (method === 'PUT' || method === 'POST') {
+    console.log(`[Yahoo Proxy] ${method} ${endpoint}, body length: ${body ? body.length : 0}, body preview: ${body ? body.slice(0, 200) : '(empty)'}`);
   }
 
   let resp = await fetchYahoo(yahooUrl, tokens.access_token, method, body);
@@ -91,13 +99,11 @@ async function fetchYahoo(url, accessToken, method = 'GET', body = null) {
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
-    // Vercel may have already parsed the body
-    if (req.body !== undefined && req.body !== null) {
-      if (typeof req.body === 'string') return resolve(req.body);
-      if (Buffer.isBuffer(req.body)) return resolve(req.body.toString());
-      return resolve(JSON.stringify(req.body));
-    }
-    // Otherwise read from stream
+    // With bodyParser: false, always read raw body from stream
+    // Check if Vercel pre-parsed anyway (safety fallback)
+    if (typeof req.body === 'string' && req.body.length > 0) return resolve(req.body);
+    if (Buffer.isBuffer(req.body) && req.body.length > 0) return resolve(req.body.toString());
+    // Read from stream (primary path with bodyParser disabled)
     const chunks = [];
     req.on('data', chunk => chunks.push(chunk));
     req.on('end', () => resolve(Buffer.concat(chunks).toString()));
