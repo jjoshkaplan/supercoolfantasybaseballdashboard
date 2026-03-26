@@ -1274,6 +1274,18 @@ const PITCHER_SECTIONS=[
 function savLookup(row,...names){
   for(const n of names.flat()){const v=row[n];if(v!=null&&v!=='')return v}return null}
 
+// Normalize a percentage value to 0-100 range regardless of source format
+// Handles: 0.362 (decimal) → 36.2, or 36.2 (already %) → 36.2
+function normPct(v){if(v==null||v==='')return 0;const n=parseFloat(v);if(isNaN(n))return 0;return n<=1&&n>=0?n*100:n}
+
+// Format a percentage value smartly: auto-detect if 0-1 decimal or already %
+function fmtPctSmart(v){if(v==null||v==='')return'—';const n=parseFloat(v);if(isNaN(n))return'—';
+  const pct=n<=1&&n>=0?n*100:n;return`${pct.toFixed(1)}%`}
+
+// Format batting average: ensure .XXX format with leading dot
+function fmtBASmart(v){if(v==null||v==='')return'—';const n=parseFloat(v);if(isNaN(n))return'—';
+  return n.toFixed(3).replace(/^0/,'')}
+
 // Parse a percentile value — could be 0-100 int, or 0-1 float
 function parsePctile(v){if(v==null||v==='')return null;const n=parseFloat(v);if(isNaN(n))return null;return n<=1&&n>=0?Math.round(n*100):Math.round(n)}
 
@@ -1320,21 +1332,21 @@ function buildSavantPanel(p){
       html+=`<table class="pa-table"><thead><tr><th>Pitch</th><th class="num">Velo</th><th class="num">Usage</th><th class="num">Whiff%</th><th class="num">PutAway%</th><th class="num">BA</th><th class="num">xBA</th></tr></thead><tbody>`;
       // Sort by usage descending
       const sorted=[...arData].sort((a,b)=>{
-        const ua=parseFloat(savLookup(a,'pitch_usage','percent_usage','usage_pct')||0);
-        const ub=parseFloat(savLookup(b,'pitch_usage','percent_usage','usage_pct')||0);
+        const ua=normPct(savLookup(a,'pitch_usage','percent_usage','usage_pct'));
+        const ub=normPct(savLookup(b,'pitch_usage','percent_usage','usage_pct'));
         return ub-ua});
       for(const pt of sorted){
         const name=savLookup(pt,'pitch_type_name','pitch_name','pitch_type')||'?';
         const col=pitchColor(name);
         const velo=savLookup(pt,'pitch_type_velo','avg_speed','velocity','velo')||'—';
         const usageRaw=savLookup(pt,'pitch_usage','percent_usage','usage_pct');
-        const usage=usageRaw?`${(parseFloat(usageRaw)*100).toFixed(1)}%`:'—';
+        const usage=usageRaw?fmtPctSmart(usageRaw):'—';
         const whiffRaw=savLookup(pt,'whiff_percent','whiff_rate','whiff_pct');
-        const whiff=whiffRaw?`${(parseFloat(whiffRaw)*100).toFixed(1)}%`:'—';
+        const whiff=whiffRaw?fmtPctSmart(whiffRaw):'—';
         const putRaw=savLookup(pt,'put_away_percent','put_away_rate','put_away');
-        const put=putRaw?`${(parseFloat(putRaw)*100).toFixed(1)}%`:'—';
-        const ba=savLookup(pt,'batting_avg','ba','avg')||'—';
-        const xba=savLookup(pt,'est_ba','xba','est_batting_avg')||'—';
+        const put=putRaw?fmtPctSmart(putRaw):'—';
+        const ba=fmtBASmart(savLookup(pt,'batting_avg','ba','avg'));
+        const xba=fmtBASmart(savLookup(pt,'est_ba','xba','est_batting_avg'));
         html+=`<tr><td><span class="pa-dot" style="background:${col}"></span>${name}</td><td class="num">${velo}</td><td class="num">${usage}</td><td class="num">${whiff}</td><td class="num">${put}</td><td class="num">${ba}</td><td class="num">${xba}</td></tr>`}
       html+=`</tbody></table>`}
     else if(savantArsenalCache[season]){
