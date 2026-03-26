@@ -24,7 +24,7 @@ module.exports = (req, res) => {
     client_id: process.env.YAHOO_CLIENT_ID,
     redirect_uri: `${BASE_URL}/api/auth-callback`,
     response_type: 'code',
-    scope: 'fspt-r',
+    scope: 'fspt-w',
     language: 'en-us',
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
