@@ -152,6 +152,29 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .sc-leg-dot{width:6px;height:6px;border-radius:50%}
 .sc-no-game{padding:24px;text-align:center;color:var(--muted);font-size:13px}
 
+/* ─── SAVANT ANALYTICS PANEL ─── */
+.sav-panel{border:1px solid var(--border);border-radius:0 0 var(--radius) var(--radius);overflow:hidden;margin:0 8px 8px}
+.sav-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border)}
+.sav-header-left{display:flex;align-items:center;gap:12px;font-size:13px;font-weight:600}
+.sav-header-left .sav-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:4px;background:var(--purple-dim);color:var(--purple);font-family:var(--mono)}
+.sav-link{font-size:11px;font-weight:600;color:var(--blue);text-decoration:none;display:flex;align-items:center;gap:4px;font-family:var(--mono)}
+.sav-link:hover{text-decoration:underline}
+.sav-body{padding:14px}
+.sav-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono);margin-bottom:10px}
+.pct-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
+.pct-label{width:70px;text-align:right;font-family:var(--mono);font-weight:600;font-size:11px;color:var(--dim);flex-shrink:0}
+.pct-bar-bg{flex:1;height:14px;background:var(--surface-2);border-radius:7px;overflow:hidden;position:relative}
+.pct-bar-fill{height:100%;border-radius:7px;transition:width .4s ease}
+.pct-val{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:700;font-family:var(--mono);color:var(--text);text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.pct-rank{width:36px;font-family:var(--mono);font-size:11px;font-weight:700;text-align:center;flex-shrink:0}
+.pa-table{width:100%;font-size:12px;border-collapse:collapse;margin-top:6px}
+.pa-table th{padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--border);font-family:var(--mono)}
+.pa-table th.num{text-align:right}
+.pa-table td{padding:5px 8px;border-top:1px solid var(--border);font-family:var(--mono)}
+.pa-table td.num{text-align:right}
+.pa-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.sav-loading{text-align:center;padding:20px;color:var(--dim);font-size:12px}
+
 /* ─── STANDINGS / MATCHUPS / TX ─── */
 .rank{font-family:var(--mono);font-weight:600;color:var(--dim);width:40px;text-align:center}
 .tm-cell{display:flex;align-items:center;gap:10px}.tm-logo{width:28px;height:28px;border-radius:6px;object-fit:cover;background:var(--surface-2)}.tm-name{font-weight:700}.tm-mgr{font-size:11px;color:var(--dim)}
@@ -236,6 +259,11 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .sc-body{flex-direction:column}.sc-left{flex:none;border-right:none;border-bottom:1px solid var(--border)}
   .sc-panel{margin:0 0 4px;border-radius:0;border-left:none;border-right:none}.sc-left,.sc-right{padding:8px}
   .sc-left svg,.sc-right svg{max-width:100%;height:auto}
+  /* Savant */
+  .sav-panel{margin:0 0 4px;border-radius:0;border-left:none;border-right:none}
+  .sav-body{padding:10px 8px}
+  .pct-label{width:50px;font-size:9px}.pct-rank{width:28px;font-size:9px}
+  .pa-table{font-size:10px}.pa-table th,.pa-table td{padding:4px 5px}
 
   /* Touch targets */
   .btn-sm,.tab-btn,.period-btn,.mob-tab{min-height:44px;display:flex;align-items:center;justify-content:center}
@@ -734,7 +762,145 @@ function posSelect(p){
 // ─── EXPAND / STATCAST ──────────────────────────────────
 function toggleExpand(pk,ev){if(ev.target.tagName==='SELECT'||ev.target.tagName==='OPTION')return;expandedPlayer=expandedPlayer===pk?null:pk;renderRoster()}
 
+// ─── SAVANT ANALYTICS ───────────────────────────────────
+let savantCache={}; // key: `${year}_${type}` → {playerMap}
+let savantArsenalCache={}; // key: year → {playerMap}
+
+function parseCSV(text){
+  const lines=text.trim().split('\n');if(lines.length<2)return[];
+  const headers=lines[0].split(',').map(h=>h.replace(/"/g,'').trim());
+  return lines.slice(1).map(line=>{
+    const vals=line.match(/("([^"]*)"|[^,]*)/g)||[];
+    const obj={};headers.forEach((h,i)=>{obj[h]=(vals[i]||'').replace(/"/g,'').trim()});return obj})}
+
+function pctColor(v){
+  if(v>=90)return'#ef4444';if(v>=80)return'#f97316';if(v>=70)return'#f59e0b';
+  if(v>=60)return'#eab308';if(v>=40)return'#6b7280';if(v>=30)return'#06b6d4';
+  if(v>=20)return'#3b82f6';return'#6366f1'}
+
+async function fetchSavantPercentiles(year,type){
+  const key=`${year}_${type}`;
+  if(savantCache[key])return savantCache[key];
+  try{
+    const url=`https://baseballsavant.mlb.com/leaderboard/percentile-rankings?type=${type}&year=${year}&csv=true`;
+    const r=await fetch(url);if(!r.ok)throw new Error(r.status);
+    const rows=parseCSV(await r.text());
+    const map={};for(const row of rows){const id=row.player_id||row.xMLBAMID;if(id)map[String(id)]=row}
+    savantCache[key]=map;
+    console.log(`[Savant] Percentiles loaded: ${Object.keys(map).length} ${type}s (${year})`);
+    return map;
+  }catch(e){console.warn(`[Savant] Percentiles fetch failed (${type}/${year}):`,e.message);savantCache[key]={};return{}}
+}
+
+async function fetchSavantPitchArsenal(year){
+  if(savantArsenalCache[year])return savantArsenalCache[year];
+  try{
+    const url=`https://baseballsavant.mlb.com/leaderboard/pitch-arsenal-stats?type=pitcher&pitchType=&year=${year}&team=&csv=true`;
+    const r=await fetch(url);if(!r.ok)throw new Error(r.status);
+    const rows=parseCSV(await r.text());
+    // Group by player: each row is one pitch type for one pitcher
+    const map={};for(const row of rows){
+      const id=row.pitcher||row.player_id;if(!id)continue;
+      if(!map[String(id)])map[String(id)]=[];
+      map[String(id)].push(row)}
+    savantArsenalCache[year]=map;
+    console.log(`[Savant] Pitch arsenal loaded: ${Object.keys(map).length} pitchers (${year})`);
+    return map;
+  }catch(e){console.warn(`[Savant] Pitch arsenal fetch failed (${year}):`,e.message);savantArsenalCache[year]={};return{}}
+}
+
+function buildPctBar(label,pctile,rawVal){
+  const p=parseInt(pctile)||0;const col=pctColor(p);const w=Math.max(p,3);
+  const rv=rawVal!=null&&rawVal!==''?rawVal:'';
+  return`<div class="pct-row"><span class="pct-label">${label}</span><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:${w}%;background:${col}"></div>${rv?`<span class="pct-val">${rv}</span>`:''}</div><span class="pct-rank" style="color:${col}">${p}<span style="font-size:8px">th</span></span></div>`}
+
+// Hitter percentile metrics to display (CSV column → display label)
+const HITTER_PCT_METRICS=[
+  ['xba_percent_rank','xBA'],['xslg_percent_rank','xSLG'],['xwoba_percent_rank','xwOBA'],
+  ['exit_velocity_percent_rank','Exit Velo'],['hard_hit_percent_rank','Hard Hit%'],
+  ['barrel_percent_rank','Barrel%'],['k_percent_rank','K%'],['bb_percent_rank','BB%'],
+  ['sprint_speed_percent_rank','Speed'],['whiff_percent_rank','Whiff%']
+];
+const PITCHER_PCT_METRICS=[
+  ['xba_percent_rank','xBA'],['xslg_percent_rank','xSLG'],['xwoba_percent_rank','xwOBA'],
+  ['exit_velocity_percent_rank','Exit Velo'],['hard_hit_percent_rank','Hard Hit%'],
+  ['k_percent_rank','K%'],['bb_percent_rank','BB%'],['whiff_percent_rank','Whiff%'],
+  ['barrel_percent_rank','Barrel%'],['fastball_velo_percent_rank','FB Velo']
+];
+// Raw value columns that match each metric (for display in bar)
+const PCT_RAW_MAP={
+  'xba_percent_rank':'xba','xslg_percent_rank':'xslg','xwoba_percent_rank':'xwoba',
+  'exit_velocity_percent_rank':'exit_velocity','hard_hit_percent_rank':'hard_hit_percent',
+  'barrel_percent_rank':'barrel_batted_rate','k_percent_rank':'k_percent',
+  'bb_percent_rank':'bb_percent','sprint_speed_percent_rank':'sprint_speed',
+  'whiff_percent_rank':'whiff_percent','fastball_velo_percent_rank':'fastball_velo'
+};
+
+function buildSavantPanel(p){
+  const season=currentPeriod==='prevyear'?parseInt(leagueSeason||2026)-1:parseInt(leagueSeason||2026);
+  const slug=p.name.toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,'-');
+  const savUrl=`https://baseballsavant.mlb.com/savant-player/${slug}-${p.mlbId}`;
+  let html=`<div class="sav-panel"><div class="sav-header"><div class="sav-header-left"><span>${p.name}</span><span class="sav-badge">Savant · ${season}</span></div><a href="${savUrl}" target="_blank" class="sav-link">Full Profile ↗</a></div><div class="sav-body">`;
+
+  // Check if we have data — if not yet loaded, show loading and trigger fetch
+  const type=p.type==='pitcher'?'pitcher':'batter';
+  const pctKey=`${season}_${type}`;
+  if(!savantCache[pctKey]){
+    // Kick off async fetch, re-render when done
+    fetchSavantPercentiles(season,type).then(()=>{if(p.type==='pitcher')return fetchSavantPitchArsenal(season)}).then(()=>{if(expandedPlayer===p.playerKey)renderRoster()});
+    return html+`<div class="sav-loading">Loading Savant data...</div></div></div>`;
+  }
+
+  const pctData=(savantCache[pctKey]||{})[p.mlbId];
+  const metrics=p.type==='pitcher'?PITCHER_PCT_METRICS:HITTER_PCT_METRICS;
+
+  // Percentile rankings
+  html+=`<div class="sav-section-title">Statcast Percentile Rankings</div>`;
+  if(pctData){
+    for(const[key,label]of metrics){
+      const pctile=pctData[key];
+      if(pctile==null||pctile==='')continue;
+      const rawKey=PCT_RAW_MAP[key];
+      const rawVal=rawKey?pctData[rawKey]:'';
+      html+=buildPctBar(label,Math.round(parseFloat(pctile)*100),rawVal)}
+  }else{
+    html+=`<div style="color:var(--muted);font-size:12px;padding:8px 0">No percentile data available for this player (may not meet qualifier threshold)</div>`}
+
+  // Pitch arsenal for pitchers
+  if(p.type==='pitcher'){
+    const arData=(savantArsenalCache[season]||{})[p.mlbId];
+    if(arData&&arData.length){
+      html+=`<div class="sav-section-title" style="margin-top:16px">Pitch Arsenal</div>`;
+      html+=`<table class="pa-table"><thead><tr><th>Pitch</th><th class="num">Velo</th><th class="num">Usage</th><th class="num">Whiff%</th><th class="num">PutAway%</th><th class="num">BA</th><th class="num">xBA</th></tr></thead><tbody>`;
+      // Sort by usage descending
+      const sorted=[...arData].sort((a,b)=>(parseFloat(b.pitch_usage||0))-(parseFloat(a.pitch_usage||0)));
+      for(const pt of sorted){
+        const name=pt.pitch_type_name||pt.pitch_name||pt.pitch_type||'?';
+        const col=pitchColor(name);
+        const velo=pt.pitch_type_velo||pt.avg_speed||'—';
+        const usage=pt.pitch_usage?`${(parseFloat(pt.pitch_usage)*100).toFixed(1)}%`:'—';
+        const whiff=pt.whiff_percent?`${(parseFloat(pt.whiff_percent)*100).toFixed(1)}%`:'—';
+        const put=pt.put_away_percent?`${(parseFloat(pt.put_away_percent)*100).toFixed(1)}%`:'—';
+        const ba=pt.batting_avg||pt.ba||'—';
+        const xba=pt.est_ba||pt.xba||'—';
+        html+=`<tr><td><span class="pa-dot" style="background:${col}"></span>${name}</td><td class="num">${velo}</td><td class="num">${usage}</td><td class="num">${whiff}</td><td class="num">${put}</td><td class="num">${ba}</td><td class="num">${xba}</td></tr>`}
+      html+=`</tbody></table>`}
+    else if(savantArsenalCache[season]){
+      html+=`<div class="sav-section-title" style="margin-top:16px">Pitch Arsenal</div><div style="color:var(--muted);font-size:12px;padding:8px 0">No pitch arsenal data available</div>`}
+    else{
+      // Trigger fetch
+      fetchSavantPitchArsenal(season).then(()=>{if(expandedPlayer===p.playerKey)renderRoster()})}}
+
+  html+=`</div></div>`;
+  return html;
+}
+
 function buildStatcast(p){
+  // On Season/Prev Year: show Savant analytics panel instead of live game data
+  if(currentPeriod==='season'||currentPeriod==='prevyear'){
+    if(!p.mlbId)return`<div class="sc-panel"><div class="sc-no-game">No MLB ID — cannot load Savant data</div></div>`;
+    return buildSavantPanel(p);
+  }
   const ls=getPlayerLiveStatus(p.name,p.team);
   if(!ls.feed||ls.status==='preview')return`<div class="sc-panel"><div class="sc-no-game">${ls.status==='preview'?'Game has not started yet':'No live data available'}</div></div>`;
   const f=ls.feed,g=ls.game;
