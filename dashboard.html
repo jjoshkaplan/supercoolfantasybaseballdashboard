@@ -159,14 +159,16 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .sav-header-left .sav-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:4px;background:var(--purple-dim);color:var(--purple);font-family:var(--mono)}
 .sav-link{font-size:11px;font-weight:600;color:var(--blue);text-decoration:none;display:flex;align-items:center;gap:4px;font-family:var(--mono)}
 .sav-link:hover{text-decoration:underline}
-.sav-body{padding:14px}
-.sav-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono);margin-bottom:10px}
-.pct-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
-.pct-label{width:70px;text-align:right;font-family:var(--mono);font-weight:600;font-size:11px;color:var(--dim);flex-shrink:0}
-.pct-bar-bg{flex:1;height:14px;background:var(--surface-2);border-radius:7px;overflow:hidden;position:relative}
-.pct-bar-fill{height:100%;border-radius:7px;transition:width .4s ease}
-.pct-val{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:700;font-family:var(--mono);color:var(--text);text-shadow:0 1px 2px rgba(0,0,0,.5)}
-.pct-rank{width:36px;font-family:var(--mono);font-size:11px;font-weight:700;text-align:center;flex-shrink:0}
+.sav-body{padding:16px 14px}
+.sav-section{margin-bottom:18px}
+.sav-section:last-child{margin-bottom:0}
+.sav-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:var(--mono);margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.sav-bubbles{display:flex;flex-wrap:wrap;gap:12px 16px}
+.sav-bubble{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px}
+.sav-circle{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:15px;font-weight:800;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.25);position:relative}
+.sav-circle::after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 -2px 4px rgba(0,0,0,.15),0 1px 3px rgba(0,0,0,.15)}
+.sav-metric{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--dim);font-family:var(--mono);text-align:center;line-height:1.1}
+.sav-raw{font-size:10px;font-weight:600;color:var(--text);font-family:var(--mono);text-align:center}
 .pa-table{width:100%;font-size:12px;border-collapse:collapse;margin-top:6px}
 .pa-table th{padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--border);font-family:var(--mono)}
 .pa-table th.num{text-align:right}
@@ -262,7 +264,11 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   /* Savant */
   .sav-panel{margin:0 0 4px;border-radius:0;border-left:none;border-right:none}
   .sav-body{padding:10px 8px}
-  .pct-label{width:50px;font-size:9px}.pct-rank{width:28px;font-size:9px}
+  .sav-bubbles{gap:8px 10px}
+  .sav-bubble{min-width:44px}
+  .sav-circle{width:38px;height:38px;font-size:13px}
+  .sav-metric{font-size:8px}
+  .sav-raw{font-size:9px}
   .pa-table{font-size:10px}.pa-table th,.pa-table td{padding:4px 5px}
 
   /* Touch targets */
@@ -780,10 +786,18 @@ function parseCSV(text){
   return{headers,rows:lines.slice(1).map(line=>{
     const vals=splitRow(line);const obj={};headers.forEach((h,i)=>{obj[h]=(vals[i]||'').replace(/"/g,'').trim()});return obj})}}
 
+// Savant-matching color gradient: deep blue → gray → deep red
 function pctColor(v){
-  if(v>=90)return'#ef4444';if(v>=80)return'#f97316';if(v>=70)return'#f59e0b';
-  if(v>=60)return'#eab308';if(v>=40)return'#6b7280';if(v>=30)return'#06b6d4';
-  if(v>=20)return'#3b82f6';return'#6366f1'}
+  if(v<=5)return'#1a3c80';if(v<=10)return'#1e4d9a';if(v<=15)return'#2660ab';
+  if(v<=20)return'#3070b8';if(v<=25)return'#4a8ec8';if(v<=30)return'#6aa0d0';
+  if(v<=35)return'#88b4d4';if(v<=40)return'#9ec0d4';if(v<=55)return'#aaaaaa';
+  if(v<=60)return'#c8a050';if(v<=65)return'#d49040';if(v<=70)return'#d88030';
+  if(v<=75)return'#dc6828';if(v<=80)return'#d85020';if(v<=85)return'#d04020';
+  if(v<=90)return'#c83028';if(v<=95)return'#c02020';return'#be1e2d'}
+
+function buildBubble(label,pctile,rawVal){
+  const col=pctColor(pctile);
+  return`<div class="sav-bubble"><div class="sav-circle" style="background:${col}">${pctile}</div><div class="sav-metric">${label}</div>${rawVal?`<div class="sav-raw">${rawVal}</div>`:''}</div>`}
 
 async function fetchSavantPercentiles(year,type){
   const key=`${year}_${type}`;
@@ -830,36 +844,46 @@ async function fetchSavantPitchArsenal(year){
   }catch(e){console.warn(`[Savant] Pitch arsenal fetch failed (${year}):`,e.message);savantArsenalCache[year]={};return{}}
 }
 
-function buildPctBar(label,pctile,rawVal){
-  const p=parseInt(pctile)||0;const col=pctColor(p);const w=Math.max(p,3);
-  const rv=rawVal!=null&&rawVal!==''?rawVal:'';
-  return`<div class="pct-row"><span class="pct-label">${label}</span><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:${w}%;background:${col}"></div>${rv?`<span class="pct-val">${rv}</span>`:''}</div><span class="pct-rank" style="color:${col}">${p}<span style="font-size:8px">th</span></span></div>`}
-
-// Savant percentile metrics: [possibleColumnNames[], displayLabel, rawValueColumns[]]
-// The CSV column names vary — we try multiple patterns
-const HITTER_PCT_METRICS=[
-  [['xba_percent_rank','xba_percentile','xba'],'xBA',['xba','est_ba']],
-  [['xslg_percent_rank','xslg_percentile','xslg'],'xSLG',['xslg','est_slg']],
-  [['xwoba_percent_rank','xwoba_percentile','xwoba'],'xwOBA',['xwoba','est_woba']],
-  [['exit_velocity_percent_rank','exit_velocity_percentile','exit_velocity'],'Exit Velo',['exit_velocity','exit_velocity_avg']],
-  [['hard_hit_percent_rank','hard_hit_percentile','hard_hit_percent'],'Hard Hit%',['hard_hit_percent']],
-  [['barrel_percent_rank','barrel_percentile','barrel_batted_rate'],'Barrel%',['barrel_batted_rate']],
-  [['k_percent_rank','k_percentile','k_percent'],'K%',['k_percent']],
-  [['bb_percent_rank','bb_percentile','bb_percent'],'BB%',['bb_percent']],
-  [['sprint_speed_percent_rank','sprint_speed_percentile','sprint_speed'],'Speed',['sprint_speed']],
-  [['whiff_percent_rank','whiff_percentile','whiff_percent'],'Whiff%',['whiff_percent']]
+// Savant hitter sections: [sectionName, [[columnPatterns[], label, rawCols[]], ...]]
+const HITTER_SECTIONS=[
+  ['Expected',[
+    [['xwoba_percent_rank','xwoba_percentile'],'xwOBA',['xwoba','est_woba']],
+    [['xba_percent_rank','xba_percentile'],'xBA',['xba','est_ba']],
+    [['xslg_percent_rank','xslg_percentile'],'xSLG',['xslg','est_slg']]
+  ]],
+  ['Batted Ball',[
+    [['exit_velocity_percent_rank','exit_velocity_percentile'],'Avg EV',['exit_velocity','exit_velocity_avg']],
+    [['hard_hit_percent_rank','hard_hit_percentile'],'Hard Hit%',['hard_hit_percent']],
+    [['barrel_percent_rank','barrel_percentile'],'Barrel%',['barrel_batted_rate']],
+    [['sweet_spot_percent_rank','sweet_spot_percentile'],'Sweet Spot%',['sweet_spot_percent']]
+  ]],
+  ['Plate Discipline',[
+    [['k_percent_rank','k_percentile'],'K%',['k_percent']],
+    [['bb_percent_rank','bb_percentile'],'BB%',['bb_percent']],
+    [['whiff_percent_rank','whiff_percentile'],'Whiff%',['whiff_percent']]
+  ]],
+  ['Speed',[
+    [['sprint_speed_percent_rank','sprint_speed_percentile'],'Sprint Speed',['sprint_speed']]
+  ]]
 ];
-const PITCHER_PCT_METRICS=[
-  [['xba_percent_rank','xba_percentile','xba'],'xBA',['xba','est_ba']],
-  [['xslg_percent_rank','xslg_percentile','xslg'],'xSLG',['xslg','est_slg']],
-  [['xwoba_percent_rank','xwoba_percentile','xwoba'],'xwOBA',['xwoba','est_woba']],
-  [['exit_velocity_percent_rank','exit_velocity_percentile','exit_velocity'],'Exit Velo',['exit_velocity','exit_velocity_avg']],
-  [['hard_hit_percent_rank','hard_hit_percentile','hard_hit_percent'],'Hard Hit%',['hard_hit_percent']],
-  [['k_percent_rank','k_percentile','k_percent'],'K%',['k_percent']],
-  [['bb_percent_rank','bb_percentile','bb_percent'],'BB%',['bb_percent']],
-  [['whiff_percent_rank','whiff_percentile','whiff_percent'],'Whiff%',['whiff_percent']],
-  [['barrel_percent_rank','barrel_percentile','barrel_batted_rate'],'Barrel%',['barrel_batted_rate']],
-  [['fastball_velo_percent_rank','fastball_velo_percentile','fastball_velo'],'FB Velo',['fastball_velo']]
+const PITCHER_SECTIONS=[
+  ['Expected',[
+    [['xwoba_percent_rank','xwoba_percentile'],'xwOBA',['xwoba','est_woba']],
+    [['xba_percent_rank','xba_percentile'],'xBA',['xba','est_ba']],
+    [['xslg_percent_rank','xslg_percentile'],'xSLG',['xslg','est_slg']]
+  ]],
+  ['Batted Ball',[
+    [['exit_velocity_percent_rank','exit_velocity_percentile'],'Avg EV',['exit_velocity','exit_velocity_avg']],
+    [['hard_hit_percent_rank','hard_hit_percentile'],'Hard Hit%',['hard_hit_percent']],
+    [['barrel_percent_rank','barrel_percentile'],'Barrel%',['barrel_batted_rate']]
+  ]],
+  ['Pitching',[
+    [['k_percent_rank','k_percentile'],'K%',['k_percent']],
+    [['bb_percent_rank','bb_percentile'],'BB%',['bb_percent']],
+    [['whiff_percent_rank','whiff_percentile'],'Whiff%',['whiff_percent']],
+    [['fastball_velo_percent_rank','fastball_velo_percentile'],'FB Velo',['fastball_velo']],
+    [['extension_percent_rank','extension_percentile'],'Extension',['extension']]
+  ]]
 ];
 
 // Look up a value trying multiple column names
@@ -885,18 +909,20 @@ function buildSavantPanel(p){
   }
 
   const pctData=(savantCache[pctKey]||{})[p.mlbId];
-  const metrics=p.type==='pitcher'?PITCHER_PCT_METRICS:HITTER_PCT_METRICS;
+  const sections=p.type==='pitcher'?PITCHER_SECTIONS:HITTER_SECTIONS;
 
-  // Percentile rankings
-  html+=`<div class="sav-section-title">Statcast Percentile Rankings</div>`;
+  // Percentile rankings — Savant bubble layout
   if(pctData){
-    let rendered=0;
-    for(const[pctCols,label,rawCols]of metrics){
-      const pctile=parsePctile(savLookup(pctData,pctCols));
-      if(pctile==null)continue;
-      const rawVal=savLookup(pctData,rawCols)||'';
-      html+=buildPctBar(label,pctile,rawVal);rendered++}
-    if(!rendered)html+=`<div style="color:var(--muted);font-size:12px;padding:8px 0">Percentile columns not matched — check console for CSV column names</div>`;
+    let totalRendered=0;
+    for(const[sectionName,metrics]of sections){
+      let bubbles='';let count=0;
+      for(const[pctCols,label,rawCols]of metrics){
+        const pctile=parsePctile(savLookup(pctData,pctCols));
+        if(pctile==null)continue;
+        const rawVal=savLookup(pctData,rawCols)||'';
+        bubbles+=buildBubble(label,pctile,rawVal);count++}
+      if(count){html+=`<div class="sav-section"><div class="sav-section-title">${sectionName}</div><div class="sav-bubbles">${bubbles}</div></div>`;totalRendered+=count}}
+    if(!totalRendered)html+=`<div style="color:var(--muted);font-size:12px;padding:8px 0">Percentile columns not matched — check console for CSV column names</div>`;
   }else{
     html+=`<div style="color:var(--muted);font-size:12px;padding:8px 0">No percentile data available (may not meet qualifier threshold)</div>`}
 
