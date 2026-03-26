@@ -2004,8 +2004,9 @@ function parseWaiverResponse(data,startOffset){
         if(el.percent_owned){
           if(i===0)console.log('[Waivers] percent_owned structure:',JSON.stringify(el.percent_owned));
           const po=el.percent_owned;
-          if(Array.isArray(po)){for(const item of po){if(item&&typeof item==='object'&&item.coverage_type){pctOwned=parseFloat(item.value)||0;pctDelta=parseFloat(item.delta)||0;break}}}
-          else if(typeof po==='object'&&po.value!==undefined){pctOwned=parseFloat(po.value)||0;pctDelta=parseFloat(po.delta)||0}
+          // Yahoo returns array of separate objects: [{coverage_type,week},{value:5},{delta:"0"}]
+          if(Array.isArray(po)){for(const item of po){if(item&&typeof item==='object'){if(item.value!==undefined)pctOwned=parseFloat(item.value)||0;if(item.delta!==undefined)pctDelta=parseFloat(item.delta)||0}}}
+          else if(typeof po==='object'){if(po.value!==undefined)pctOwned=parseFloat(po.value)||0;if(po.delta!==undefined)pctDelta=parseFloat(po.delta)||0}
           break;
         }
       }
