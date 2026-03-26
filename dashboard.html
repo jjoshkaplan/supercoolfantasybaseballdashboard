@@ -359,6 +359,8 @@ let allTeamsStats=[]; // collected from scoreboard for league rankings
 let rankSortId=null; // stat_id to sort rankings by, null = overall rank
 // Live state
 let mlbSchedule=[],liveFeeds={},expandedPlayer=null,livePollTimer=null,livePollSec=15;
+// MLB player name → personId lookup (built once per session)
+let mlbPlayerMap=null; // {normalizedName → personId}
 
 const HITTER_STATS=['R','HR','RBI','SB','OBP'], PITCHER_STATS=['W','SV','ERA','WHIP','K'];
 const LOWER_IS_BETTER=['ERA','WHIP'];
@@ -484,6 +486,50 @@ async function findMyTeam(){const td=await yahooGet(`league/${currentLeagueKey}/
 function statVal(stats,dn){return stats?.[dn]??'—'}
 function fmtStat(v,n){if(v==='—'||v==null||v==='')return'—';if(['OBP','SLG','OPS','AVG'].includes(n)){const x=parseFloat(v);return isNaN(x)?v:x.toFixed(3).replace(/^0/,'')}if(n==='ERA'||n==='WHIP'){const x=parseFloat(v);return isNaN(x)?v:x.toFixed(2)}return v}
 
+// ─── MLB PLAYER ID LOOKUP ────────────────────────────────
+// Yahoo editorial_player_key IDs are NOT MLB personIds. We need to bridge via name matching.
+function normName(n){return(n||'').toLowerCase().trim().replace(/[.\-']/g,'').replace(/\s+/g,' ')}
+
+async function buildMLBPlayerMap(){
+  if(mlbPlayerMap)return; // already built
+  mlbPlayerMap={};
+  // Fetch active players for current season + prev season
+  const seasons=[parseInt(leagueSeason||2026),parseInt(leagueSeason||2026)-1];
+  for(const season of seasons){
+    try{
+      const r=await fetch(`${MLB}/v1/sports/1/players?season=${season}`);
+      if(!r.ok)continue;
+      const d=await r.json();
+      for(const p of(d.people||[])){
+        if(!p.id||!p.fullName)continue;
+        const key=normName(p.fullName);
+        // Prefer current-season entry, don't overwrite with prev season
+        if(!mlbPlayerMap[key])mlbPlayerMap[key]=String(p.id);
+        // Also index by last name + first initial for fuzzy fallback
+        const parts=p.fullName.split(' ');
+        if(parts.length>=2){
+          const lastFirst=normName(parts[parts.length-1]+' '+parts[0][0]);
+          if(!mlbPlayerMap[lastFirst])mlbPlayerMap[lastFirst]=String(p.id);
+        }
+      }
+    }catch(e){console.error(`[MLB] Player list fetch error (${season}):`,e)}
+  }
+  console.log(`[MLB] Player map built: ${Object.keys(mlbPlayerMap).length} entries`);
+}
+
+function resolveMLBId(playerName){
+  if(!mlbPlayerMap)return'';
+  const key=normName(playerName);
+  if(mlbPlayerMap[key])return mlbPlayerMap[key];
+  // Fuzzy: try last name + first initial
+  const parts=playerName.split(' ');
+  if(parts.length>=2){
+    const lastFirst=normName(parts[parts.length-1]+' '+parts[0][0]);
+    if(mlbPlayerMap[lastFirst])return mlbPlayerMap[lastFirst];
+  }
+  return'';
+}
+
 // ─── MLB STATS API ──────────────────────────────────────
 function mlbDateRange(period){
   const today=new Date();
@@ -570,7 +616,7 @@ function parsePlayer(pArr){
   let selPos='';if(selPosR){if(Array.isArray(selPosR)){for(const i of selPosR){if(i?.selected_position?.position){selPos=i.selected_position.position;break}if(i?.position){selPos=i.position;break}}}else if(selPosR.position)selPos=selPosR.position}
   let name='',team='',pos='',hs='',status='',statusFull='',playerKey='',posType='',eligPos=[],mlbId='';
   if(Array.isArray(info))for(const i of info){if(typeof i!=='object'||!i)continue;if(i.player_key)playerKey=i.player_key;if(i.name)name=i.name.full||'';if(i.editorial_team_abbr)team=i.editorial_team_abbr;if(i.display_position)pos=i.display_position;if(i.headshot)hs=i.headshot.url||'';if(i.status_full)statusFull=i.status_full;if(i.status)status=i.status;if(i.position_type)posType=i.position_type;
-    if(i.editorial_player_key){const ep=i.editorial_player_key.split('.p.');if(ep.length===2)mlbId=ep[1]}
+    // NOTE: editorial_player_key contains Yahoo's ID, NOT MLB's personId — do NOT use it as mlbId
     if(i.eligible_positions&&Array.isArray(i.eligible_positions))for(const ep of i.eligible_positions){const p=ep?.position||(typeof ep==='string'?ep:null);if(p)eligPos.push(p)}}
   let type='hitter';if(posType==='P'||PITCHER_POSITIONS.includes(pos.split(',')[0]))type='pitcher';
   return{playerKey,name,team,pos,selPos,hs,status,statusFull,posType,eligPos,type,stats:{},mlbId}}
@@ -579,15 +625,22 @@ function parseRoster(rd){const p=[];if(!rd)return p;try{const pd=rd.fantasy_cont
 // ─── LOAD ROSTER (Yahoo roster + MLB Stats API) ─────────
 async function loadRoster(){
   if(!myTeamKey){showEmpty('Could not find your team');return}showLoading();
+  // Step 0: Ensure MLB player ID map is built
+  await buildMLBPlayerMap();
   // Step 1: Fetch roster structure from Yahoo (no stats needed)
   const rosterResp=await yahooGet(`team/${myTeamKey}/roster/players`);
   if(!rosterResp){showEmpty('Could not load roster');return}
   rosterData=parseRoster(rosterResp);
   if(!rosterData.length){showEmpty('No players found');return}
-  // Debug: log MLB ID coverage
-  const withId=rosterData.filter(p=>p.mlbId),withoutId=rosterData.filter(p=>!p.mlbId);
-  console.log(`[Roster] ${rosterData.length} players, ${withId.length} have MLB ID, ${withoutId.length} missing`);
-  if(withoutId.length)console.warn('[Roster] Players missing MLB ID:',withoutId.map(p=>`${p.name} (${p.playerKey})`));
+  // Step 1b: Resolve MLB personIds via name matching
+  let resolved=0;
+  for(const p of rosterData){
+    p.mlbId=resolveMLBId(p.name);
+    if(p.mlbId)resolved++;
+  }
+  const unresolved=rosterData.filter(p=>!p.mlbId);
+  console.log(`[Roster] ${rosterData.length} players, ${resolved} MLB IDs resolved, ${unresolved.length} unresolved`);
+  if(unresolved.length)console.warn('[Roster] Unresolved:',unresolved.map(p=>p.name));
   // Step 2: Fetch stats from MLB Stats API
   const refP=TREND_REF[currentPeriod]||null;
   console.log(`[Roster] Fetching stats: period=${currentPeriod}, ref=${refP||'none'}, leagueSeason=${leagueSeason}`);
