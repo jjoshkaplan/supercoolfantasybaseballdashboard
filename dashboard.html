@@ -1137,6 +1137,41 @@ function renderRoster(){
 function buildTable(players,sn,ht){
   if(!players.length)return'<div class="empty"><h3>No players</h3></div>';
   const cols=3+sn.length;// pos, player, game, stats...
+  // Color coding: compute percentile ranks for non-bench players per stat
+  const colorPeriods=['lastweek','last14','lastmonth','season'];
+  const doColor=colorPeriods.includes(currentPeriod);
+  const activePlayers=players.filter(p=>{ const v=parseFloat(statVal(p.stats,sn[0])); return !isNaN(v) || sn.some(s=>statVal(p.stats,s)!=='—') });
+  const statRanks={};// {statName → {playerKey → percentile 0=best 1=worst}}
+  if(doColor&&activePlayers.length>2){
+    for(const s of sn){
+      const entries=[];
+      for(const p of activePlayers){
+        const v=parseFloat(statVal(p.stats,s));
+        if(!isNaN(v))entries.push({pk:p.playerKey,val:v})}
+      if(entries.length>2){
+        const lb=LOWER_IS_BETTER.includes(s);
+        entries.sort((a,b)=>lb?(a.val-b.val):(b.val-a.val));// best first
+        statRanks[s]={};
+        for(let i=0;i<entries.length;i++){
+          statRanks[s][entries[i].pk]=i/(entries.length-1)}// 0=best, 1=worst
+      }
+    }
+  }
+  function rosterCellStyle(playerKey,stat){
+    if(!doColor||!statRanks[stat]||statRanks[stat][playerKey]===undefined)return'';
+    const pctile=statRanks[stat][playerKey];// 0=best, 1=worst
+    // Dead zone: middle 30% gets no color (0.35-0.65)
+    if(pctile>0.35&&pctile<0.65)return'';
+    const isGood=pctile<=0.35;
+    // Severity: how far from the neutral zone
+    const severity=isGood?((0.35-pctile)/0.35):((pctile-0.65)/0.35);
+    const clampSev=Math.min(1,severity);
+    const opacity=(0.04+clampSev*0.22).toFixed(2);
+    const color=isGood?'45,212,160':'240,100,73';
+    const textColor=isGood?'var(--green)':'var(--red)';
+    const fw=clampSev>0.6?'700':'600';
+    return`background:rgba(${color},${opacity});color:${textColor};font-weight:${fw}`;
+  }
   let html='<table><thead><tr><th class="col-pos">Pos</th><th class="col-player">Player</th><th>Game</th>';
   for(const s of sn)html+=`<th class="num">${s}</th>`;html+='</tr></thead><tbody>';
   let bench=false;
@@ -1153,11 +1188,12 @@ function buildTable(players,sn,ht){
       <div class="player-info"><div class="name">${p.name}</div><div class="meta">${p.team} · ${p.pos} ${sh}</div></div></div></td>`;
     // Game status
     html+=`<td>${buildGameCell(p)}</td>`;
-    // Stats with sparklines
+    // Stats with sparklines + color coding
     const pr=refData[p.playerKey]||null;
     for(const s of sn){const v=statVal(p.stats,s),f=fmtStat(v,s);const a=ht?trend(s,v,pr):'';
       const sparkHtml=(currentPeriod!=='today'&&p.mlbId)?buildSparklineSVG(sparklineCache[p.mlbId],s,p.type):'';
-      html+=`<td class="num"><span class="trend">${f}${a}${sparkHtml}</span></td>`}
+      const cs=rosterCellStyle(p.playerKey,s);
+      html+=`<td class="num" style="${cs}"><span class="trend">${f}${a}${sparkHtml}</span></td>`}
     html+='</tr>';
     // Expanded statcast row
     html+=`<tr class="sc-row ${isExp?'open':''}" id="sc-${p.playerKey}"><td colspan="${cols}">${isExp?buildStatcast(p):''}</td></tr>`;
