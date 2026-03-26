@@ -509,7 +509,7 @@ let mlbPlayerMeta=null; // {personId → {pitchHand, batSide}}
 let splitsCache={}; // {mlbId_group → splits data}
 
 // Waiver Wire state
-let waiverPlayers=[],waiverPosFilter='ALL',waiverSort={key:'name',dir:'asc'};
+let waiverPlayers=[],waiverPosFilter='ALL',waiverSort={key:'rank',dir:'asc'};
 let waiverLoading=false,waiverOffset=0;
 let expandedWaiver=null; // playerKey of expanded waiver player
 let wwComparePeriod='last14'; // L7, L14, L30, Season
@@ -1949,11 +1949,12 @@ async function loadWaivers(){
   if(!waiverOffset)el.innerHTML='<div class="loading"><div class="spinner"></div>Loading free agents...</div>';
   await buildMLBPlayerMap();
   const posParam=waiverPosFilter==='ALL'?'':`;position=${waiverPosFilter}`;
-  const ep=`league/${currentLeagueKey}/players;status=FA;sort=AR${posParam};start=${waiverOffset};count=25`;
+  const ep=`league/${currentLeagueKey}/players;status=FA;sort=AR;out=percent_owned${posParam};start=${waiverOffset};count=25`;
   const data=await yahooGet(ep);
   waiverLoading=false;
   if(!data){el.innerHTML='<div class="empty">Could not load free agents</div>';return}
-  const parsed=parseWaiverResponse(data);
+  console.log('[Waivers] Raw response sample:',JSON.stringify(data).slice(0,2000));
+  const parsed=parseWaiverResponse(data,waiverOffset);
   if(!parsed.length&&!waiverOffset){el.innerHTML='<div class="empty">No free agents found</div>';return}
   for(const p of parsed){p.mlbId=resolveMLBId(p.name)}
   // Fetch L14 stats for these players
@@ -1972,12 +1973,12 @@ async function loadWaivers(){
   renderWaivers();
   const wwSparkPromises=parsed.filter(p=>p.mlbId&&!sparklineCache[p.mlbId]).map(p=>fetchSparklineData(p.mlbId,p.type));
   if(wwSparkPromises.length)Promise.all(wwSparkPromises).then(()=>{if(document.querySelector('.nav-tab[data-view="waivers"].active'))renderWaivers()});
-  document.getElementById('waiversSub').textContent=`${waiverPlayers.length} free agents · ${waiverPosFilter==='ALL'?'All positions':waiverPosFilter} · L14 stats`;
+  document.getElementById('waiversSub').textContent=`${waiverPlayers.length} free agents · ${waiverPosFilter==='ALL'?'All positions':waiverPosFilter} · Ranked by Yahoo AR`;
   document.getElementById('wwLoadMore').style.display=parsed.length>=25?'':'none';
 }
 function loadMoreWaivers(){loadWaivers()}
 
-function parseWaiverResponse(data){
+function parseWaiverResponse(data,startOffset){
   const players=[];
   try{
     const fc=data.fantasy_content||{};const lg=fc.league||[];
@@ -1987,6 +1988,7 @@ function parseWaiverResponse(data){
       const pArr=pd[String(i)]?.player;if(!pArr)continue;
       const info=Array.isArray(pArr[0])?pArr[0]:pArr;
       let name='',team='',pos='',hs='',playerKey='',posType='',eligPos=[];
+      let pctOwned=0,pctDelta=0;
       for(const item of info){if(!item||typeof item!=='object')continue;
         if(item.player_key)playerKey=item.player_key;
         if(item.name)name=item.name.full||'';
@@ -1996,8 +1998,20 @@ function parseWaiverResponse(data){
         if(item.position_type)posType=item.position_type;
         if(item.eligible_positions&&Array.isArray(item.eligible_positions))for(const ep of item.eligible_positions){const p=ep?.position||(typeof ep==='string'?ep:null);if(p)eligPos.push(p)}
       }
+      // Extract percent_owned from sub-resource (may be in pArr[1] or deeper)
+      for(let k=0;k<pArr.length;k++){
+        const el=pArr[k];if(!el||typeof el!=='object')continue;
+        if(el.percent_owned){
+          if(i===0)console.log('[Waivers] percent_owned structure:',JSON.stringify(el.percent_owned));
+          const po=el.percent_owned;
+          if(Array.isArray(po)){for(const item of po){if(item&&typeof item==='object'&&item.coverage_type){pctOwned=parseFloat(item.value)||0;pctDelta=parseFloat(item.delta)||0;break}}}
+          else if(typeof po==='object'&&po.value!==undefined){pctOwned=parseFloat(po.value)||0;pctDelta=parseFloat(po.delta)||0}
+          break;
+        }
+      }
       let type='hitter';if(posType==='P'||PITCHER_POSITIONS.includes(pos.split(',')[0]))type='pitcher';
-      players.push({playerKey,name,team,pos,hs,type,posType,eligPos,stats:{},mlbId:''})
+      const rank=(startOffset||0)+i+1;
+      players.push({playerKey,name,team,pos,hs,type,posType,eligPos,stats:{},mlbId:'',rank,pctOwned,pctDelta})
     }
   }catch(e){console.error('[Waivers] Parse error:',e)}
   return players;
@@ -2005,7 +2019,7 @@ function parseWaiverResponse(data){
 
 function sortWaivers(key){
   if(waiverSort.key===key)waiverSort.dir=waiverSort.dir==='desc'?'asc':'desc';
-  else{waiverSort={key,dir:'desc'}}
+  else{waiverSort={key,dir:key==='rank'?'asc':'desc'}}
   renderWaivers();
 }
 
@@ -2060,13 +2074,16 @@ function renderWaivers(){
   const{key:sk,dir:sd}=waiverSort;
   sorted.sort((a,b)=>{
     if(sk==='name'){return sd==='asc'?a.name.localeCompare(b.name):b.name.localeCompare(a.name)}
+    if(sk==='rank'){return sd==='asc'?(a.rank-b.rank):(b.rank-a.rank)}
+    if(sk==='pctOwned'){return sd==='desc'?(b.pctOwned-a.pctOwned):(a.pctOwned-b.pctOwned)}
+    if(sk==='pctDelta'){return sd==='desc'?(b.pctDelta-a.pctDelta):(a.pctDelta-b.pctDelta)}
     const va=parseFloat(statVal(a.stats,sk))||0,vb=parseFloat(statVal(b.stats,sk))||0;
     return sd==='desc'?(vb-va):(va-vb)});
   const isP=waiverPosFilter==='SP'||waiverPosFilter==='RP';
   const sn=isP?PITCHER_STATS:HITTER_STATS;
   const arrow=c=>waiverSort.key===c?`<span style="color:var(--green)">${waiverSort.dir==='desc'?'▼':'▲'}</span>`:'';
-  const cols=2+sn.length; // player, game, stats
-  let html=`<table><thead><tr><th>Player</th><th>Game</th>`;
+  const cols=5+sn.length; // rank, player, game, %own, +/-, stats
+  let html=`<table><thead><tr><th class="num" onclick="sortWaivers('rank')" style="cursor:pointer;width:36px"># ${arrow('rank')}</th><th onclick="sortWaivers('name')" style="cursor:pointer">Player ${arrow('name')}</th><th>Game</th><th class="num" onclick="sortWaivers('pctOwned')" style="cursor:pointer;white-space:nowrap">%Own ${arrow('pctOwned')}</th><th class="num" onclick="sortWaivers('pctDelta')" style="cursor:pointer">+/− ${arrow('pctDelta')}</th>`;
   for(const s of sn)html+=`<th class="num" onclick="sortWaivers('${s}')" style="cursor:pointer">${s} ${arrow(s)}</th>`;
   html+=`</tr></thead><tbody>`;
   for(const p of sorted){
@@ -2074,6 +2091,9 @@ function renderWaivers(){
     const sparkStat=isP?'K':'HR';
     const sparkHtml=p.mlbId?buildSparklineSVG(sparklineCache[p.mlbId],sparkStat,p.type):'';
     html+=`<tr class="${isExp?'expanded':''}" onclick="toggleWaiverExpand('${p.playerKey}',event)" style="cursor:pointer">`;
+    // Rank
+    html+=`<td class="num" style="color:var(--dim)">${p.rank}</td>`;
+    // Player
     html+=`<td><div class="player-cell">${p.hs?`<img class="player-hs" src="${p.hs}" alt="" onerror="this.style.display='none'">`:''}
       <div class="player-info"><div class="name">${p.name}${sparkHtml}</div><div class="meta">${p.team} · ${p.pos}</div></div></div></td>`;
     // Game column
@@ -2083,6 +2103,12 @@ function renderWaivers(){
       if(st==='Preview')html+=`<td><span class="gc-preview">${isAway?'@'+hm:'v'+aw} ${new Date(game.gameDate).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</span></td>`;
       else html+=`<td><span class="gc-preview">${isAway?'@'+hm:'v'+aw}</span></td>`}
     else html+=`<td><span class="gc-preview">—</span></td>`;
+    // %Own
+    html+=`<td class="num">${p.pctOwned>0?Math.round(p.pctOwned)+'%':'—'}</td>`;
+    // +/- delta
+    const delta=p.pctDelta;
+    const deltaStr=delta>0?`<span style="color:var(--green)">+${Math.round(delta)}%</span>`:delta<0?`<span style="color:var(--red)">${Math.round(delta)}%</span>`:'—';
+    html+=`<td class="num">${deltaStr}</td>`;
     // L14 Stats
     for(const s of sn){const v=statVal(p.stats,s),f=fmtStat(v,s);html+=`<td class="num">${f}</td>`}
     html+='</tr>';
