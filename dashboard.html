@@ -359,7 +359,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
       <div class="roster-toolbar">
         <div class="roster-toolbar-left">
           <div class="tab-bar" id="rosterTabs"><button class="tab-btn active" data-tab="hitters" onclick="switchRosterTab('hitters')">Hitters</button><button class="tab-btn" data-tab="pitchers" onclick="switchRosterTab('pitchers')">Pitchers</button></div>
-          <div class="period-bar" id="periodBar"><button class="period-btn active" data-period="today" onclick="switchPeriod('today')">Today</button><button class="period-btn" data-period="lastweek" onclick="switchPeriod('lastweek')">L7</button><button class="period-btn" data-period="lastmonth" onclick="switchPeriod('lastmonth')">L30</button><button class="period-btn" data-period="season" onclick="switchPeriod('season')">2026</button><button class="period-btn" data-period="prevyear" onclick="switchPeriod('prevyear')">2025</button></div>
+          <div class="period-bar" id="periodBar"><button class="period-btn active" data-period="today" onclick="switchPeriod('today')">Today</button><button class="period-btn" data-period="lastweek" onclick="switchPeriod('lastweek')">L7</button><button class="period-btn" data-period="last14" onclick="switchPeriod('last14')">L14</button><button class="period-btn" data-period="lastmonth" onclick="switchPeriod('lastmonth')">L30</button><button class="period-btn" data-period="season" onclick="switchPeriod('season')">2026</button><button class="period-btn" data-period="prevyear" onclick="switchPeriod('prevyear')">2025</button></div>
         </div>
       </div>
       <div class="card"><div id="roster-hitters" class="tw"></div><div id="roster-pitchers" class="tw" style="display:none"></div></div>
@@ -400,8 +400,8 @@ let mlbPlayerMap=null; // {normalizedName → personId}
 
 const HITTER_STATS=['R','HR','RBI','SB','OBP'], PITCHER_STATS=['W','SV','ERA','WHIP','K'];
 const LOWER_IS_BETTER=['ERA','WHIP'];
-const PERIOD_DAYS={today:1,lastweek:7,lastmonth:30,season:162,prevyear:162};
-const TREND_REF={lastweek:'lastmonth',lastmonth:'season',season:'prevyear'};
+const PERIOD_DAYS={today:1,lastweek:7,last14:14,lastmonth:30,season:162,prevyear:162};
+const TREND_REF={lastweek:'last14',last14:'lastmonth',lastmonth:'season',season:'prevyear'};
 
 // MLB Stats API field → our display name
 const MLB_HIT_MAP={runs:'R',homeRuns:'HR',rbi:'RBI',stolenBases:'SB',obp:'OBP',avg:'AVG',hits:'H',doubles:'2B',triples:'3B',baseOnBalls:'BB',strikeOuts:'SO',ops:'OPS',slg:'SLG',atBats:'AB',plateAppearances:'PA',gamesPlayed:'GP'};
@@ -604,6 +604,7 @@ function mlbDateRange(period){
   const end=fmt(today);
   if(period==='today')return{start:end,end};
   if(period==='lastweek'){const s=new Date(today);s.setDate(s.getDate()-7);return{start:fmt(s),end}}
+  if(period==='last14'){const s=new Date(today);s.setDate(s.getDate()-14);return{start:fmt(s),end}}
   if(period==='lastmonth'){const s=new Date(today);s.setDate(s.getDate()-30);return{start:fmt(s),end}}
   return null; // season/prevyear use season param instead
 }
@@ -749,7 +750,7 @@ function renderRoster(){
   document.getElementById('roster-hitters').innerHTML=buildTable(h,HITTER_STATS,ht);
   document.getElementById('roster-pitchers').innerHTML=buildTable(p,PITCHER_STATS,ht);
   const sy=parseInt(leagueSeason||2026);
-  const pL={today:'Today',season:`${sy} Season`,lastweek:'Last 7 days',lastmonth:'Last 30 days',prevyear:`${sy-1} Season`};
+  const pL={today:'Today',season:`${sy} Season`,lastweek:'Last 7 days',last14:'Last 14 days',lastmonth:'Last 30 days',prevyear:`${sy-1} Season`};
   document.getElementById('rosterSub').textContent=`${h.length} hitters · ${p.length} pitchers · ${pL[currentPeriod]||currentPeriod}`}
 
 function buildTable(players,sn,ht){
