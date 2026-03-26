@@ -436,15 +436,42 @@ function parseFeed(d){
   try{const ab=plays.allPlays||[];for(const p of ab){const bn=(p.matchup?.batter?.fullName);if(bn&&!batOrder.includes(bn))batOrder.push(bn)}}catch(e){}
   // Balls in play
   const bip=[];
+  // Per-player at-bat results for the game
+  const playerABs={}; // {playerName: [{inning, result, event, rbi, pitches, exitVelo, launchAngle, description}]}
   for(const ab of(plays.allPlays||[])){const res=ab.result||{};if(!res.event)continue;const mu=ab.matchup||{};
+    const batterName=(mu.batter||{}).fullName||'';
+    const pitcherName=(mu.pitcher||{}).fullName||'';
+    // Track batter ABs
+    if(batterName){
+      if(!playerABs[batterName])playerABs[batterName]=[];
+      const abPitches=(ab.playEvents||[]).filter(e=>e.isPitch);
+      const lastPitch=abPitches.length?abPitches[abPitches.length-1]:null;
+      const hd=lastPitch?.hitData||{};
+      playerABs[batterName].push({
+        inning:`${ab.about?.halfInning==='top'?'▲':'▼'}${ab.about?.inning||''}`,
+        event:res.event||'',description:res.description||'',
+        rbi:res.rbi||0,isHit:['Single','Double','Triple','Home Run'].includes(res.event),
+        isOut:res.isOut||false,pitchCount:abPitches.length,
+        exitVelo:hd.launchSpeed,launchAngle:hd.launchAngle,
+        vsPitcher:pitcherName})}
+    // Track pitcher matchups
+    if(pitcherName){
+      if(!playerABs[pitcherName])playerABs[pitcherName]=[];
+      const abPitches=(ab.playEvents||[]).filter(e=>e.isPitch);
+      playerABs[pitcherName].push({
+        inning:`${ab.about?.halfInning==='top'?'▲':'▼'}${ab.about?.inning||''}`,
+        event:res.event||'',description:res.description||'',
+        rbi:res.rbi||0,isHit:['Single','Double','Triple','Home Run'].includes(res.event),
+        isOut:res.isOut||false,pitchCount:abPitches.length,
+        vsBatter:batterName,isPitching:true})}
     for(const ev of(ab.playEvents||[])){if(!ev.isPitch||!(ev.details||{}).isInPlay)continue;const hd=ev.hitData||{};if(!hd.launchSpeed&&!(hd.coordinates||{}).coordX)continue;
-      bip.push({batter:(mu.batter||{}).fullName||'',event:res.event||'',exitVelo:hd.launchSpeed,launchAngle:hd.launchAngle,distance:hd.totalDistance,hitX:(hd.coordinates||{}).coordX,hitY:(hd.coordinates||{}).coordY})}}
+      bip.push({batter:batterName,event:res.event||'',exitVelo:hd.launchSpeed,launchAngle:hd.launchAngle,distance:hd.totalDistance,hitX:(hd.coordinates||{}).coordX,hitY:(hd.coordinates||{}).coordY})}}
   const t=gd.teams||{};
   return{state:(gd.status||{}).abstractGameState||'',detailedState:(gd.status||{}).detailedState||'',inning:ls.currentInning,inning_ordinal:ls.currentInningOrdinal||'',inning_half:ls.inningHalf||'',
     home:{name:(t.home||{}).teamName||'',abbr:(t.home||{}).abbreviation||'',runs:((ls.teams||{}).home||{}).runs||0,hits:((ls.teams||{}).home||{}).hits||0,errors:((ls.teams||{}).home||{}).errors||0},
     away:{name:(t.away||{}).teamName||'',abbr:(t.away||{}).abbreviation||'',runs:((ls.teams||{}).away||{}).runs||0,hits:((ls.teams||{}).away||{}).hits||0,errors:((ls.teams||{}).away||{}).errors||0},
     batter:off.batter?{id:off.batter.id,name:off.batter.fullName}:null,on_deck:off.onDeck?{id:off.onDeck.id,name:off.onDeck.fullName}:null,in_hole:off.inHole?{id:off.inHole.id,name:off.inHole.fullName}:null,pitcher:def.pitcher?{id:def.pitcher.id,name:def.pitcher.fullName}:null,
-    count:{balls:cnt.balls||0,strikes:cnt.strikes||0,outs:ls.outs||0},runners,pitches,lastPitch:lp,bip,batOrder}}
+    count:{balls:cnt.balls||0,strikes:cnt.strikes||0,outs:ls.outs||0},runners,pitches,lastPitch:lp,bip,batOrder,playerABs}}
 async function pollLive(){
   const dot=document.getElementById('pollDot'),st=document.getElementById('pollStatus');
   dot.className='poll-dot live';st.textContent='Updating...';
@@ -471,7 +498,7 @@ function findGameForTeam(teamAbbr){
     if(g.teams.away.team.abbreviation===teamAbbr||g.teams.home.team.abbreviation===teamAbbr)return g;
   }return null;
 }
-function getPlayerLiveStatus(playerName, teamAbbr){
+function getPlayerLiveStatus(playerName, teamAbbr, playerType){
   const game=findGameForTeam(teamAbbr);
   if(!game)return{game:null,status:null,label:'No game',cls:'gc-preview'};
   const gpk=game.gamePk, st=game.status.abstractGameState, f=liveFeeds[gpk];
@@ -490,12 +517,14 @@ function getPlayerLiveStatus(playerName, teamAbbr){
   // Determine if batting team or fielding
   const battingTeam=f.inning_half==='Top'?aw:hm;
   if(teamAbbr===battingTeam){
+    // Pitchers don't bat (DH rule) — show FIELD instead of DUE UP
+    if(playerType==='pitcher')return{game,feed:f,status:'fielding',label:'FIELD',cls:'gc-st-fielding'};
     // Try to compute "due up in X" from batting order
     if(f.batOrder&&f.batter){
       const curIdx=f.batOrder.findIndex(n=>nameMatch(f.batter.name,n));
       const plIdx=f.batOrder.findIndex(n=>nameMatch(playerName,n));
       if(curIdx>=0&&plIdx>=0){let diff=plIdx-curIdx;if(diff<0)diff+=9;if(diff>0&&diff<=5)return{game,feed:f,status:'due',label:`Due ${diff}`,cls:'gc-st-due'}}}
-    return{game,feed:f,status:'batting-side',label:'DUE UP',cls:'gc-st-due'};
+    return{game,feed:f,status:'batting-side',label:'CHILLIN',cls:'gc-st-due'};
   }
   return{game,feed:f,status:'fielding',label:'FIELD',cls:'gc-st-fielding'};
 }
@@ -753,16 +782,36 @@ function buildTable(players,sn,ht){
   return html+'</tbody></table>'}
 
 function buildGameCell(p){
-  const ls=getPlayerLiveStatus(p.name,p.team);
+  const ls=getPlayerLiveStatus(p.name,p.team,p.type);
   if(!ls.game)return'<span class="gc-preview">No game</span>';
   const g=ls.game,f=ls.feed,aw=g.teams.away.team.abbreviation,hm=g.teams.home.team.abbreviation;
   const isAway=p.team===aw;
   if(ls.status==='preview')return`<span class="gc-preview">${isAway?'@'+hm:'v'+aw} ${new Date(g.gameDate).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</span>`;
-  // Live or final - show mini scoreboard + status
+  // Live or final - show mini scoreboard + status + H/AB
   const aR=f?f.away.runs:g.teams.away.score||0,hR=f?f.home.runs:g.teams.home.score||0;
   const inn=f?`${f.inning_half==='Top'?'▲':'▼'}${f.inning_ordinal||''}`:'';
   const stateLabel=ls.status==='final'?'Final':inn;
-  return`<div class="game-cell"><div class="gc-score"><div class="away"><span class="abbr">${aw}</span><span class="runs">${aR}</span></div><div class="home"><span class="abbr">${hm}</span><span class="runs">${hR}</span></div></div><span class="gc-inn">${stateLabel}</span>${ls.label&&ls.status!=='final'&&ls.status!=='preview'?`<span class="gc-status ${ls.cls}">${ls.label}</span>`:''}</div>`}
+  // Compute H/AB from playerABs
+  let gameLine='';
+  if(f&&f.playerABs){
+    const abs=getPlayerABs(f,p.name);
+    if(abs.length&&p.type==='hitter'){
+      const h=abs.filter(a=>a.isHit).length;
+      const ab=abs.filter(a=>!['Walk','Hit By Pitch','Sac Fly','Sac Bunt','Intent Walk','Catcher Interference'].includes(a.event)).length;
+      gameLine=`<span style="font-family:var(--mono);font-size:10px;font-weight:700;color:${h>0?'var(--green)':'var(--dim)'};margin-left:4px">${h}/${ab}</span>`}
+    else if(abs.length&&p.type==='pitcher'){
+      const ip=abs.filter(a=>a.isPitching).length;
+      const k=abs.filter(a=>a.isPitching&&a.event==='Strikeout').length;
+      const hits=abs.filter(a=>a.isPitching&&a.isHit).length;
+      if(ip)gameLine=`<span style="font-family:var(--mono);font-size:10px;font-weight:700;color:var(--dim);margin-left:4px">${ip}BF ${k}K ${hits}H</span>`}}
+  return`<div class="game-cell"><div class="gc-score"><div class="away"><span class="abbr">${aw}</span><span class="runs">${aR}</span></div><div class="home"><span class="abbr">${hm}</span><span class="runs">${hR}</span></div></div><span class="gc-inn">${stateLabel}</span>${ls.label&&ls.status!=='final'&&ls.status!=='preview'?`<span class="gc-status ${ls.cls}">${ls.label}</span>`:''}${gameLine}</div>`}
+
+// Get a player's at-bats from a feed, matching by name
+function getPlayerABs(f,playerName){
+  if(!f||!f.playerABs)return[];
+  for(const[name,abs]of Object.entries(f.playerABs)){
+    if(nameMatch(playerName,name))return abs}
+  return[]}
 
 function posSelect(p){
   const c=pendingChanges[p.playerKey]||p.selPos,el=p.eligPos.length?p.eligPos:[p.selPos];
@@ -995,7 +1044,7 @@ function buildStatcast(p){
     if(!p.mlbId)return`<div class="sc-panel"><div class="sc-no-game">No MLB ID — cannot load Savant data</div></div>`;
     return buildSavantPanel(p);
   }
-  const ls=getPlayerLiveStatus(p.name,p.team);
+  const ls=getPlayerLiveStatus(p.name,p.team,p.type);
   if(!ls.feed||ls.status==='preview')return`<div class="sc-panel"><div class="sc-no-game">${ls.status==='preview'?'Game has not started yet':'No live data available'}</div></div>`;
   const f=ls.feed,g=ls.game;
   const aw=g.teams.away.team.abbreviation,hm=g.teams.home.team.abbreviation;
@@ -1039,6 +1088,23 @@ function buildStatcast(p){
   // Pitch legend
   const used=[...new Set(pitches.map(pt=>pt.type).filter(Boolean))];
   if(used.length)html+=`<div class="sc-legend">${used.map(t=>`<span class="sc-leg-item"><span class="sc-leg-dot" style="background:${pitchColor(t)}"></span>${pitchAbbr(t)}</span>`).join('')}</div>`;
+  // At-bat log for this player
+  const pABs=getPlayerABs(f,p.name);
+  if(pABs.length){
+    const isP=p.type==='pitcher';
+    html+=`<div style="border-top:1px solid var(--border);padding:8px 14px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono);margin-bottom:6px">${isP?'Batters Faced':'At-Bats'}</div>`;
+    for(const ab of pABs){
+      const isHit=ab.isHit;const isHR=ab.event==='Home Run';const isK=ab.event==='Strikeout';const isBB=['Walk','Intent Walk','Hit By Pitch'].includes(ab.event);
+      let evCol='var(--dim)';if(isHR)evCol='var(--red)';else if(isHit)evCol='var(--green)';else if(isBB)evCol='var(--blue)';else if(isK)evCol='var(--muted)';
+      const evIcon=isHR?'💣':isHit?'✓':isK?'K':isBB?'BB':ab.isOut?'✗':'·';
+      const vs=isP?(ab.vsBatter?`vs ${ab.vsBatter}`:''):(ab.vsPitcher?`vs ${ab.vsPitcher}`:'');
+      const evDetails=[];
+      if(ab.exitVelo)evDetails.push(`${Math.round(ab.exitVelo)} mph`);
+      if(ab.launchAngle!=null)evDetails.push(`${Math.round(ab.launchAngle)}°`);
+      if(ab.pitchCount)evDetails.push(`${ab.pitchCount}P`);
+      if(ab.rbi)evDetails.push(`${ab.rbi} RBI`);
+      html+=`<div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;font-family:var(--mono);border-bottom:1px solid var(--border)"><span style="width:28px;color:var(--muted);font-size:10px">${ab.inning}</span><span style="width:16px;text-align:center;font-size:12px">${evIcon}</span><span style="font-weight:700;color:${evCol};min-width:70px">${ab.event}</span><span style="color:var(--dim);font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${vs}</span><span style="color:var(--muted);font-size:10px">${evDetails.join(' · ')}</span></div>`}
+    html+='</div>'}
   return html+'</div>'}
 
 // ─── LINEUP ─────────────────────────────────────────────
