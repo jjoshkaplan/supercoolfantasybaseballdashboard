@@ -814,13 +814,14 @@ async function fetchSavantPercentiles(year,type){
     if(!headers.length||!rows.length){
       console.warn(`[Savant] No CSV data for ${type}/${year} (${rows.length} rows)`);
       savantCache[key]={};return{}}
-    console.log(`[Savant] Percentile CSV columns (${type}/${year}):`,headers.slice(0,20));
+    console.log(`[Savant] Percentile CSV ALL columns (${type}/${year}):`,headers.join(', '));
     // Find player ID column
     const idCol=headers.find(h=>/player_id|xmlbamid|mlbamid/i.test(h))||'player_id';
+    console.log(`[Savant] Using ID column: "${idCol}"`);
     const map={};for(const row of rows){const id=row[idCol];if(id)map[String(id)]=row}
-    // Debug: log first player's data
+    // Debug: log first player's full data as string
     const firstId=Object.keys(map)[0];
-    if(firstId)console.log(`[Savant] Sample player ${firstId}:`,map[firstId]);
+    if(firstId){const d=map[firstId];console.log(`[Savant] Sample player ${firstId} keys:`,Object.keys(d).join(', '));console.log(`[Savant] Sample player ${firstId} values:`,JSON.stringify(d))}
     savantCache[key]=map;
     console.log(`[Savant] Percentiles loaded: ${Object.keys(map).length} ${type}s (${year})`);
     return map;
@@ -921,11 +922,14 @@ function buildSavantPanel(p){
 
   // Percentile rankings — Savant bubble layout
   if(pctData){
+    console.log(`[Savant-DBG] Player ${p.name} (${p.mlbId}) data keys:`,Object.keys(pctData).join(', '));
     let totalRendered=0;
     for(const[sectionName,metrics]of sections){
       let bubbles='';let count=0;
       for(const[pctCols,label,rawCols]of metrics){
-        const pctile=parsePctile(savLookup(pctData,pctCols));
+        const rawLookup=savLookup(pctData,pctCols);
+        const pctile=parsePctile(rawLookup);
+        if(totalRendered===0&&count===0)console.log(`[Savant-DBG] Trying ${label}: cols=${JSON.stringify(pctCols)}, rawLookup=${rawLookup}, pctile=${pctile}`);
         if(pctile==null)continue;
         const rawVal=savLookup(pctData,rawCols)||'';
         bubbles+=buildBubble(label,pctile,rawVal);count++}
