@@ -1545,22 +1545,27 @@ function buildStatcast(p){
     // Toggle bar
     if(showToggle){
       html+=`<div class="today-toggle" onclick="event.stopPropagation()">`;
-      html+=`<button class="today-toggle-btn ${mode==='lastnight'?'active':''}" onclick="toggleTodayPanel('${p.playerKey}','lastnight',event)"><span class="toggle-dot moon"></span>Last Night</button>`;
       html+=`<button class="today-toggle-btn ${mode==='today'?'active':''}" onclick="toggleTodayPanel('${p.playerKey}','today',event)"><span class="toggle-dot sun"></span>Today</button>`;
+      html+=`<button class="today-toggle-btn ${mode==='lastnight'?'active':''}" onclick="toggleTodayPanel('${p.playerKey}','lastnight',event)"><span class="toggle-dot moon"></span>Last Night</button>`;
       html+=`</div>`;
     }
     if(mode==='lastnight'){
       html+=buildYesterdayPanel(p);
     }else{
-      // Today mode: splits + live game data
-      if(p.mlbId)html+=buildSplitsPanel(p);
+      // Today mode: show splits pre-game, replace with live game data once started
       const ls=getPlayerLiveStatus(p.name,p.team,p.type);
-      if(!ls.feed&&ls.status==='preview'){
-        html+=`<div class="sc-panel"><div class="sc-no-game">Game has not started yet</div></div>`;
-      }else if(ls.feed){
+      if(ls.feed){
+        // Game is live or final — show game details only (replaces splits)
         html+=buildStatcastLive(p,ls);
+      }else if(ls.status==='preview'){
+        // Pre-game — show splits + waiting message
+        if(p.mlbId)html+=buildSplitsPanel(p);
+        html+=`<div class="sc-panel"><div class="sc-no-game">Game has not started yet</div></div>`;
       }else if(!p.mlbId&&!hasToday){
         html+=`<div class="sc-panel"><div class="sc-no-game">No game today</div></div>`;
+      }else{
+        // Fallback: show splits if available
+        if(p.mlbId)html+=buildSplitsPanel(p);
       }
     }
     return html||`<div class="sc-panel"><div class="sc-no-game">No data available</div></div>`;
