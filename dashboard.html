@@ -85,7 +85,7 @@ tbody tr:hover{background:var(--surface-2)}
 tbody tr.editing{background:var(--blue-dim)}
 tbody tr.expanded{background:var(--surface-2)}
 table .col-pos{position:sticky;left:0;z-index:1;background:var(--surface);width:52px;min-width:52px}
-table .col-player{position:sticky;left:52px;z-index:1;background:var(--surface);min-width:160px}
+table .col-player{position:sticky;left:52px;z-index:1;background:var(--surface);min-width:140px;max-width:160px}
 thead .col-pos,thead .col-player{z-index:3;background:var(--surface-2)}
 tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tbody tr.expanded .col-player{background:var(--surface-2)}
 .pos-select{background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:3px 5px;border-radius:5px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;min-width:42px;text-align:center;appearance:none;-webkit-appearance:none}
@@ -93,7 +93,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .pos-select.changed{border-color:var(--green);background:var(--green-dim);color:var(--green)}
 .player-cell{display:flex;align-items:center;gap:8px}
 .player-hs{width:28px;height:28px;border-radius:50%;object-fit:cover;background:var(--surface-2);flex-shrink:0}
-.player-info .name{font-weight:600;font-size:13px}
+.player-info .name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .player-info .meta{font-size:11px;color:var(--dim)}
 .player-info .meta .status{font-weight:600;margin-left:4px}
 .player-info .meta .status.dtd{color:var(--orange)}.player-info .meta .status.il{color:var(--red)}
@@ -249,7 +249,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .period-btn{flex:0 0 auto;text-align:center;padding:8px 12px;min-height:44px;font-size:11px}
 
   /* Roster table */
-  table .col-player{position:static;min-width:110px}
+  table .col-player{position:static;min-width:90px;max-width:110px}
   table .col-pos{width:32px;min-width:32px;padding-left:4px;padding-right:2px}
   .pos-select{min-width:30px;padding:4px 2px;min-height:28px;font-size:10px!important;border-radius:4px}
   .player-cell{gap:5px}.player-hs{width:22px;height:22px}
