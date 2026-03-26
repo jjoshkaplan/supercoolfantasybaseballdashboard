@@ -697,7 +697,7 @@ function getPlayerLiveStatus(playerName, teamAbbr, playerType){
   const battingTeam=f.inning_half==='Top'?aw:hm;
   if(teamAbbr===battingTeam){
     // Pitchers don't bat (DH rule) — show FIELD instead of DUE UP
-    if(playerType==='pitcher')return{game,feed:f,status:'fielding',label:'CHILLIN',cls:'gc-st-fielding'};
+    if(playerType==='pitcher')return{game,feed:f,status:'fielding',label:'NOT PITCHING',cls:'gc-st-fielding'};
     // Try to compute "due up in X" from batting order
     if(f.batOrder&&f.batter){
       const curIdx=f.batOrder.findIndex(n=>nameMatch(f.batter.name,n));
@@ -705,7 +705,7 @@ function getPlayerLiveStatus(playerName, teamAbbr, playerType){
       if(curIdx>=0&&plIdx>=0){let diff=plIdx-curIdx;if(diff<0)diff+=9;if(diff>0&&diff<=5)return{game,feed:f,status:'due',label:`Due ${diff}`,cls:'gc-st-due'}}}
     return{game,feed:f,status:'batting-side',label:'DUE UP',cls:'gc-st-due'};
   }
-  return{game,feed:f,status:'fielding',label:'FIELD',cls:'gc-st-fielding'};
+  return{game,feed:f,status:'fielding',label:playerType==='pitcher'?'NOT PITCHING':'FIELD',cls:'gc-st-fielding'};
 }
 
 // ─── VIEWS ──────────────────────────────────────────────
