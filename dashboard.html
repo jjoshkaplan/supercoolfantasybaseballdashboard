@@ -164,7 +164,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .sav-section:last-child{margin-bottom:0}
 .sav-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:var(--mono);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)}
 /* Slider row */
-.sav-row{display:flex;align-items:center;gap:0;margin-bottom:3px;height:22px}
+.sav-row{display:flex;align-items:center;gap:0;margin-bottom:3px;height:22px;cursor:help}
 .sav-label{width:72px;text-align:right;padding-right:8px;font-family:var(--mono);font-weight:600;font-size:10px;color:var(--dim);flex-shrink:0;white-space:nowrap}
 .sav-track{flex:1;height:5px;background:var(--surface-2);border-radius:3px;position:relative;min-width:80px}
 .sav-fill{height:100%;border-radius:3px;position:absolute;left:0;top:0}
@@ -796,10 +796,11 @@ function pctColor(v){
   if(v<=75)return'#dc6828';if(v<=80)return'#d85020';if(v<=85)return'#d04020';
   if(v<=90)return'#c83028';if(v<=95)return'#c02020';return'#be1e2d'}
 
-function buildSlider(label,pctile){
+function buildSlider(label,pctile,tip){
   const col=pctColor(pctile);
   const pos=Math.max(2,Math.min(98,pctile));
-  return`<div class="sav-row"><span class="sav-label">${label}</span><div class="sav-track"><div class="sav-fill" style="width:${pos}%;background:${col};opacity:.35"></div><div class="sav-dot" style="left:${pos}%;background:${col}">${pctile}</div></div></div>`}
+  const t=tip?` title="${tip.replace(/"/g,'&quot;')}"`:''
+  return`<div class="sav-row"${t}><span class="sav-label">${label}</span><div class="sav-track"><div class="sav-fill" style="width:${pos}%;background:${col};opacity:.35"></div><div class="sav-dot" style="left:${pos}%;background:${col}">${pctile}</div></div></div>`}
 
 async function fetchSavantPercentiles(year,type){
   const key=`${year}_${type}`;
@@ -853,35 +854,58 @@ async function fetchSavantPitchArsenal(year){
   }catch(e){console.warn(`[Savant] Pitch arsenal fetch failed (${year}):`,e.message);savantArsenalCache[year]={};return{}}
 }
 
-// Savant hitter sections: [sectionName, [[columnName, label], ...]]
-// CSV values ARE the percentile ranks (1-100), no separate raw value columns
+// Savant hitter sections: [sectionName, [[columnName, label, tooltip], ...]]
+// CSV values ARE the percentile ranks (1-100)
 const HITTER_SECTIONS=[
   ['Expected',[
-    ['xwoba','xwOBA'],['xba','xBA'],['xslg','xSLG'],['xobp','xOBP'],['xiso','xISO']
+    ['xwoba','xwOBA','Expected Weighted On-base Average — uses exit velocity, launch angle, and sprint speed to estimate true offensive value'],
+    ['xba','xBA','Expected Batting Average — measures the likelihood that a batted ball will become a hit based on exit velo and launch angle'],
+    ['xslg','xSLG','Expected Slugging — estimates slugging percentage using exit velocity and launch angle'],
+    ['xobp','xOBP','Expected On-base Percentage — estimates OBP using quality of contact data'],
+    ['xiso','xISO','Expected Isolated Power — estimates extra-base hit power using exit velocity and launch angle']
   ]],
   ['Batted Ball',[
-    ['exit_velocity','Avg EV'],['max_ev','Max EV'],['hard_hit_percent','Hard Hit%'],
-    ['brl_percent','Barrel%'],['bat_speed','Bat Speed'],['squared_up_rate','Squared Up%'],['swing_length','Swing Length']
+    ['exit_velocity','Avg EV','Average Exit Velocity — how hard a player hits the ball on average, in mph'],
+    ['max_ev','Max EV','Maximum Exit Velocity — the hardest-hit ball of the season, in mph'],
+    ['hard_hit_percent','Hard Hit%','Hard-Hit Rate — percentage of batted balls with exit velocity of 95+ mph'],
+    ['brl_percent','Barrel%','Barrel Rate — percentage of batted balls with the optimal combination of exit velocity and launch angle'],
+    ['bat_speed','Bat Speed','Bat speed measured at the sweet spot of the bat (avg of top 90% of swings), in mph'],
+    ['squared_up_rate','Squared Up%','How often the batter achieves near-maximum exit velocity relative to swing and pitch speed'],
+    ['swing_length','Swing Length','Total distance in feet the bat head travels from start of swing to contact']
   ]],
   ['Plate Discipline',[
-    ['k_percent','K%'],['bb_percent','BB%'],['whiff_percent','Whiff%'],['chase_percent','Chase%']
+    ['k_percent','K%','Strikeout Rate — percentage of plate appearances ending in a strikeout'],
+    ['bb_percent','BB%','Walk Rate — percentage of plate appearances ending in a walk'],
+    ['whiff_percent','Whiff%','Whiff Rate — percentage of swings that result in a miss'],
+    ['chase_percent','Chase%','Chase Rate — percentage of pitches outside the zone that the batter swings at']
   ]],
   ['Speed & Fielding',[
-    ['sprint_speed','Speed'],['oaa','OAA'],['arm_strength','Arm']
+    ['sprint_speed','Speed','Sprint Speed — top running speed in feet per second, measured in the fastest 1-second window'],
+    ['oaa','OAA','Outs Above Average — range-based metric showing how many outs a fielder has saved over peers'],
+    ['arm_strength','Arm','Arm Strength — how hard a fielder throws the ball, in mph']
   ]]
 ];
 const PITCHER_SECTIONS=[
   ['Expected',[
-    ['xwoba','xwOBA'],['xba','xBA'],['xslg','xSLG']
+    ['xwoba','xwOBA','Expected Weighted On-base Average against — estimates quality of contact allowed'],
+    ['xba','xBA','Expected Batting Average against — likelihood of batted balls becoming hits off this pitcher'],
+    ['xslg','xSLG','Expected Slugging against — estimates extra-base damage allowed based on batted ball quality']
   ]],
   ['Batted Ball',[
-    ['exit_velocity','Avg EV'],['hard_hit_percent','Hard Hit%'],['brl_percent','Barrel%']
+    ['exit_velocity','Avg EV','Average Exit Velocity allowed — how hard batters hit the ball off this pitcher, in mph'],
+    ['hard_hit_percent','Hard Hit%','Hard-Hit Rate allowed — percentage of batted balls at 95+ mph exit velocity'],
+    ['brl_percent','Barrel%','Barrel Rate allowed — percentage of optimal exit velo + launch angle contact against']
   ]],
   ['Pitching',[
-    ['k_percent','K%'],['bb_percent','BB%'],['whiff_percent','Whiff%'],['chase_percent','Chase%']
+    ['k_percent','K%','Strikeout Rate — percentage of plate appearances ending in a strikeout'],
+    ['bb_percent','BB%','Walk Rate — percentage of plate appearances ending in a walk'],
+    ['whiff_percent','Whiff%','Whiff Rate — percentage of swings that result in a miss'],
+    ['chase_percent','Chase%','Chase Rate — percentage of pitches outside the zone that batters swing at']
   ]],
   ['Speed & Fielding',[
-    ['sprint_speed','Speed'],['oaa','OAA'],['arm_strength','Arm']
+    ['sprint_speed','Speed','Sprint Speed — top running speed in feet per second'],
+    ['oaa','OAA','Outs Above Average — range-based defensive metric'],
+    ['arm_strength','Arm','Arm Strength — how hard a fielder throws the ball, in mph']
   ]]
 ];
 
@@ -916,12 +940,12 @@ function buildSavantPanel(p){
     let totalRendered=0;
     for(const[sectionName,metrics]of sections){
       let rows='';let count=0;
-      for(const[col,label]of metrics){
+      for(const[col,label,tip]of metrics){
         const raw=pctData[col];
         const pctile=parsePctile(raw);
         if(totalRendered===0&&count===0)console.log(`[Savant-DBG] Trying ${label}: col="${col}", raw="${raw}", pctile=${pctile}`);
         if(pctile==null)continue;
-        rows+=buildSlider(label,pctile);count++}
+        rows+=buildSlider(label,pctile,tip);count++}
       if(count){html+=`<div class="sav-section"><div class="sav-section-title">${sectionName}</div>${rows}</div>`;totalRendered+=count}}
     if(!totalRendered)html+=`<div style="color:var(--muted);font-size:12px;padding:8px 0">Percentile columns not matched — check console for CSV column names</div>`;
   }else{
