@@ -1114,44 +1114,42 @@ function buildStatcast(p){
     const isP=p.type==='pitcher';
     let html=`<div class="sc-panel"><div class="sc-header"><div class="sc-header-left"><span>${aw} ${f.away.runs} — ${hm} ${f.home.runs}</span><span class="sc-game-info">Final</span></div></div>`;
     if(isP){
-      // Pitcher summary stats bar
+      // Pitcher summary stats bar — use official MLB API stats, supplement with play-by-play for BF/P
       const faced=pABs.filter(a=>a.isPitching);
       const bf=faced.length;
-      const k=faced.filter(a=>a.event==='Strikeout').length;
-      const hitsA=faced.filter(a=>a.isHit).length;
-      const bb=faced.filter(a=>['Walk','Intent Walk'].includes(a.event)).length;
-      const hbp=faced.filter(a=>a.event==='Hit By Pitch').length;
-      const hr=faced.filter(a=>a.event==='Home Run').length;
-      const outs=faced.filter(a=>a.isOut).length;
-      const ipFull=Math.floor(outs/3);const ipRem=outs%3;
-      const ipStr=`${ipFull}.${ipRem}`;
-      const er=hr;
-      const era=outs>0?((er*27)/outs).toFixed(2):'—';
-      const whip=outs>0?(((hitsA+bb)*3)/outs).toFixed(2):'—';
       const totalPitches=faced.reduce((s,a)=>s+(a.pitchCount||0),0);
+      const ip=statVal(p.stats,'IP');const k=statVal(p.stats,'K');
+      const hitsA=statVal(p.stats,'H');const bb=statVal(p.stats,'BB');
+      const hr=statVal(p.stats,'HR');const era=statVal(p.stats,'ERA');
+      const whip=statVal(p.stats,'WHIP');const er=statVal(p.stats,'ER');
       html+=`<div style="display:flex;flex-wrap:wrap;gap:1px;background:var(--border)">`;
       const ss=(l,v,c)=>`<div style="flex:1;min-width:0;padding:6px 4px;text-align:center;background:var(--surface)"><div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${c||'var(--text)'}">${v}</div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">${l}</div></div>`;
-      html+=ss('IP',ipStr);html+=ss('BF',bf);html+=ss('P',totalPitches||'—');
-      html+=ss('K',k,k>=6?'var(--green)':'');html+=ss('H',hitsA,hitsA>=5?'var(--red)':'');
-      html+=ss('BB',bb,bb>=4?'var(--red)':'');html+=ss('HR',hr,hr>0?'var(--red)':'');
-      html+=ss('HBP',hbp);html+=ss('ERA',era);html+=ss('WHIP',whip);
+      html+=ss('IP',ip!=='—'?ip:'—');html+=ss('BF',bf);html+=ss('P',totalPitches||'—');
+      const kn=parseInt(k)||0;html+=ss('K',k,kn>=6?'var(--green)':'');
+      const hn=parseInt(hitsA)||0;html+=ss('H',hitsA,hn>=5?'var(--red)':'');
+      const bn=parseInt(bb)||0;html+=ss('BB',bb,bn>=4?'var(--red)':'');
+      const hrn=parseInt(hr)||0;html+=ss('HR',hr,hrn>0?'var(--red)':'');
+      html+=ss('ER',er!=='—'?er:'—');
+      html+=ss('ERA',era!=='—'?fmtStat(era,'ERA'):'—');
+      html+=ss('WHIP',whip!=='—'?fmtStat(whip,'WHIP'):'—');
       html+=`</div>`;
     } else {
-      // Hitter summary stats bar
-      const pa=pABs.filter(a=>!a.isPitching);
-      const hits=pa.filter(a=>a.isHit);
-      const noABevents=['Walk','Hit By Pitch','Sac Fly','Sac Bunt','Intent Walk','Catcher Interference'];
-      const atBats=pa.filter(a=>!noABevents.includes(a.event));
-      const h=hits.length,ab=atBats.length,hr=pa.filter(a=>a.event==='Home Run').length;
-      const rbi=pa.reduce((s,a)=>s+(a.rbi||0),0);
-      const bb=pa.filter(a=>['Walk','Intent Walk'].includes(a.event)).length;
-      const k=pa.filter(a=>a.event==='Strikeout').length;
-      const sb=pa.filter(a=>a.event==='Stolen Base').length;
+      // Hitter summary stats bar — use official MLB API stats
+      const ab=statVal(p.stats,'AB');const h=statVal(p.stats,'H');
+      const hr=statVal(p.stats,'HR');const rbi=statVal(p.stats,'RBI');
+      const bb=statVal(p.stats,'BB');const so=statVal(p.stats,'SO');
+      const r=statVal(p.stats,'R');const sb=statVal(p.stats,'SB');
+      const obp=statVal(p.stats,'OBP');
       html+=`<div style="display:flex;flex-wrap:wrap;gap:1px;background:var(--border)">`;
       const ss=(l,v,c)=>`<div style="flex:1;min-width:0;padding:6px 4px;text-align:center;background:var(--surface)"><div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${c||'var(--text)'}">${v}</div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">${l}</div></div>`;
-      html+=ss('AB',ab);html+=ss('H',h,h>0?'var(--green)':'');
-      html+=ss('HR',hr,hr>0?'var(--green)':'');html+=ss('RBI',rbi,rbi>0?'var(--green)':'');
-      html+=ss('BB',bb);html+=ss('K',k,k>=3?'var(--red)':'');
+      const hn=parseInt(h)||0,hrn=parseInt(hr)||0,rbin=parseInt(rbi)||0;
+      const son=parseInt(so)||0,rn=parseInt(r)||0,sbn=parseInt(sb)||0;
+      html+=ss('H/AB',`${h!=='—'?h:0}/${ab!=='—'?ab:0}`,hn>0?'var(--green)':'');
+      html+=ss('R',r,rn>0?'var(--green)':'');
+      html+=ss('HR',hr,hrn>0?'var(--green)':'');html+=ss('RBI',rbi,rbin>0?'var(--green)':'');
+      html+=ss('SB',sb,sbn>0?'var(--green)':'');
+      html+=ss('BB',bb);html+=ss('K',so,son>=3?'var(--red)':'');
+      html+=ss('OBP',obp!=='—'?fmtStat(obp,'OBP'):'—');
       html+=`</div>`;
     }
     // At-bat / batters faced log
@@ -1226,10 +1224,9 @@ function buildStatcast(p){
       const outs=faced.filter(a=>a.isOut).length;
       const ipFull=Math.floor(outs/3);const ipRem=outs%3;
       const ipStr=`${ipFull}.${ipRem}`;
-      const er=hr; // rough estimate
-      const era=outs>0?((er*27)/outs).toFixed(2):'—';
-      const whip=outs>0?(((hitsA+bb)*3)/outs).toFixed(2):'—';
       const totalPitches=faced.reduce((s,a)=>s+(a.pitchCount||0),0);
+      // Use official ERA/WHIP from MLB API stats
+      const apiEra=statVal(p.stats,'ERA');const apiWhip=statVal(p.stats,'WHIP');const apiEr=statVal(p.stats,'ER');
       html+=`<div style="display:flex;flex-wrap:wrap;gap:1px;border-top:1px solid var(--border);background:var(--border)">`;
       const ss=(l,v,c)=>`<div style="flex:1;min-width:0;padding:6px 4px;text-align:center;background:var(--surface)"><div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${c||'var(--text)'}">${v}</div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">${l}</div></div>`;
       html+=ss('IP',ipStr);
@@ -1240,8 +1237,8 @@ function buildStatcast(p){
       html+=ss('BB',bb,bb>=4?'var(--red)':'');
       html+=ss('HR',hr,hr>0?'var(--red)':'');
       html+=ss('HBP',hbp);
-      html+=ss('ERA',era);
-      html+=ss('WHIP',whip);
+      html+=ss('ERA',apiEra!=='—'?fmtStat(apiEra,'ERA'):'—');
+      html+=ss('WHIP',apiWhip!=='—'?fmtStat(apiWhip,'WHIP'):'—');
       html+=`</div>`}
     html+=`<div style="border-top:1px solid var(--border);padding:8px 14px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono);margin-bottom:6px">${isP?'Batters Faced':'At-Bats'}</div>`;
     for(const ab of pABs){
