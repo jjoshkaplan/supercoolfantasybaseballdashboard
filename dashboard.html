@@ -719,9 +719,59 @@ async function loadRoster(){
   // Step 3: Assign stats to players
   let assigned=0;
   for(const p of rosterData){p.stats=primary[p.playerKey]||{};if(Object.keys(p.stats).length)assigned++}
+  // Step 3b: On Today tab, supplement with live feed data (MLB API lags for in-progress games)
+  if(currentPeriod==='today'){
+    for(const p of rosterData){
+      const ls=getPlayerLiveStatus(p.name,p.team,p.type);
+      if(!ls.feed||!ls.feed.playerABs)continue;
+      const abs=getPlayerABs(ls.feed,p.name);
+      if(!abs.length)continue;
+      if(p.type==='hitter'){
+        const liveStats=computeLiveHitterStats(abs);
+        // Only override if MLB API returned empty or fewer games
+        if(!Object.keys(p.stats).length||p.stats.GP==='0'){
+          p.stats=liveStats;if(Object.keys(liveStats).length)assigned++}
+      }else{
+        const liveStats=computeLivePitcherStats(abs);
+        if(!Object.keys(p.stats).length||p.stats.GP==='0'){
+          p.stats=liveStats;if(Object.keys(liveStats).length)assigned++}
+      }
+    }
+  }
   console.log(`[Roster] Stats assigned to ${assigned}/${rosterData.length} players`);
   refData=ref||{};
   renderRoster()}
+
+function computeLiveHitterStats(abs){
+  const pa=abs.filter(a=>!a.isPitching);if(!pa.length)return{};
+  const hits=pa.filter(a=>a.isHit);
+  const noABevents=['Walk','Hit By Pitch','Sac Fly','Sac Bunt','Intent Walk','Catcher Interference'];
+  const atBats=pa.filter(a=>!noABevents.includes(a.event));
+  const h=hits.length,ab=atBats.length,hr=pa.filter(a=>a.event==='Home Run').length;
+  const rbi=pa.reduce((s,a)=>s+(a.rbi||0),0);
+  const r=pa.filter(a=>a.event==='Home Run').length; // HR = guaranteed run, can't fully track R from ABs
+  const bb=pa.filter(a=>['Walk','Intent Walk'].includes(a.event)).length;
+  const hbp=pa.filter(a=>a.event==='Hit By Pitch').length;
+  const sf=pa.filter(a=>a.event==='Sac Fly').length;
+  const obpDenom=ab+bb+hbp+sf;
+  const obp=obpDenom>0?((h+bb+hbp)/obpDenom).toFixed(3).replace(/^0/,''):'.000';
+  const avg=ab>0?(h/ab).toFixed(3).replace(/^0/,''):'.000';
+  const sb=0; // can't reliably track SB from at-bat data
+  return{R:String(r),HR:String(hr),RBI:String(rbi),SB:String(sb),OBP:obp,AVG:avg,H:String(h),AB:String(ab),GP:'1',BB:String(bb)}}
+
+function computeLivePitcherStats(abs){
+  const faced=abs.filter(a=>a.isPitching);if(!faced.length)return{};
+  const k=faced.filter(a=>a.event==='Strikeout').length;
+  const hitsAllowed=faced.filter(a=>a.isHit).length;
+  const bb=faced.filter(a=>['Walk','Intent Walk'].includes(a.event)).length;
+  const hr=faced.filter(a=>a.event==='Home Run').length;
+  const er=faced.filter(a=>a.event==='Home Run').length; // rough estimate
+  // Rough IP: 3 outs per inning, count outs from at-bats
+  const outs=faced.filter(a=>a.isOut).length;
+  const ip=Math.floor(outs/3)+(outs%3)/10;
+  const era=ip>0?((er*9)/ip).toFixed(2):'0.00';
+  const whip=ip>0?(((hitsAllowed+bb)*3/outs)).toFixed(2):'0.00';
+  return{K:String(k),W:'0',SV:'0',ERA:era,WHIP:whip,IP:ip.toFixed(1),H:String(hitsAllowed),BB:String(bb),HR:String(hr),GP:'1'}}
 function showLoading(){const h='<div class="loading"><div class="spinner"></div>Loading roster...</div>';document.getElementById('roster-hitters').innerHTML=h;document.getElementById('roster-pitchers').innerHTML=h}
 function showEmpty(m){const h=`<div class="empty"><h3>${m}</h3></div>`;document.getElementById('roster-hitters').innerHTML=h;document.getElementById('roster-pitchers').innerHTML=h}
 
