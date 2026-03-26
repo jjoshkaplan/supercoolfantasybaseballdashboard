@@ -381,7 +381,7 @@ async function yahooGet(ep){const r=await fetch(`/api/yahoo?endpoint=${encodeURI
 async function yahooPut(ep,xml){const r=await fetch(`/api/yahoo?endpoint=${encodeURIComponent(ep)}`,{method:'PUT',headers:{'Content-Type':'application/xml'},body:xml});if(r.status===401){window.location.href='/api/auth-login';return null}return r}
 
 // ─── MLB LIVE POLLING ───────────────────────────────────
-async function fetchMLBSchedule(){try{const r=await fetch(`${MLB}/v1/schedule?sportId=1&date=${new Date().toISOString().slice(0,10)}&hydrate=team,linescore`);const d=await r.json();mlbSchedule=(d.dates||[]).flatMap(x=>x.games||[])}catch(e){console.error(e)}}
+async function fetchMLBSchedule(){try{const n=new Date(),td=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;const r=await fetch(`${MLB}/v1/schedule?sportId=1&date=${td}&hydrate=team,linescore`);const d=await r.json();mlbSchedule=(d.dates||[]).flatMap(x=>x.games||[])}catch(e){console.error(e)}}
 async function fetchFeed(gpk){try{const r=await fetch(`${MLB}/v1.1/game/${gpk}/feed/live`);return parseFeed(await r.json())}catch(e){return null}}
 function parseFeed(d){
   if(!d)return null;
@@ -486,7 +486,8 @@ function fmtStat(v,n){if(v==='—'||v==null||v==='')return'—';if(['OBP','SLG',
 
 // ─── MLB STATS API ──────────────────────────────────────
 function mlbDateRange(period){
-  const today=new Date();const fmt=d=>d.toISOString().slice(0,10);
+  const today=new Date();
+  const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const end=fmt(today);
   if(period==='today')return{start:end,end};
   if(period==='lastweek'){const s=new Date(today);s.setDate(s.getDate()-7);return{start:fmt(s),end}}
@@ -723,7 +724,7 @@ function buildStatcast(p){
 // ─── LINEUP ─────────────────────────────────────────────
 function onPosChange(pk,orig,nw){if(nw===orig)delete pendingChanges[pk];else pendingChanges[pk]=nw;updateSaveBtn();renderRoster()}
 function updateSaveBtn(){const b=document.getElementById('saveLineupBtn'),c=Object.keys(pendingChanges).length;b.classList.toggle('visible',c>0);b.textContent=c>0?`Save Lineup (${c})`:'Save Lineup'}
-async function saveLineup(){const ch=Object.entries(pendingChanges);if(!ch.length||!myTeamKey)return;const b=document.getElementById('saveLineupBtn');b.disabled=true;b.textContent='Saving...';const d=new Date().toISOString().slice(0,10);const px=ch.map(([k,p])=>`<player><player_key>${k}</player_key><position>${p}</position></player>`).join('');const xml=`<?xml version='1.0'?><fantasy_content><roster><coverage_type>date</coverage_type><date>${d}</date><players>${px}</players></roster></fantasy_content>`;try{const r=await yahooPut(`team/${myTeamKey}/roster`,xml);if(r&&r.ok){pendingChanges={};updateSaveBtn();showStatus('Lineup saved!','success');loadRoster()}else{showStatus('Save failed — check positions','error')}}catch(e){showStatus('Save failed','error')}b.disabled=false}
+async function saveLineup(){const ch=Object.entries(pendingChanges);if(!ch.length||!myTeamKey)return;const b=document.getElementById('saveLineupBtn');b.disabled=true;b.textContent='Saving...';const n=new Date(),d=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;const px=ch.map(([k,p])=>`<player><player_key>${k}</player_key><position>${p}</position></player>`).join('');const xml=`<?xml version='1.0'?><fantasy_content><roster><coverage_type>date</coverage_type><date>${d}</date><players>${px}</players></roster></fantasy_content>`;try{const r=await yahooPut(`team/${myTeamKey}/roster`,xml);if(r&&r.ok){pendingChanges={};updateSaveBtn();showStatus('Lineup saved!','success');loadRoster()}else{showStatus('Save failed — check positions','error')}}catch(e){showStatus('Save failed','error')}b.disabled=false}
 function showStatus(m,t){const e=document.createElement('div');e.className=`status-msg ${t}`;e.textContent=m;document.body.appendChild(e);setTimeout(()=>e.remove(),3000)}
 
 // ─── STANDINGS / MATCHUPS / TX ──────────────────────────
