@@ -351,7 +351,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
       <div class="roster-toolbar">
         <div class="roster-toolbar-left">
           <div class="tab-bar" id="rosterTabs"><button class="tab-btn active" data-tab="hitters" onclick="switchRosterTab('hitters')">Hitters</button><button class="tab-btn" data-tab="pitchers" onclick="switchRosterTab('pitchers')">Pitchers</button></div>
-          <div class="period-bar" id="periodBar"><button class="period-btn" data-period="today" onclick="switchPeriod('today')">Today</button><button class="period-btn active" data-period="season" onclick="switchPeriod('season')">Season</button><button class="period-btn" data-period="lastweek" onclick="switchPeriod('lastweek')">L7</button><button class="period-btn" data-period="lastmonth" onclick="switchPeriod('lastmonth')">L30</button><button class="period-btn" data-period="prevyear" onclick="switchPeriod('prevyear')">Prev Yr</button></div>
+          <div class="period-bar" id="periodBar"><button class="period-btn" data-period="today" onclick="switchPeriod('today')">Today</button><button class="period-btn" data-period="lastweek" onclick="switchPeriod('lastweek')">L7</button><button class="period-btn" data-period="lastmonth" onclick="switchPeriod('lastmonth')">L30</button><button class="period-btn active" data-period="season" onclick="switchPeriod('season')">2026</button><button class="period-btn" data-period="prevyear" onclick="switchPeriod('prevyear')">2025</button></div>
         </div>
       </div>
       <div class="card"><div id="roster-hitters" class="tw"></div><div id="roster-pitchers" class="tw" style="display:none"></div></div>
@@ -497,6 +497,7 @@ function switchView(v){document.querySelectorAll('.view-panel').forEach(p=>p.sty
 function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};pendingChanges={};refData={};expandedPlayer=null;updateSaveBtn();initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
 function switchRosterTab(t){rosterTab=t;document.querySelectorAll('#rosterTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.getElementById('roster-hitters').style.display=t==='hitters'?'':'none';document.getElementById('roster-pitchers').style.display=t==='pitchers'?'':'none'}
 function switchPeriod(p){currentPeriod=p;expandedPlayer=null;document.querySelectorAll('#periodBar .period-btn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));loadRoster()}
+function updatePeriodLabels(){const sy=parseInt(leagueSeason||2026);const m={season:String(sy),prevyear:String(sy-1)};document.querySelectorAll('#periodBar .period-btn').forEach(b=>{if(m[b.dataset.period])b.textContent=m[b.dataset.period]})}
 function loadViewData(v){if(!currentLeague)return;({roster:loadRoster,standings:loadStandings,matchups:loadMatchups}[v]||function(){})()}
 
 // ─── LEAGUES ────────────────────────────────────────────
@@ -504,6 +505,7 @@ async function loadLeagues(){const data=await yahooGet('users;use_login=1/games;
 const sel=document.getElementById('leagueSelect');sel.innerHTML='';
 
 if(leagues.length){leagues.forEach(l=>{const o=document.createElement('option');o.value=l.key;o.textContent=`${l.name} (${l.season})`;sel.appendChild(o);});currentLeagueKey=leagues[0].key;currentLeague=leagues[0].key;leagueSeason=leagues[0].season;document.getElementById('leagueName').textContent=leagues[0].name;
+updatePeriodLabels();
 await initLeagueData();loadViewData('roster')}else{sel.innerHTML='<option>No leagues found</option>'}}
 async function initLeagueData(){await Promise.all([loadStatCategories(),findMyTeam()])}
 async function loadStatCategories(){const d=await yahooGet(`league/${currentLeagueKey}/settings`);if(!d)return;try{const la=d.fantasy_content?.league;if(!la)return;let s=null;for(let i=0;i<la.length;i++)if(la[i]?.settings){s=la[i].settings;break}if(!s)return;const so=Array.isArray(s)?s[0]:s;statCategories={};for(const item of(so?.stat_categories?.stats||[])){const st=item.stat||item;if(st.stat_id!=null)statCategories[String(st.stat_id)]={display_name:st.display_name||''}}}catch(e){console.error(e)}}
@@ -709,7 +711,8 @@ function renderRoster(){
   const ht=!!TREND_REF[currentPeriod];
   document.getElementById('roster-hitters').innerHTML=buildTable(h,HITTER_STATS,ht);
   document.getElementById('roster-pitchers').innerHTML=buildTable(p,PITCHER_STATS,ht);
-  const pL={today:'Today',season:'Season',lastweek:'Last 7 days',lastmonth:'Last 30 days',prevyear:`${parseInt(leagueSeason||2026)-1} Season`};
+  const sy=parseInt(leagueSeason||2026);
+  const pL={today:'Today',season:`${sy} Season`,lastweek:'Last 7 days',lastmonth:'Last 30 days',prevyear:`${sy-1} Season`};
   document.getElementById('rosterSub').textContent=`${h.length} hitters · ${p.length} pitchers · ${pL[currentPeriod]||currentPeriod}`}
 
 function buildTable(players,sn,ht){
@@ -768,10 +771,14 @@ let savantArsenalCache={}; // key: year → {playerMap}
 
 function parseCSV(text){
   const lines=text.trim().split('\n');if(lines.length<2)return[];
-  const headers=lines[0].split(',').map(h=>h.replace(/"/g,'').trim());
-  return lines.slice(1).map(line=>{
-    const vals=line.match(/("([^"]*)"|[^,]*)/g)||[];
-    const obj={};headers.forEach((h,i)=>{obj[h]=(vals[i]||'').replace(/"/g,'').trim()});return obj})}
+  // Handle quoted fields with commas inside
+  const splitRow=line=>{const r=[];let cur='',inQ=false;
+    for(let i=0;i<line.length;i++){const c=line[i];
+      if(c==='"'){inQ=!inQ}else if(c===','&&!inQ){r.push(cur.trim());cur=''}else{cur+=c}}
+    r.push(cur.trim());return r};
+  const headers=splitRow(lines[0]).map(h=>h.replace(/"/g,'').trim());
+  return{headers,rows:lines.slice(1).map(line=>{
+    const vals=splitRow(line);const obj={};headers.forEach((h,i)=>{obj[h]=(vals[i]||'').replace(/"/g,'').trim()});return obj})}}
 
 function pctColor(v){
   if(v>=90)return'#ef4444';if(v>=80)return'#f97316';if(v>=70)return'#f59e0b';
@@ -782,10 +789,19 @@ async function fetchSavantPercentiles(year,type){
   const key=`${year}_${type}`;
   if(savantCache[key])return savantCache[key];
   try{
-    const url=`https://baseballsavant.mlb.com/leaderboard/percentile-rankings?type=${type}&year=${year}&csv=true`;
-    const r=await fetch(url);if(!r.ok)throw new Error(r.status);
-    const rows=parseCSV(await r.text());
-    const map={};for(const row of rows){const id=row.player_id||row.xMLBAMID;if(id)map[String(id)]=row}
+    // Use our proxy to avoid CORS
+    const ep=`/leaderboard/percentile-rankings?type=${type}&year=${year}&csv=true`;
+    const r=await fetch(`/api/savant?endpoint=${encodeURIComponent(ep)}`);
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
+    const text=await r.text();
+    const{headers,rows}=parseCSV(text);
+    console.log(`[Savant] Percentile CSV columns (${type}/${year}):`,headers.slice(0,20));
+    // Find player ID column
+    const idCol=headers.find(h=>/player_id|xmlbamid|mlbamid/i.test(h))||'player_id';
+    const map={};for(const row of rows){const id=row[idCol];if(id)map[String(id)]=row}
+    // Debug: log first player's data
+    const firstId=Object.keys(map)[0];
+    if(firstId)console.log(`[Savant] Sample player ${firstId}:`,map[firstId]);
     savantCache[key]=map;
     console.log(`[Savant] Percentiles loaded: ${Object.keys(map).length} ${type}s (${year})`);
     return map;
@@ -795,12 +811,17 @@ async function fetchSavantPercentiles(year,type){
 async function fetchSavantPitchArsenal(year){
   if(savantArsenalCache[year])return savantArsenalCache[year];
   try{
-    const url=`https://baseballsavant.mlb.com/leaderboard/pitch-arsenal-stats?type=pitcher&pitchType=&year=${year}&team=&csv=true`;
-    const r=await fetch(url);if(!r.ok)throw new Error(r.status);
-    const rows=parseCSV(await r.text());
-    // Group by player: each row is one pitch type for one pitcher
+    const ep=`/leaderboard/pitch-arsenal-stats?type=pitcher&pitchType=&year=${year}&team=&csv=true`;
+    const r=await fetch(`/api/savant?endpoint=${encodeURIComponent(ep)}`);
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
+    const text=await r.text();
+    const{headers,rows}=parseCSV(text);
+    console.log(`[Savant] Arsenal CSV columns (${year}):`,headers.slice(0,20));
+    // Find player ID column
+    const idCol=headers.find(h=>/pitcher|player_id|mlbamid/i.test(h))||'pitcher';
+    // Group by player: each row is one pitch type
     const map={};for(const row of rows){
-      const id=row.pitcher||row.player_id;if(!id)continue;
+      const id=row[idCol];if(!id)continue;
       if(!map[String(id)])map[String(id)]=[];
       map[String(id)].push(row)}
     savantArsenalCache[year]=map;
@@ -814,27 +835,39 @@ function buildPctBar(label,pctile,rawVal){
   const rv=rawVal!=null&&rawVal!==''?rawVal:'';
   return`<div class="pct-row"><span class="pct-label">${label}</span><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:${w}%;background:${col}"></div>${rv?`<span class="pct-val">${rv}</span>`:''}</div><span class="pct-rank" style="color:${col}">${p}<span style="font-size:8px">th</span></span></div>`}
 
-// Hitter percentile metrics to display (CSV column → display label)
+// Savant percentile metrics: [possibleColumnNames[], displayLabel, rawValueColumns[]]
+// The CSV column names vary — we try multiple patterns
 const HITTER_PCT_METRICS=[
-  ['xba_percent_rank','xBA'],['xslg_percent_rank','xSLG'],['xwoba_percent_rank','xwOBA'],
-  ['exit_velocity_percent_rank','Exit Velo'],['hard_hit_percent_rank','Hard Hit%'],
-  ['barrel_percent_rank','Barrel%'],['k_percent_rank','K%'],['bb_percent_rank','BB%'],
-  ['sprint_speed_percent_rank','Speed'],['whiff_percent_rank','Whiff%']
+  [['xba_percent_rank','xba_percentile','xba'],'xBA',['xba','est_ba']],
+  [['xslg_percent_rank','xslg_percentile','xslg'],'xSLG',['xslg','est_slg']],
+  [['xwoba_percent_rank','xwoba_percentile','xwoba'],'xwOBA',['xwoba','est_woba']],
+  [['exit_velocity_percent_rank','exit_velocity_percentile','exit_velocity'],'Exit Velo',['exit_velocity','exit_velocity_avg']],
+  [['hard_hit_percent_rank','hard_hit_percentile','hard_hit_percent'],'Hard Hit%',['hard_hit_percent']],
+  [['barrel_percent_rank','barrel_percentile','barrel_batted_rate'],'Barrel%',['barrel_batted_rate']],
+  [['k_percent_rank','k_percentile','k_percent'],'K%',['k_percent']],
+  [['bb_percent_rank','bb_percentile','bb_percent'],'BB%',['bb_percent']],
+  [['sprint_speed_percent_rank','sprint_speed_percentile','sprint_speed'],'Speed',['sprint_speed']],
+  [['whiff_percent_rank','whiff_percentile','whiff_percent'],'Whiff%',['whiff_percent']]
 ];
 const PITCHER_PCT_METRICS=[
-  ['xba_percent_rank','xBA'],['xslg_percent_rank','xSLG'],['xwoba_percent_rank','xwOBA'],
-  ['exit_velocity_percent_rank','Exit Velo'],['hard_hit_percent_rank','Hard Hit%'],
-  ['k_percent_rank','K%'],['bb_percent_rank','BB%'],['whiff_percent_rank','Whiff%'],
-  ['barrel_percent_rank','Barrel%'],['fastball_velo_percent_rank','FB Velo']
+  [['xba_percent_rank','xba_percentile','xba'],'xBA',['xba','est_ba']],
+  [['xslg_percent_rank','xslg_percentile','xslg'],'xSLG',['xslg','est_slg']],
+  [['xwoba_percent_rank','xwoba_percentile','xwoba'],'xwOBA',['xwoba','est_woba']],
+  [['exit_velocity_percent_rank','exit_velocity_percentile','exit_velocity'],'Exit Velo',['exit_velocity','exit_velocity_avg']],
+  [['hard_hit_percent_rank','hard_hit_percentile','hard_hit_percent'],'Hard Hit%',['hard_hit_percent']],
+  [['k_percent_rank','k_percentile','k_percent'],'K%',['k_percent']],
+  [['bb_percent_rank','bb_percentile','bb_percent'],'BB%',['bb_percent']],
+  [['whiff_percent_rank','whiff_percentile','whiff_percent'],'Whiff%',['whiff_percent']],
+  [['barrel_percent_rank','barrel_percentile','barrel_batted_rate'],'Barrel%',['barrel_batted_rate']],
+  [['fastball_velo_percent_rank','fastball_velo_percentile','fastball_velo'],'FB Velo',['fastball_velo']]
 ];
-// Raw value columns that match each metric (for display in bar)
-const PCT_RAW_MAP={
-  'xba_percent_rank':'xba','xslg_percent_rank':'xslg','xwoba_percent_rank':'xwoba',
-  'exit_velocity_percent_rank':'exit_velocity','hard_hit_percent_rank':'hard_hit_percent',
-  'barrel_percent_rank':'barrel_batted_rate','k_percent_rank':'k_percent',
-  'bb_percent_rank':'bb_percent','sprint_speed_percent_rank':'sprint_speed',
-  'whiff_percent_rank':'whiff_percent','fastball_velo_percent_rank':'fastball_velo'
-};
+
+// Look up a value trying multiple column names
+function savLookup(row,...names){
+  for(const n of names.flat()){const v=row[n];if(v!=null&&v!=='')return v}return null}
+
+// Parse a percentile value — could be 0-100 int, or 0-1 float
+function parsePctile(v){if(v==null||v==='')return null;const n=parseFloat(v);if(isNaN(n))return null;return n<=1&&n>=0?Math.round(n*100):Math.round(n)}
 
 function buildSavantPanel(p){
   const season=currentPeriod==='prevyear'?parseInt(leagueSeason||2026)-1:parseInt(leagueSeason||2026);
@@ -857,14 +890,15 @@ function buildSavantPanel(p){
   // Percentile rankings
   html+=`<div class="sav-section-title">Statcast Percentile Rankings</div>`;
   if(pctData){
-    for(const[key,label]of metrics){
-      const pctile=pctData[key];
-      if(pctile==null||pctile==='')continue;
-      const rawKey=PCT_RAW_MAP[key];
-      const rawVal=rawKey?pctData[rawKey]:'';
-      html+=buildPctBar(label,Math.round(parseFloat(pctile)*100),rawVal)}
+    let rendered=0;
+    for(const[pctCols,label,rawCols]of metrics){
+      const pctile=parsePctile(savLookup(pctData,pctCols));
+      if(pctile==null)continue;
+      const rawVal=savLookup(pctData,rawCols)||'';
+      html+=buildPctBar(label,pctile,rawVal);rendered++}
+    if(!rendered)html+=`<div style="color:var(--muted);font-size:12px;padding:8px 0">Percentile columns not matched — check console for CSV column names</div>`;
   }else{
-    html+=`<div style="color:var(--muted);font-size:12px;padding:8px 0">No percentile data available for this player (may not meet qualifier threshold)</div>`}
+    html+=`<div style="color:var(--muted);font-size:12px;padding:8px 0">No percentile data available (may not meet qualifier threshold)</div>`}
 
   // Pitch arsenal for pitchers
   if(p.type==='pitcher'){
@@ -873,16 +907,22 @@ function buildSavantPanel(p){
       html+=`<div class="sav-section-title" style="margin-top:16px">Pitch Arsenal</div>`;
       html+=`<table class="pa-table"><thead><tr><th>Pitch</th><th class="num">Velo</th><th class="num">Usage</th><th class="num">Whiff%</th><th class="num">PutAway%</th><th class="num">BA</th><th class="num">xBA</th></tr></thead><tbody>`;
       // Sort by usage descending
-      const sorted=[...arData].sort((a,b)=>(parseFloat(b.pitch_usage||0))-(parseFloat(a.pitch_usage||0)));
+      const sorted=[...arData].sort((a,b)=>{
+        const ua=parseFloat(savLookup(a,'pitch_usage','percent_usage','usage_pct')||0);
+        const ub=parseFloat(savLookup(b,'pitch_usage','percent_usage','usage_pct')||0);
+        return ub-ua});
       for(const pt of sorted){
-        const name=pt.pitch_type_name||pt.pitch_name||pt.pitch_type||'?';
+        const name=savLookup(pt,'pitch_type_name','pitch_name','pitch_type')||'?';
         const col=pitchColor(name);
-        const velo=pt.pitch_type_velo||pt.avg_speed||'—';
-        const usage=pt.pitch_usage?`${(parseFloat(pt.pitch_usage)*100).toFixed(1)}%`:'—';
-        const whiff=pt.whiff_percent?`${(parseFloat(pt.whiff_percent)*100).toFixed(1)}%`:'—';
-        const put=pt.put_away_percent?`${(parseFloat(pt.put_away_percent)*100).toFixed(1)}%`:'—';
-        const ba=pt.batting_avg||pt.ba||'—';
-        const xba=pt.est_ba||pt.xba||'—';
+        const velo=savLookup(pt,'pitch_type_velo','avg_speed','velocity','velo')||'—';
+        const usageRaw=savLookup(pt,'pitch_usage','percent_usage','usage_pct');
+        const usage=usageRaw?`${(parseFloat(usageRaw)*100).toFixed(1)}%`:'—';
+        const whiffRaw=savLookup(pt,'whiff_percent','whiff_rate','whiff_pct');
+        const whiff=whiffRaw?`${(parseFloat(whiffRaw)*100).toFixed(1)}%`:'—';
+        const putRaw=savLookup(pt,'put_away_percent','put_away_rate','put_away');
+        const put=putRaw?`${(parseFloat(putRaw)*100).toFixed(1)}%`:'—';
+        const ba=savLookup(pt,'batting_avg','ba','avg')||'—';
+        const xba=savLookup(pt,'est_ba','xba','est_batting_avg')||'—';
         html+=`<tr><td><span class="pa-dot" style="background:${col}"></span>${name}</td><td class="num">${velo}</td><td class="num">${usage}</td><td class="num">${whiff}</td><td class="num">${put}</td><td class="num">${ba}</td><td class="num">${xba}</td></tr>`}
       html+=`</tbody></table>`}
     else if(savantArsenalCache[season]){
