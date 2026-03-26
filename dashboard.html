@@ -181,14 +181,17 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 
 /* ─── STANDINGS / MATCHUPS / TX ─── */
 .rank{font-family:var(--mono);font-weight:600;color:var(--dim);width:40px;text-align:center}
-.tm-cell{display:flex;align-items:center;gap:10px}.tm-logo{width:28px;height:28px;border-radius:6px;object-fit:cover;background:var(--surface-2)}.tm-name{font-weight:700}.tm-mgr{font-size:11px;color:var(--dim)}
+.tm-cell{display:flex;align-items:center;gap:10px}.tm-logo{width:32px;height:32px;border-radius:6px;object-fit:cover;background:var(--surface-2)}.tm-name{font-weight:700;font-size:15px}.tm-mgr{font-size:11px;color:var(--dim)}
 .record{font-family:var(--mono);font-weight:600}.wpct{font-family:var(--mono)}
-.mu-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:12px}
+.mu-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 28px;margin-bottom:16px}
 .mu-vs{display:flex;align-items:center;justify-content:space-between}.mu-tm{display:flex;align-items:center;gap:12px;flex:1}.mu-tm.right{justify-content:flex-end;text-align:right}
-.mu-score{font-family:var(--mono);font-size:22px;font-weight:700}.mu-div{font-size:12px;color:var(--dim);padding:0 16px;font-weight:600}.winning{color:var(--green)}.losing{color:var(--dim)}
+.mu-score{font-family:var(--mono);font-size:28px;font-weight:700}.mu-div{font-size:14px;color:var(--dim);padding:0 20px;font-weight:600}.winning{color:var(--green)}.losing{color:var(--dim)}
 .tx-row{display:flex;align-items:center;gap:12px;padding:10px 20px;border-top:1px solid var(--border);font-size:13px}
 .tx-type{padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .tx-add{background:var(--green-dim);color:var(--green)}.tx-trade{background:var(--blue-dim);color:var(--blue)}.tx-commish{background:var(--orange-dim);color:var(--orange)}
+#muTabs .tab-btn{padding:9px 22px;font-size:14px}
+.mu-vs{gap:8px}
+.mu-tm{gap:14px}
 
 /* ─── LOADING / EMPTY / STATUS / AUTH ─── */
 .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px;color:var(--dim)}
@@ -289,20 +292,20 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   #rankings-content .card{border-radius:0;overflow:hidden;border-left:none;border-right:none}
 
   /* Matchup cards */
-  .mu-card{padding:8px 0;margin-bottom:8px;border-radius:0;border-left:none;border-right:none;overflow:hidden}.mu-score{font-size:16px}
-  .mu-vs{padding:0 8px;gap:4px}.mu-tm{gap:6px}.mu-div{padding:0 6px;font-size:11px}
-  .tm-name{font-size:12px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .tm-logo{width:22px;height:22px;border-radius:4px}
+  .mu-card{padding:12px 0;margin-bottom:10px;border-radius:0;border-left:none;border-right:none;overflow:hidden}.mu-score{font-size:20px}
+  .mu-vs{padding:0 10px;gap:6px}.mu-tm{gap:8px}.mu-div{padding:0 8px;font-size:12px}
+  .tm-name{font-size:13px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tm-logo{width:26px;height:26px;border-radius:4px}
 
   /* Scrollable table wrappers */
   .tw{max-width:100%;overflow-x:auto}
 
   /* Matchup stat table */
   .mu-card .tw{padding:0!important;max-width:100%}
-  .mu-card .tw table{font-size:10px!important;width:max-content;min-width:100%}
-  .mu-card .tw th,.mu-card .tw td{padding:4px 3px!important;font-size:10px!important;min-width:0!important}
-  .mu-card .tw th{font-size:8px!important}
-  .mu-card .tw td:first-child{max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px!important}
+  .mu-card .tw table{font-size:11px!important;width:max-content;min-width:100%}
+  .mu-card .tw th,.mu-card .tw td{padding:5px 4px!important;font-size:11px!important;min-width:0!important}
+  .mu-card .tw th{font-size:9px!important}
+  .mu-card .tw td:first-child{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px!important}
 
   /* Rankings table mobile */
   #rankings-content .tw{max-width:100%;padding:0}
@@ -1235,19 +1238,19 @@ async function loadMatchups(){
       const HIDE_CATS=['H','AB','H/AB','Hits','At Bats'];
       const ds=Object.entries(statCategories).filter(([,c])=>c.display_name&&!HIDE_CATS.includes(c.display_name));
       console.log('[Matchups] All stat categories:',Object.entries(statCategories).map(([id,c])=>`${id}=${c.display_name}`).join(', '));
-      statRows='<div class="tw" style="padding:0 16px 12px"><table style="width:100%;font-size:11px;border-collapse:collapse">';
-      statRows+='<thead><tr><th style="padding:6px 8px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);min-width:80px">Team</th>';
-      for(const[,cat]of ds)statRows+=`<th style="padding:6px 6px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${cat.display_name}</th>`;
+      statRows='<div class="tw" style="padding:0 20px 14px"><table style="width:100%;font-size:13px;border-collapse:collapse">';
+      statRows+='<thead><tr><th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);min-width:80px">Team</th>';
+      for(const[,cat]of ds)statRows+=`<th style="padding:8px 8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${cat.display_name}</th>`;
       statRows+='</tr></thead><tbody>';
-      statRows+=`<tr><td style="padding:6px 8px;font-weight:600;font-size:12px;border-bottom:1px solid var(--border)">${t1.name}</td>`;
+      statRows+=`<tr><td style="padding:8px 10px;font-weight:600;font-size:13px;border-bottom:1px solid var(--border)">${t1.name}</td>`;
       for(const[sid,cat]of ds){const v=t1.stats.find(s=>s.stat_id===sid)?.value||'—';const sw=m.statWinners.find(w=>w.stat_id===sid);const win=sw&&sw.winner===t1.team_key;const tied=sw&&sw.is_tied;
-        statRows+=`<td style="padding:6px 6px;text-align:center;font-family:var(--mono);font-size:12px;font-weight:${win?'700':'500'};color:${win?'var(--green)':tied?'var(--dim)':'var(--text)'};border-bottom:1px solid var(--border)">${fmtStat(v,cat.display_name)}</td>`}
+        statRows+=`<td style="padding:8px 8px;text-align:center;font-family:var(--mono);font-size:13px;font-weight:${win?'700':'500'};color:${win?'var(--green)':tied?'var(--dim)':'var(--text)'};border-bottom:1px solid var(--border)">${fmtStat(v,cat.display_name)}</td>`}
       statRows+='</tr>';
-      statRows+=`<tr><td style="padding:6px 8px;font-weight:600;font-size:12px">${t2.name}</td>`;
+      statRows+=`<tr><td style="padding:8px 10px;font-weight:600;font-size:13px">${t2.name}</td>`;
       for(const[sid,cat]of ds){const v=t2.stats.find(s=>s.stat_id===sid)?.value||'—';const sw=m.statWinners.find(w=>w.stat_id===sid);const win=sw&&sw.winner===t2.team_key;const tied=sw&&sw.is_tied;
-        statRows+=`<td style="padding:6px 6px;text-align:center;font-family:var(--mono);font-size:12px;font-weight:${win?'700':'500'};color:${win?'var(--green)':tied?'var(--dim)':'var(--text)'}">${fmtStat(v,cat.display_name)}</td>`}
+        statRows+=`<td style="padding:8px 8px;text-align:center;font-family:var(--mono);font-size:13px;font-weight:${win?'700':'500'};color:${win?'var(--green)':tied?'var(--dim)':'var(--text)'}">${fmtStat(v,cat.display_name)}</td>`}
       statRows+='</tr></tbody></table></div>'}
-    const catLine=hasCategories?`<div style="text-align:center;font-family:var(--mono);font-size:12px;font-weight:700;padding:4px 0;color:var(--dim)"><span style="color:${t1w>t2w?'var(--green)':'var(--text)'}">${t1w}</span> — <span style="color:${t2w>t1w?'var(--green)':'var(--text)'}">${t2w}</span>${ties?' — <span>'+ties+'</span>':''}</div>`:'';
+    const catLine=hasCategories?`<div style="text-align:center;font-family:var(--mono);font-size:14px;font-weight:700;padding:6px 0;color:var(--dim)"><span style="color:${t1w>t2w?'var(--green)':'var(--text)'}">${t1w}</span> — <span style="color:${t2w>t1w?'var(--green)':'var(--text)'}">${t2w}</span>${ties?' — <span>'+ties+'</span>':''}</div>`:'';
     return`<div class="mu-card"><div class="mu-vs"><div class="mu-tm">${t1.logo?`<img class="tm-logo" src="${t1.logo}">`:''}
 <div><div class="tm-name">${t1.name}</div><div class="mu-score ${p1>=p2?'winning':'losing'}">${t1.pts}</div></div></div><div class="mu-div">${hasCategories?`${t1w}-${t2w}${ties?'-'+ties:''}`:'VS'}</div><div class="mu-tm right"><div><div class="tm-name">${t2.name}</div><div class="mu-score ${p2>=p1?'winning':'losing'}">${t2.pts}</div></div>${t2.logo?`<img class="tm-logo" src="${t2.logo}">`:''}</div></div>${catLine}${statRows}</div>`}).join('')||'<div class="empty">No matchups this week</div>';
   renderLeagueRankings()}
