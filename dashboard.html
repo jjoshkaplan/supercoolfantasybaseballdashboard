@@ -853,45 +853,35 @@ async function fetchSavantPitchArsenal(year){
   }catch(e){console.warn(`[Savant] Pitch arsenal fetch failed (${year}):`,e.message);savantArsenalCache[year]={};return{}}
 }
 
-// Savant hitter sections: [sectionName, [[columnPatterns[], label, rawCols[]], ...]]
+// Savant hitter sections: [sectionName, [[columnName, label], ...]]
+// CSV values ARE the percentile ranks (1-100), no separate raw value columns
 const HITTER_SECTIONS=[
   ['Expected',[
-    [['xwoba_percent_rank','xwoba_percentile'],'xwOBA',['xwoba','est_woba']],
-    [['xba_percent_rank','xba_percentile'],'xBA',['xba','est_ba']],
-    [['xslg_percent_rank','xslg_percentile'],'xSLG',['xslg','est_slg']]
+    ['xwoba','xwOBA'],['xba','xBA'],['xslg','xSLG'],['xobp','xOBP'],['xiso','xISO']
   ]],
   ['Batted Ball',[
-    [['exit_velocity_percent_rank','exit_velocity_percentile'],'Avg EV',['exit_velocity','exit_velocity_avg']],
-    [['hard_hit_percent_rank','hard_hit_percentile'],'Hard Hit%',['hard_hit_percent']],
-    [['barrel_percent_rank','barrel_percentile'],'Barrel%',['barrel_batted_rate']],
-    [['sweet_spot_percent_rank','sweet_spot_percentile'],'Sweet Spot%',['sweet_spot_percent']]
+    ['exit_velocity','Avg EV'],['max_ev','Max EV'],['hard_hit_percent','Hard Hit%'],
+    ['brl_percent','Barrel%'],['bat_speed','Bat Speed'],['squared_up_rate','Squared Up%'],['swing_length','Swing Length']
   ]],
   ['Plate Discipline',[
-    [['k_percent_rank','k_percentile'],'K%',['k_percent']],
-    [['bb_percent_rank','bb_percentile'],'BB%',['bb_percent']],
-    [['whiff_percent_rank','whiff_percentile'],'Whiff%',['whiff_percent']]
+    ['k_percent','K%'],['bb_percent','BB%'],['whiff_percent','Whiff%'],['chase_percent','Chase%']
   ]],
-  ['Speed',[
-    [['sprint_speed_percent_rank','sprint_speed_percentile'],'Sprint Speed',['sprint_speed']]
+  ['Speed & Fielding',[
+    ['sprint_speed','Speed'],['oaa','OAA'],['arm_strength','Arm']
   ]]
 ];
 const PITCHER_SECTIONS=[
   ['Expected',[
-    [['xwoba_percent_rank','xwoba_percentile'],'xwOBA',['xwoba','est_woba']],
-    [['xba_percent_rank','xba_percentile'],'xBA',['xba','est_ba']],
-    [['xslg_percent_rank','xslg_percentile'],'xSLG',['xslg','est_slg']]
+    ['xwoba','xwOBA'],['xba','xBA'],['xslg','xSLG']
   ]],
   ['Batted Ball',[
-    [['exit_velocity_percent_rank','exit_velocity_percentile'],'Avg EV',['exit_velocity','exit_velocity_avg']],
-    [['hard_hit_percent_rank','hard_hit_percentile'],'Hard Hit%',['hard_hit_percent']],
-    [['barrel_percent_rank','barrel_percentile'],'Barrel%',['barrel_batted_rate']]
+    ['exit_velocity','Avg EV'],['hard_hit_percent','Hard Hit%'],['brl_percent','Barrel%']
   ]],
   ['Pitching',[
-    [['k_percent_rank','k_percentile'],'K%',['k_percent']],
-    [['bb_percent_rank','bb_percentile'],'BB%',['bb_percent']],
-    [['whiff_percent_rank','whiff_percentile'],'Whiff%',['whiff_percent']],
-    [['fastball_velo_percent_rank','fastball_velo_percentile'],'FB Velo',['fastball_velo']],
-    [['extension_percent_rank','extension_percentile'],'Extension',['extension']]
+    ['k_percent','K%'],['bb_percent','BB%'],['whiff_percent','Whiff%'],['chase_percent','Chase%']
+  ]],
+  ['Speed & Fielding',[
+    ['sprint_speed','Speed'],['oaa','OAA'],['arm_strength','Arm']
   ]]
 ];
 
@@ -926,13 +916,12 @@ function buildSavantPanel(p){
     let totalRendered=0;
     for(const[sectionName,metrics]of sections){
       let bubbles='';let count=0;
-      for(const[pctCols,label,rawCols]of metrics){
-        const rawLookup=savLookup(pctData,pctCols);
-        const pctile=parsePctile(rawLookup);
-        if(totalRendered===0&&count===0)console.log(`[Savant-DBG] Trying ${label}: cols=${JSON.stringify(pctCols)}, rawLookup=${rawLookup}, pctile=${pctile}`);
+      for(const[col,label]of metrics){
+        const raw=pctData[col];
+        const pctile=parsePctile(raw);
+        if(totalRendered===0&&count===0)console.log(`[Savant-DBG] Trying ${label}: col="${col}", raw="${raw}", pctile=${pctile}`);
         if(pctile==null)continue;
-        const rawVal=savLookup(pctData,rawCols)||'';
-        bubbles+=buildBubble(label,pctile,rawVal);count++}
+        bubbles+=buildBubble(label,pctile);count++}
       if(count){html+=`<div class="sav-section"><div class="sav-section-title">${sectionName}</div><div class="sav-bubbles">${bubbles}</div></div>`;totalRendered+=count}}
     if(!totalRendered)html+=`<div style="color:var(--muted);font-size:12px;padding:8px 0">Percentile columns not matched — check console for CSV column names</div>`;
   }else{
