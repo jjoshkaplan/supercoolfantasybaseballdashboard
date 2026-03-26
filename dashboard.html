@@ -2151,17 +2151,56 @@ function buildWaiverComparePanel(wp){
   html+=`<thead><tr><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);min-width:120px">Player</th>`;
   for(const s of sn)html+=`<th style="padding:8px 6px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">${s}</th>`;
   html+='</tr></thead><tbody>';
-  // Collect all values per stat for best highlighting
-  const allVals={};for(const s of sn)allVals[s]=[];
-  for(const p of allPlayers){
-    const st=wwCompareStats[p.playerKey]||{};
-    for(const s of sn){const v=parseFloat(statVal(st,s));if(!isNaN(v))allVals[s].push(v)}}
-  // Compute best per stat
-  const bestVal={};
-  for(const s of sn){
-    const lb=LOWER_IS_BETTER.includes(s);
-    const valid=allVals[s].filter(v=>!isNaN(v));
-    if(valid.length)bestVal[s]=lb?Math.min(...valid):Math.max(...valid)}
+  // Get FA stats for comparison baseline
+  const faSt=wwCompareStats[wp.playerKey]||{};
+  const faVals={};for(const s of sn)faVals[s]=parseFloat(statVal(faSt,s));
+  // Collect all roster player values per stat for severity scaling
+  const rosterVals={};for(const s of sn)rosterVals[s]=[];
+  for(const r of rosterMatches){
+    const st=wwCompareStats[r.playerKey]||{};
+    for(const s of sn){const v=parseFloat(statVal(st,s));if(!isNaN(v))rosterVals[s].push(v)}}
+  // Compute severity: how different is FA vs a roster player, relative to spread
+  function wwCellStyle(stat,rosterVal){
+    const faV=faVals[stat];
+    if(isNaN(faV)||isNaN(rosterVal))return'';
+    if(faV===rosterVal)return'';
+    const lb=LOWER_IS_BETTER.includes(stat);
+    // Determine if FA is better
+    const diff=faV-rosterVal;
+    const faBetter=lb?(diff<0):(diff>0);
+    // Compute severity 0-1 based on relative magnitude
+    const absDiff=Math.abs(diff);
+    const spread=rosterVals[stat].length>1?Math.max(...rosterVals[stat])-Math.min(...rosterVals[stat]):0;
+    // Use both absolute % diff and spread-relative for severity
+    const base=Math.max(Math.abs(faV),Math.abs(rosterVal),0.001);
+    const pctDiff=absDiff/base;
+    const spreadRatio=spread>0?absDiff/spread:pctDiff;
+    const severity=Math.min(1,Math.max(pctDiff*1.5,spreadRatio*0.8));
+    // Map severity to opacity: 0.06 (subtle) to 0.35 (strong)
+    const opacity=(0.06+severity*0.29).toFixed(2);
+    const color=faBetter?'45,212,160':'240,100,73'; // green or red rgb
+    const textColor=faBetter?'var(--green)':'var(--red)';
+    const fw=severity>0.3?'700':'600';
+    return`background:rgba(${color},${opacity});color:${textColor};font-weight:${fw}`;
+  }
+  // FA stat style: compare to average of roster players
+  function wwFaCellStyle(stat){
+    const faV=faVals[stat];
+    if(isNaN(faV)||!rosterVals[stat].length)return'';
+    const avg=rosterVals[stat].reduce((a,b)=>a+b,0)/rosterVals[stat].length;
+    if(faV===avg)return'';
+    const lb=LOWER_IS_BETTER.includes(stat);
+    const diff=faV-avg;
+    const faBetter=lb?(diff<0):(diff>0);
+    const base=Math.max(Math.abs(faV),Math.abs(avg),0.001);
+    const severity=Math.min(1,Math.abs(diff)/base*1.5);
+    if(severity<0.03)return'';
+    const opacity=(0.06+severity*0.29).toFixed(2);
+    const color=faBetter?'45,212,160':'240,100,73';
+    const textColor=faBetter?'var(--green)':'var(--red)';
+    const fw=severity>0.3?'700':'600';
+    return`background:rgba(${color},${opacity});color:${textColor};font-weight:${fw}`;
+  }
   // Render rows
   for(let i=0;i<allPlayers.length;i++){
     const p=allPlayers[i];
@@ -2177,9 +2216,13 @@ function buildWaiverComparePanel(wp){
     for(const s of sn){
       const v=statVal(st,s),f=fmtStat(v,s);
       const num=parseFloat(v);
-      const isBest=!isNaN(num)&&bestVal[s]!==undefined&&num===bestVal[s]&&allVals[s].length>1;
-      const clr=isBest?'color:var(--green);font-weight:700':'';
-      html+=`<td style="padding:6px 6px;text-align:center;font-family:var(--mono);font-size:12px;border-top:1px solid var(--border);${clr}">${f}</td>`}
+      let cellStyle='';
+      if(isWaiver){
+        cellStyle=wwFaCellStyle(s);
+      }else if(!isNaN(num)){
+        cellStyle=wwCellStyle(s,num);
+      }
+      html+=`<td style="padding:6px 6px;text-align:center;font-family:var(--mono);font-size:12px;border-top:1px solid var(--border);${cellStyle}">${f}</td>`}
     html+='</tr>';
     // Separator after waiver player
     if(isWaiver&&rosterMatches.length)html+=`<tr><td colspan="${sn.length+1}" style="padding:0;border-top:2px solid var(--border)"></td></tr>`;
