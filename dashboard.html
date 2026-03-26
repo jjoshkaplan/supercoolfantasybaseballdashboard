@@ -776,7 +776,9 @@ let savantCache={}; // key: `${year}_${type}` → {playerMap}
 let savantArsenalCache={}; // key: year → {playerMap}
 
 function parseCSV(text){
-  const lines=text.trim().split('\n');if(lines.length<2)return[];
+  if(!text||typeof text!=='string')return{headers:[],rows:[]};
+  const lines=text.trim().split('\n');
+  if(lines.length<2||!lines[0].includes(','))return{headers:[],rows:[]};
   // Handle quoted fields with commas inside
   const splitRow=line=>{const r=[];let cur='',inQ=false;
     for(let i=0;i<line.length;i++){const c=line[i];
@@ -809,6 +811,9 @@ async function fetchSavantPercentiles(year,type){
     if(!r.ok)throw new Error(`HTTP ${r.status}`);
     const text=await r.text();
     const{headers,rows}=parseCSV(text);
+    if(!headers.length||!rows.length){
+      console.warn(`[Savant] No CSV data for ${type}/${year} (${rows.length} rows)`);
+      savantCache[key]={};return{}}
     console.log(`[Savant] Percentile CSV columns (${type}/${year}):`,headers.slice(0,20));
     // Find player ID column
     const idCol=headers.find(h=>/player_id|xmlbamid|mlbamid/i.test(h))||'player_id';
@@ -830,6 +835,9 @@ async function fetchSavantPitchArsenal(year){
     if(!r.ok)throw new Error(`HTTP ${r.status}`);
     const text=await r.text();
     const{headers,rows}=parseCSV(text);
+    if(!headers.length||!rows.length){
+      console.warn(`[Savant] No arsenal CSV data for ${year} (${rows.length} rows)`);
+      savantArsenalCache[year]={};return{}}
     console.log(`[Savant] Arsenal CSV columns (${year}):`,headers.slice(0,20));
     // Find player ID column
     const idCol=headers.find(h=>/pitcher|player_id|mlbamid/i.test(h))||'pitcher';
