@@ -212,6 +212,9 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .today-toggle-btn .toggle-dot.sun{background:var(--orange)}
 
 /* ─── STANDINGS / MATCHUPS / TX ─── */
+#view-standings{width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw;padding:28px 12px;padding-left:calc(12px + env(safe-area-inset-left));padding-right:calc(12px + env(safe-area-inset-right))}
+#view-standings .pg-title,#view-standings .pg-sub{padding:0 4px}
+#view-standings .card{border-radius:0;border-left:none;border-right:none}
 .rank{font-family:var(--mono);font-weight:600;color:var(--dim);width:40px;text-align:center}
 .tm-cell{display:flex;align-items:center;gap:10px}.tm-logo{width:36px;height:36px;border-radius:6px;object-fit:cover;background:var(--surface-2)}.tm-name{font-weight:700;font-size:17px}.tm-mgr{font-size:11px;color:var(--dim)}
 .record{font-family:var(--mono);font-weight:600}.wpct{font-family:var(--mono)}
@@ -401,6 +404,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .ww-expand-header{padding:8px 10px}
   .ww-period-bar .period-btn{padding:6px 10px;min-height:32px;font-size:10px}
   .sparkline{margin-left:2px}
+  #view-standings{padding:12px 4px;padding-left:calc(4px + env(safe-area-inset-left));padding-right:calc(4px + env(safe-area-inset-right))}
 }
 </style>
 <script>(function(){var t=localStorage.getItem('scfbd_theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');var m=document.getElementById('metaThemeColor');if(m)m.content='#ffffff'}})()</script>
