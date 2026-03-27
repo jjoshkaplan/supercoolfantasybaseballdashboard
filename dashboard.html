@@ -776,12 +776,15 @@ function parseFeed(d){
   const bip=[];
   // Per-player at-bat results for the game
   const playerABs={}; // {playerName: [{inning, result, event, rbi, pitches, exitVelo, launchAngle, description}]}
+  const allGameABs=[]; // chronological list of all plate appearances
   const awAbbr=(gd.teams?.away?.abbreviation)||'',hmAbbr=(gd.teams?.home?.abbreviation)||'';
+  let abOrder=0;
   for(const ab of(plays.allPlays||[])){const res=ab.result||{};if(!res.event)continue;const mu=ab.matchup||{};
     const batterName=(mu.batter||{}).fullName||'';
     const pitcherName=(mu.pitcher||{}).fullName||'';
     const isTop=ab.about?.halfInning==='top';
     const batTeam=isTop?awAbbr:hmAbbr,pitTeam=isTop?hmAbbr:awAbbr;
+    const ord=abOrder++;
     // Track batter ABs
     if(batterName){
       if(!playerABs[batterName])playerABs[batterName]=[];
@@ -790,15 +793,18 @@ function parseFeed(d){
       const hd=lastPitch?.hitData||{};const hdCoord=(lastPitch?.hitData||{}).coordinates||{};
       const pitchDetail=abPitches.map((ev,i)=>{const pd=ev.pitchData||{},det=ev.details||{},hd2=ev.hitData||{},co=pd.coordinates||{};
         return{num:ev.pitchNumber||i+1,type:(det.type||{}).description||'',code:(det.type||{}).code||'',speed:pd.startSpeed,spin:(pd.breaks||{}).spinRate,pX:co.pX,pZ:co.pZ,call:det.description||'',isInPlay:det.isInPlay||false,exitVelo:hd2.launchSpeed,launchAngle:hd2.launchAngle,distance:hd2.totalDistance}});
-      playerABs[batterName].push({
-        inning:`${isTop?'▲':'▼'}${ab.about?.inning||''}`,
+      const entry={
+        inning:`${isTop?'▲':'▼'}${ab.about?.inning||''}`,_order:ord,
         event:res.event||'',description:res.description||'',
         rbi:res.rbi||0,isHit:['Single','Double','Triple','Home Run'].includes(res.event),
         isOut:res.isOut||false,pitchCount:abPitches.length,
         exitVelo:hd.launchSpeed,launchAngle:hd.launchAngle,
         hitX:hdCoord.coordX,hitY:hdCoord.coordY,
         pitches:pitchDetail,
-        vsPitcher:pitcherName,vsPitcherTeam:pitTeam})}
+        batterName,batterTeam:batTeam,
+        vsPitcher:pitcherName,vsPitcherTeam:pitTeam};
+      playerABs[batterName].push(entry);
+      allGameABs.push(entry)}
     // Track pitcher matchups
     if(pitcherName){
       if(!playerABs[pitcherName])playerABs[pitcherName]=[];
@@ -822,7 +828,7 @@ function parseFeed(d){
     home:{name:(t.home||{}).teamName||'',abbr:(t.home||{}).abbreviation||'',runs:((ls.teams||{}).home||{}).runs||0,hits:((ls.teams||{}).home||{}).hits||0,errors:((ls.teams||{}).home||{}).errors||0},
     away:{name:(t.away||{}).teamName||'',abbr:(t.away||{}).abbreviation||'',runs:((ls.teams||{}).away||{}).runs||0,hits:((ls.teams||{}).away||{}).hits||0,errors:((ls.teams||{}).away||{}).errors||0},
     batter:off.batter?{id:off.batter.id,name:off.batter.fullName,team:ls.inningHalf==='Top'?awAbbr:hmAbbr}:null,on_deck:off.onDeck?{id:off.onDeck.id,name:off.onDeck.fullName}:null,in_hole:off.inHole?{id:off.inHole.id,name:off.inHole.fullName}:null,pitcher:def.pitcher?{id:def.pitcher.id,name:def.pitcher.fullName,team:ls.inningHalf==='Top'?hmAbbr:awAbbr}:null,
-    count:{balls:cnt.balls||0,strikes:cnt.strikes||0,outs:ls.outs||0},runners,pitches,lastPitch:lp,bip,batOrder,playerABs}}
+    count:{balls:cnt.balls||0,strikes:cnt.strikes||0,outs:ls.outs||0},runners,pitches,lastPitch:lp,bip,batOrder,playerABs,allGameABs}}
 async function pollLive(){
   const dot=document.getElementById('pollDot'),st=document.getElementById('pollStatus');
   dot.className='poll-dot live';st.textContent='Updating...';
@@ -1914,6 +1920,32 @@ function buildABLog(pABs,isP,playerKey){
   });
   html+='</div>';return html}
 
+function buildGamePlayLog(allABs,playerName){
+  if(!allABs||!allABs.length)return'<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">No plays yet</div>';
+  const mine=n=>nameMatch(playerName,n);
+  let html='<div style="padding:6px 10px">';
+  let lastInn='';
+  for(const ab of allABs){
+    // Inning separator
+    if(ab.inning!==lastInn){lastInn=ab.inning;
+      html+=`<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono);padding:6px 0 3px;border-bottom:1px solid var(--border);margin-top:${ab._order?'4px':'0'}">${ab.inning}</div>`}
+    const isHit=ab.isHit;const isHR=ab.event==='Home Run';const isK=ab.event==='Strikeout';const isBB=['Walk','Intent Walk','Hit By Pitch'].includes(ab.event);
+    let evCol='var(--dim)';if(isHR)evCol='var(--red)';else if(isHit)evCol='var(--green)';else if(isBB)evCol='var(--blue)';else if(isK)evCol='var(--muted)';
+    const evIcon=isHR?'💣':isHit?'✓':isK?'K':isBB?'BB':ab.isOut?'✗':'·';
+    const isMine=mine(ab.batterName);
+    const batCol=ab.batterTeam?teamColor(ab.batterTeam):'var(--dim)';
+    const pitCol=ab.vsPitcherTeam?teamColor(ab.vsPitcherTeam):'var(--dim)';
+    const evDetails=[];
+    if(ab.exitVelo)evDetails.push(`${Math.round(ab.exitVelo)}mph`);
+    if(ab.launchAngle!=null)evDetails.push(`${Math.round(ab.launchAngle)}°`);
+    if(ab.rbi)evDetails.push(`${ab.rbi}RBI`);
+    html+=`<div style="display:flex;align-items:center;gap:4px;padding:3px 0;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);${isMine?'background:rgba(91,141,239,.06);margin:0 -10px;padding-left:10px;padding-right:10px':''}">`;
+    html+=`<span style="width:14px;text-align:center;font-size:11px">${evIcon}</span>`;
+    html+=`<span style="font-weight:${isMine?'800':'600'};color:${batCol};min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ab.batterName}</span>`;
+    html+=`<span style="font-weight:600;color:${evCol};min-width:50px;flex-shrink:0">${ab.event}</span>`;
+    html+=`<span style="color:var(--muted);font-size:9px;flex-shrink:0">${evDetails.join(' · ')}</span>`;
+    html+=`</div>`}
+  html+='</div>';return html}
 function buildStatcast(p){
   // On Season/Prev Year: show Savant analytics panel instead of live game data
   if(currentPeriod==='season'||currentPeriod==='prevyear'){
@@ -2119,9 +2151,23 @@ function buildStatcastLive(p,ls){
   // Zone legend
   const zoneLeg=`<div class="sc-legend" style="border-top:none;padding:4px 0 0;justify-content:center"><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#5b8def"></span>Ball</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#f06449"></span>Strike</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#2dd4a0"></span>In Play</span></div>`;
   // Assemble swipeable cards
-  // Build card 3: stats summary + AB log
+  // Build card 3: full game play-by-play
+  const gameLog=buildGamePlayLog(f.allGameABs||[],p.name);
+  html+=`<div class="sc-tabs" onclick="event.stopPropagation()"><div class="sc-tab active" onclick="switchScCard('${snapId}',0,event)"><span class="sc-tab-icon">◎</span>Zone</div><div class="sc-tab" onclick="switchScCard('${snapId}',1,event)"><span class="sc-tab-icon">◉</span>Spray</div><div class="sc-tab" onclick="switchScCard('${snapId}',2,event)"><span class="sc-tab-icon">☰</span>Game Log</div></div>`;
+  html+=`<div class="sc-snap" id="${snapId}">`;
+  // Card 1: Strike zone
+  html+=`<div class="sc-card"><div class="sc-card-inner">${zone}${zoneLeg}</div>${pLog}${statsBar}</div>`;
+  // Card 2: Spray chart (interactive)
+  html+=`<div class="sc-card"><div class="sc-card-inner">${spray}${sprayLeg}</div></div>`;
+  // Card 3: Full game log
+  html+=`<div class="sc-card">${gameLog}</div>`;
+  html+=`</div>`;
+  // Dot indicators
+  html+=`<div class="sc-dots" onclick="event.stopPropagation()"><div class="sc-dot active" onclick="switchScCard('${snapId}',0,event)"></div><div class="sc-dot" onclick="switchScCard('${snapId}',1,event)"></div><div class="sc-dot" onclick="switchScCard('${snapId}',2,event)"></div></div>`;
+  // Init scroll listener after render
+  setTimeout(()=>initScSnap(snapId),50);
+  // ── PLAYER SECTION: stats summary + at-bat log below carousel ──
   const pABs=getPlayerABs(f,p.name);
-  let card3='';
   if(pABs.length){
     const isP=p.type==='pitcher';
     if(isP){
@@ -2137,14 +2183,14 @@ function buildStatcastLive(p,ls){
       const ipStr=`${ipFull}.${ipRem}`;
       const totalPitches=faced.reduce((s,a)=>s+(a.pitchCount||0),0);
       const apiEra=statVal(p.stats,'ERA');const apiWhip=statVal(p.stats,'WHIP');
-      card3+=`<div style="display:flex;flex-wrap:wrap;gap:1px;background:var(--border)">`;
+      html+=`<div style="display:flex;flex-wrap:wrap;gap:1px;border-top:1px solid var(--border);background:var(--border)">`;
       const ss=(l,v,c)=>`<div style="flex:1;min-width:0;padding:6px 4px;text-align:center;background:var(--surface)"><div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${c||'var(--text)'}">${v}</div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">${l}</div></div>`;
-      card3+=ss('IP',ipStr);card3+=ss('BF',bf);card3+=ss('P',totalPitches||'—');
-      card3+=ss('K',k,k>=6?'var(--green)':'');card3+=ss('H',hitsA,hitsA>=5?'var(--red)':'');
-      card3+=ss('BB',bb,bb>=4?'var(--red)':'');card3+=ss('HR',hr,hr>0?'var(--red)':'');
-      card3+=ss('HBP',hbp);card3+=ss('ERA',apiEra!=='—'?fmtStat(apiEra,'ERA'):'—');
-      card3+=ss('WHIP',apiWhip!=='—'?fmtStat(apiWhip,'WHIP'):'—');
-      card3+=`</div>`}
+      html+=ss('IP',ipStr);html+=ss('BF',bf);html+=ss('P',totalPitches||'—');
+      html+=ss('K',k,k>=6?'var(--green)':'');html+=ss('H',hitsA,hitsA>=5?'var(--red)':'');
+      html+=ss('BB',bb,bb>=4?'var(--red)':'');html+=ss('HR',hr,hr>0?'var(--red)':'');
+      html+=ss('HBP',hbp);html+=ss('ERA',apiEra!=='—'?fmtStat(apiEra,'ERA'):'—');
+      html+=ss('WHIP',apiWhip!=='—'?fmtStat(apiWhip,'WHIP'):'—');
+      html+=`</div>`}
     else{
       const pa=pABs.filter(a=>!a.isPitching);
       const noABevents=['Walk','Hit By Pitch','Sac Fly','Sac Bunt','Intent Walk','Catcher Interference'];
@@ -2159,28 +2205,13 @@ function buildStatcastLive(p,ls){
       const sf=pa.filter(a=>a.event==='Sac Fly').length;
       const obpD=ab+bb+hbp+sf;
       const obp=obpD>0?((h+bb+hbp)/obpD).toFixed(3).replace(/^0/,''):'.000';
-      card3+=`<div style="display:flex;flex-wrap:wrap;gap:1px;background:var(--border)">`;
+      html+=`<div style="display:flex;flex-wrap:wrap;gap:1px;border-top:1px solid var(--border);background:var(--border)">`;
       const ss=(l,v,c)=>`<div style="flex:1;min-width:0;padding:6px 4px;text-align:center;background:var(--surface)"><div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${c||'var(--text)'}">${v}</div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">${l}</div></div>`;
-      card3+=ss('H/AB',`${h}/${ab}`,h>0?'var(--green)':'');
-      card3+=ss('HR',hr,hr>0?'var(--green)':'');card3+=ss('RBI',rbi,rbi>0?'var(--green)':'');
-      card3+=ss('BB',bb);card3+=ss('K',so,so>=3?'var(--red)':'');card3+=ss('OBP',obp);
-      card3+=`</div>`}
-    card3+=buildABLog(pABs,isP,`live_${p.playerKey}`)}
-  else{card3='<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">No at-bats yet</div>'}
-  const abLabel=p.type==='pitcher'?'Game Log':'At-Bats';
-  html+=`<div class="sc-tabs" onclick="event.stopPropagation()"><div class="sc-tab active" onclick="switchScCard('${snapId}',0,event)"><span class="sc-tab-icon">◎</span>Zone</div><div class="sc-tab" onclick="switchScCard('${snapId}',1,event)"><span class="sc-tab-icon">◉</span>Spray</div><div class="sc-tab" onclick="switchScCard('${snapId}',2,event)"><span class="sc-tab-icon">☰</span>${abLabel}</div></div>`;
-  html+=`<div class="sc-snap" id="${snapId}">`;
-  // Card 1: Strike zone
-  html+=`<div class="sc-card"><div class="sc-card-inner">${zone}${zoneLeg}</div>${pLog}${statsBar}</div>`;
-  // Card 2: Spray chart (interactive)
-  html+=`<div class="sc-card"><div class="sc-card-inner">${spray}${sprayLeg}</div></div>`;
-  // Card 3: Stats + AB log
-  html+=`<div class="sc-card">${card3}</div>`;
-  html+=`</div>`;
-  // Dot indicators
-  html+=`<div class="sc-dots" onclick="event.stopPropagation()"><div class="sc-dot active" onclick="switchScCard('${snapId}',0,event)"></div><div class="sc-dot" onclick="switchScCard('${snapId}',1,event)"></div><div class="sc-dot" onclick="switchScCard('${snapId}',2,event)"></div></div>`;
-  // Init scroll listener after render
-  setTimeout(()=>initScSnap(snapId),50);
+      html+=ss('H/AB',`${h}/${ab}`,h>0?'var(--green)':'');
+      html+=ss('HR',hr,hr>0?'var(--green)':'');html+=ss('RBI',rbi,rbi>0?'var(--green)':'');
+      html+=ss('BB',bb);html+=ss('K',so,so>=3?'var(--red)':'');html+=ss('OBP',obp);
+      html+=`</div>`}
+    html+=buildABLog(pABs,isP,`live_${p.playerKey}`)}
   return html+'</div>'}
 
 // ─── LINEUP ─────────────────────────────────────────────
