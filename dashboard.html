@@ -364,6 +364,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .sc-snap{max-width:100vw}
   .sc-tab{padding:8px 8px;font-size:10px}
   .sc-card{padding:8px;max-width:100vw;overflow:hidden}
+  .sc-card:last-child{max-height:50vh;overflow-y:auto}
   .sc-card svg{max-width:100%;height:auto}
   .sc-card-inner{max-width:100%;overflow:hidden}
   .spray-wrap{max-width:100%;overflow:visible}
@@ -1460,7 +1461,7 @@ function posSelect(p){
   return`<span class="pos-select" style="cursor:default">${p.selPos}</span>`}
 
 // ─── EXPAND / STATCAST ──────────────────────────────────
-function toggleExpand(pk,ev){if(ev.target.tagName==='SELECT'||ev.target.tagName==='OPTION')return;expandedPlayer=expandedPlayer===pk?null:pk;expandedABIdx=null;renderRoster()}
+function toggleExpand(pk,ev){if(ev.target.tagName==='SELECT'||ev.target.tagName==='OPTION')return;expandedPlayer=expandedPlayer===pk?null:pk;expandedABIdx=null;expandedGLIdx=null;renderRoster()}
 function toggleTodayPanel(pk,mode,ev){if(ev)ev.stopPropagation();todayPanelMode[pk]=mode;renderRoster()}
 
 // ─── SAVANT ANALYTICS ───────────────────────────────────
@@ -1920,31 +1921,61 @@ function buildABLog(pABs,isP,playerKey){
   });
   html+='</div>';return html}
 
+let expandedGLIdx=null; // track expanded game log entry
+function toggleGLDetail(id,ev){if(ev)ev.stopPropagation();
+  expandedGLIdx=expandedGLIdx===id?null:id;
+  document.querySelectorAll('.gl-row').forEach(r=>r.classList.toggle('open',r.dataset.glid===expandedGLIdx));
+  document.querySelectorAll('.gl-detail').forEach(d=>d.classList.toggle('open',d.dataset.glid===expandedGLIdx))}
+
 function buildGamePlayLog(allABs,playerName){
   if(!allABs||!allABs.length)return'<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">No plays yet</div>';
   const mine=n=>nameMatch(playerName,n);
+  const reversed=[...allABs].reverse();
   let html='<div style="padding:6px 10px">';
   let lastInn='';
-  for(const ab of allABs){
+  reversed.forEach((ab,idx)=>{
+    const glId=`gl_${idx}`;
     // Inning separator
-    if(ab.inning!==lastInn){lastInn=ab.inning;
-      html+=`<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono);padding:6px 0 3px;border-bottom:1px solid var(--border);margin-top:${ab._order?'4px':'0'}">${ab.inning}</div>`}
+    if(ab.inning!==lastInn){const isFirst=lastInn==='';lastInn=ab.inning;
+      html+=`<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono);padding:6px 0 3px;border-bottom:1px solid var(--border);margin-top:${isFirst?'0':'4px'}">${ab.inning}</div>`}
     const isHit=ab.isHit;const isHR=ab.event==='Home Run';const isK=ab.event==='Strikeout';const isBB=['Walk','Intent Walk','Hit By Pitch'].includes(ab.event);
     let evCol='var(--dim)';if(isHR)evCol='var(--red)';else if(isHit)evCol='var(--green)';else if(isBB)evCol='var(--blue)';else if(isK)evCol='var(--muted)';
     const evIcon=isHR?'💣':isHit?'✓':isK?'K':isBB?'BB':ab.isOut?'✗':'·';
     const isMine=mine(ab.batterName);
     const batCol=ab.batterTeam?teamColor(ab.batterTeam):'var(--dim)';
-    const pitCol=ab.vsPitcherTeam?teamColor(ab.vsPitcherTeam):'var(--dim)';
     const evDetails=[];
     if(ab.exitVelo)evDetails.push(`${Math.round(ab.exitVelo)}mph`);
     if(ab.launchAngle!=null)evDetails.push(`${Math.round(ab.launchAngle)}°`);
     if(ab.rbi)evDetails.push(`${ab.rbi}RBI`);
-    html+=`<div style="display:flex;align-items:center;gap:4px;padding:3px 0;font-size:10px;font-family:var(--mono);border-bottom:1px solid var(--border);${isMine?'background:rgba(91,141,239,.06);margin:0 -10px;padding-left:10px;padding-right:10px':''}">`;
-    html+=`<span style="width:14px;text-align:center;font-size:11px">${evIcon}</span>`;
-    html+=`<span style="font-weight:${isMine?'800':'600'};color:${batCol};min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ab.batterName}</span>`;
-    html+=`<span style="font-weight:600;color:${evCol};min-width:50px;flex-shrink:0">${ab.event}</span>`;
-    html+=`<span style="color:var(--muted);font-size:9px;flex-shrink:0">${evDetails.join(' · ')}</span>`;
-    html+=`</div>`}
+    const hasPitches=ab.pitches&&ab.pitches.length>0;
+    const isOpen=expandedGLIdx===glId;
+    html+=`<div class="gl-row ab-row ${isOpen?'open':''}" data-glid="${glId}" onclick="toggleGLDetail('${glId}',event)" style="${isMine?'background:rgba(91,141,239,.06);margin:0 -10px;padding-left:10px;padding-right:10px':''}">`;
+    html+=`<span class="ab-icon">${evIcon}</span>`;
+    html+=`<span style="font-weight:${isMine?'800':'600'};color:${batCol};min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${ab.batterName}</span>`;
+    html+=`<span class="ab-event" style="color:${evCol};min-width:50px;font-size:10px">${ab.event}</span>`;
+    html+=`<span class="ab-meta">${evDetails.join(' · ')}</span>`;
+    html+=`${hasPitches?'<span class="ab-chevron">▶</span>':''}`;
+    html+=`</div>`;
+    // Expandable detail
+    if(hasPitches){
+      const pitCol=ab.vsPitcherTeam?teamColor(ab.vsPitcherTeam):'var(--dim)';
+      html+=`<div class="gl-detail ab-detail ${isOpen?'open':''}" data-glid="${glId}">`;
+      // Description + vs pitcher
+      html+=`<div style="display:flex;align-items:center;gap:6px;padding:2px 0 4px;font-size:10px;font-family:var(--mono)">`;
+      if(ab.vsPitcher)html+=`<span style="color:var(--muted)">vs</span><span style="color:${pitCol};font-weight:600">${ab.vsPitcher}</span>`;
+      html+=`<span style="color:var(--muted);margin-left:auto">${ab.pitchCount||ab.pitches.length}P</span></div>`;
+      if(ab.description)html+=`<div class="ab-detail-desc">${ab.description}</div>`;
+      html+=`<div class="ab-detail-body">`;
+      html+=`<div class="ab-detail-zone">${buildMiniZone(ab.pitches,100)}</div>`;
+      html+=`<div class="ab-detail-log">`;
+      for(const pt of ab.pitches){
+        const col=pitchColor(pt.type),abr=pitchAbbr(pt.type),cc=callColor(pt.call);
+        let info=pt.call||'';
+        if(pt.isInPlay&&pt.exitVelo)info+=` · ${Math.round(pt.exitVelo)} mph`;
+        if(pt.isInPlay&&pt.launchAngle!=null)info+=` ${Math.round(pt.launchAngle)}°`;
+        html+=`<div class="pl-row"><span class="pl-num">${pt.num}</span><span class="pl-dot" style="background:${col}"></span><span class="pl-abbr">${abr}</span><span class="pl-velo">${pt.speed?Math.round(pt.speed):'-'}</span><span class="pl-call" style="color:${cc}">${info}</span></div>`}
+      html+=`</div></div></div>`}
+  });
   html+='</div>';return html}
 function buildStatcast(p){
   // On Season/Prev Year: show Savant analytics panel instead of live game data
