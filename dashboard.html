@@ -1820,11 +1820,11 @@ function evBadgeBg(ev){if(!ev)return'transparent';if(ev>=100)return'rgba(239,68,
 
 // Hit event color for spray chart + BIP
 function hitEventColor(event,isMine){
-  if(event==='Home Run')return'#ef4444';
+  if(event==='Home Run')return isMine?'#f0a030':'#d4891a';
   if(event==='Triple')return isMine?'#a855f7':'#7c3aed';
   if(event==='Double')return isMine?'#3b82f6':'#2563eb';
   if(event==='Single')return isMine?'#2dd4a0':'#22c55e';
-  return isMine?'#f0a030':'#5c6478'}
+  return isMine?'#f06449':'#a04030'}
 
 function buildBipList(bip,playerName){
   if(!bip||!bip.length)return'<div style="color:var(--muted);font-size:11px;text-align:center;padding:12px 0">No balls in play yet</div>';
@@ -1847,22 +1847,23 @@ function buildBipList(bip,playerName){
   html+='</div>';return html}
 
 function buildImprovedSpray(bip,playerName,w,h){
-  const spW=w||220,spH=h||170,spCx=spW/2,spCy=spH-10;
+  const spW=w||220,spH=h||190,topPad=18,spCx=spW/2,spCy=spH-10;
+  const fH=spH-topPad-10; // field drawing height
   const mine=n=>nameMatch(playerName,n);
   let svg=`<svg width="${spW}" height="${spH}" viewBox="0 0 ${spW} ${spH}">`;
-  svg+=`<path d="M ${spCx},${spCy} L ${spCx-spW*.47},${spCy-spH*.87} A ${spW*.64} ${spH*.92} 0 0 1 ${spCx+spW*.47},${spCy-spH*.87} Z" fill="#1a2618" stroke="#2d4a25" stroke-width="0.8"/>`;
+  svg+=`<path d="M ${spCx},${spCy} L ${spCx-spW*.47},${spCy-fH*.87} A ${spW*.64} ${fH*.92} 0 0 1 ${spCx+spW*.47},${spCy-fH*.87} Z" fill="#1a2618" stroke="#2d4a25" stroke-width="0.8"/>`;
   const dS=spW*.12;
   svg+=`<path d="M ${spCx},${spCy-dS*2.2} L ${spCx+dS},${spCy-dS*1.1} L ${spCx},${spCy} L ${spCx-dS},${spCy-dS*1.1} Z" fill="#2a2215" stroke="#3d3520" stroke-width="0.5"/>`;
   svg+=`<rect x="${spCx-3}" y="${spCy-3}" width="6" height="6" transform="rotate(45 ${spCx} ${spCy})" fill="#505878"/>`;
-  svg+=`<line x1="${spCx}" y1="${spCy}" x2="${spCx-spW*.47}" y2="${spCy-spH*.87}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
-  svg+=`<line x1="${spCx}" y1="${spCy}" x2="${spCx+spW*.47}" y2="${spCy-spH*.87}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
+  svg+=`<line x1="${spCx}" y1="${spCy}" x2="${spCx-spW*.47}" y2="${spCy-fH*.87}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
+  svg+=`<line x1="${spCx}" y1="${spCy}" x2="${spCx+spW*.47}" y2="${spCy-fH*.87}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
   const others=[],playerBips=[];
   bip.forEach(b=>{if(b.hitX==null||b.hitY==null)return;(mine(b.batter)?playerBips:others).push(b)});
   for(const b of others){
-    const nx=(b.hitX-125)/125,ny=(250-b.hitY)/250,sx=spCx+nx*spW*.45,sy=spCy-ny*spH*.9;
+    const nx=(b.hitX-125)/125,ny=(250-b.hitY)/250,sx=spCx+nx*spW*.45,sy=spCy-ny*fH*.9;
     svg+=`<circle cx="${sx}" cy="${sy}" r="3" fill="${hitEventColor(b.event,false)}" opacity=".4"/>`}
   for(const b of playerBips){
-    const nx=(b.hitX-125)/125,ny=(250-b.hitY)/250,sx=spCx+nx*spW*.45,sy=spCy-ny*spH*.9;
+    const nx=(b.hitX-125)/125,ny=(250-b.hitY)/250,sx=spCx+nx*spW*.45,sy=spCy-ny*fH*.9;
     svg+=`<circle cx="${sx}" cy="${sy}" r="5.5" fill="${hitEventColor(b.event,true)}" stroke="#fff" stroke-width="1.2"/>`}
   svg+=`</svg>`;return svg}
 function buildMiniZone(pitches,size){
@@ -2111,10 +2112,10 @@ function buildStatcastLive(p,ls){
   if(lp){const vc=lp.speed>=96?'hot':lp.speed>=90?'warm':'cool';const ec=lp.exitVelo>=100?'hot':lp.exitVelo>=90?'warm':'cool';
     statsBar=`<div class="sc-stats" style="margin-top:8px;border-radius:6px;overflow:hidden"><div class="sc-stat"><div class="sc-sv ${vc}">${lp.speed?Math.round(lp.speed):'—'}</div><div class="sc-sl">Velo</div></div><div class="sc-stat"><div class="sc-sv">${lp.spin?Math.round(lp.spin).toLocaleString():'—'}</div><div class="sc-sl">Spin</div></div><div class="sc-stat"><div class="sc-sv ${ec}">${lp.exitVelo?Math.round(lp.exitVelo):'—'}</div><div class="sc-sl">Exit V</div></div><div class="sc-stat"><div class="sc-sv">${lp.launchAngle!=null?Math.round(lp.launchAngle)+'°':'—'}</div><div class="sc-sl">LA</div></div><div class="sc-stat"><div class="sc-sv">${lp.distance?Math.round(lp.distance)+"'":'—'}</div><div class="sc-sl">Dist</div></div></div>`}
   // Improved spray chart + BIP
-  const spray=buildImprovedSpray(bip,p.name,220,170);
+  const spray=buildImprovedSpray(bip,p.name,220,190);
   const bipList=buildBipList(bip,p.name);
   // Spray legend
-  const sprayLeg=`<div class="sc-legend" style="border-top:none;padding:4px 0 0;justify-content:center"><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#ef4444"></span>HR</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#3b82f6"></span>2B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#2dd4a0"></span>1B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#5c6478"></span>Out</span></div>`;
+  const sprayLeg=`<div class="sc-legend" style="border-top:none;padding:4px 0 0;justify-content:center"><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#f0a030"></span>HR</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#a855f7"></span>3B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#3b82f6"></span>2B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#2dd4a0"></span>1B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#f06449"></span>Out</span></div>`;
   // Zone legend
   const zoneLeg=`<div class="sc-legend" style="border-top:none;padding:4px 0 0;justify-content:center"><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#5b8def"></span>Ball</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#f06449"></span>Strike</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#2dd4a0"></span>In Play</span></div>`;
   // Assemble swipeable cards
