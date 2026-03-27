@@ -507,6 +507,10 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .st-sub-wrap .player-info .meta{font-size:9px}
 .st-sub-bench td{padding:2px 6px;background:var(--surface-2);border-top:2px solid var(--border)}
 .st-sub-bench span{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)}
+.st-game-tag{font-size:8px;font-weight:700;font-family:var(--mono);padding:1px 5px;border-radius:3px;margin-left:5px;white-space:nowrap;letter-spacing:.02em}
+.st-game-live{background:var(--green-dim);color:var(--green)}
+.st-game-final{background:var(--surface-3);color:var(--muted)}
+.st-game-pre{background:var(--surface-3);color:var(--dim)}
 /* Savant in waiver comparison */
 .ww-sav-wrap{border-top:1px solid var(--border);padding:12px 10px;background:var(--bg)}
 .ww-sav-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -539,6 +543,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .st-sub-wrap .player-hs{width:16px;height:16px}
   .st-sub-wrap .player-info .name{font-size:10px}
   .st-sub-wrap .player-info .meta{font-size:8px}
+  .st-game-tag{font-size:7px;padding:1px 3px;margin-left:3px}
   .st-sub-wrap .pos-select{font-size:8px;min-width:22px;padding:1px 2px}
   /* Waiver compare table mobile */
   .ww-cmp th{padding:6px 4px;font-size:9px}
@@ -975,6 +980,25 @@ function isScheduledStarter(playerName,teamAbbr){
   if(!pp||!pp.fullName)return false;
   return nameMatch(playerName,pp.fullName);
 }
+
+function buildMiniGameTag(teamAbbr){
+  const game=findGameForTeam(teamAbbr);
+  if(!game)return'';
+  const st=game.status?.abstractGameState;
+  const gpk=game.gamePk,f=liveFeeds[gpk];
+  const aw=game.teams.away.team.abbreviation,hm=game.teams.home.team.abbreviation;
+  const isAway=teamAbbr===aw;const opp=isAway?hm:aw;const prefix=isAway?'@':'v';
+  if(st==='Preview'){
+    const t=new Date(game.gameDate).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+    return`<span class="st-game-tag st-game-pre">${prefix}${opp} ${t}</span>`}
+  if(st==='Final'){
+    const aR=f?f.away.runs:(game.teams.away.score||0),hR=f?f.home.runs:(game.teams.home.score||0);
+    return`<span class="st-game-tag st-game-final">${aw} ${aR}-${hR} ${hm} · F</span>`}
+  // Live
+  if(f){
+    const inn=`${f.inning_half==='Top'?'▲':'▼'}${f.inning_ordinal||''}`;
+    return`<span class="st-game-tag st-game-live">${aw} ${f.away.runs}-${f.home.runs} ${hm} · ${inn}</span>`}
+  return`<span class="st-game-tag st-game-live">${prefix}${opp} Live</span>`}
 
 // ─── MLB STATS API ──────────────────────────────────────
 function mlbDateRange(period){
@@ -2281,7 +2305,9 @@ function buildStRosterTable(players,sn,statsMap,title){
     html+=`<tr>`;
     html+=`<td style="text-align:center"><span class="pos-select">${p.selPos}</span></td>`;
     html+=`<td><div class="player-cell">${p.hs?`<img class="player-hs" src="${p.hs}" onerror="this.style.display='none'">`:''}`;
-    html+=`<div class="player-info"><div class="name">${p.name}</div><div class="meta">${p.team} · ${p.pos} ${sh}</div></div></div></td>`;
+    const gameTag=buildMiniGameTag(p.team);
+    const spBadge2=p.type==='pitcher'&&isScheduledStarter(p.name,p.team)?'<span class="sp-start-badge">START</span>':'';
+    html+=`<div class="player-info"><div class="name">${p.name}${spBadge2}</div><div class="meta">${p.team} · ${p.pos} ${sh}${gameTag}</div></div></div></td>`;
     for(const s of sn){
       const v=statVal(st,s),f=fmtStat(v,s);
       const cs=cellStyle(p.playerKey,s);
