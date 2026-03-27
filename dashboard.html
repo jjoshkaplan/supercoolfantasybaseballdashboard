@@ -788,7 +788,7 @@ function parseFeed(d){
   // Per-player at-bat results for the game
   const playerABs={}; // {playerName: [{inning, result, event, rbi, pitches, exitVelo, launchAngle, description}]}
   const allGameABs=[]; // chronological list of all plate appearances
-  const awAbbr=(gd.teams?.away?.abbreviation)||'',hmAbbr=(gd.teams?.home?.abbreviation)||'';
+  const awAbbr=(gd.teams?.away?.abbreviation)||(gd.teams?.away?.team?.abbreviation)||'',hmAbbr=(gd.teams?.home?.abbreviation)||(gd.teams?.home?.team?.abbreviation)||'';
   let abOrder=0;
   for(const ab of(plays.allPlays||[])){const res=ab.result||{};if(!res.event)continue;const mu=ab.matchup||{};
     const batterName=(mu.batter||{}).fullName||'';
@@ -831,13 +831,15 @@ function parseFeed(d){
         isOut:res.isOut||false,pitchCount:abPitches.length,
         hitX:hdCoord.coordX,hitY:hdCoord.coordY,
         pitches:pitchDetail,
+        pitcherTeam:pitTeam,
         vsBatter:batterName,vsBatterTeam:batTeam,isPitching:true})}
     for(const ev of(ab.playEvents||[])){if(!ev.isPitch||!(ev.details||{}).isInPlay)continue;const hd=ev.hitData||{};if(!hd.launchSpeed&&!(hd.coordinates||{}).coordX)continue;
       bip.push({batter:batterName,event:res.event||'',exitVelo:hd.launchSpeed,launchAngle:hd.launchAngle,distance:hd.totalDistance,hitX:(hd.coordinates||{}).coordX,hitY:(hd.coordinates||{}).coordY,inning:ab.about?.inning||0,halfInning:isTop?'top':'bot',isHit:['Single','Double','Triple','Home Run'].includes(res.event)})}}
   const t=gd.teams||{};
   return{state:(gd.status||{}).abstractGameState||'',detailedState:(gd.status||{}).detailedState||'',inning:ls.currentInning,inning_ordinal:ls.currentInningOrdinal||'',inning_half:ls.inningHalf||'',
-    home:{name:(t.home||{}).teamName||'',abbr:(t.home||{}).abbreviation||'',runs:((ls.teams||{}).home||{}).runs||0,hits:((ls.teams||{}).home||{}).hits||0,errors:((ls.teams||{}).home||{}).errors||0},
-    away:{name:(t.away||{}).teamName||'',abbr:(t.away||{}).abbreviation||'',runs:((ls.teams||{}).away||{}).runs||0,hits:((ls.teams||{}).away||{}).hits||0,errors:((ls.teams||{}).away||{}).errors||0},
+    home:{name:(t.home||{}).teamName||'',abbr:(t.home||{}).abbreviation||hmAbbr,runs:((ls.teams||{}).home||{}).runs||0,hits:((ls.teams||{}).home||{}).hits||0,errors:((ls.teams||{}).home||{}).errors||0},
+    away:{name:(t.away||{}).teamName||'',abbr:(t.away||{}).abbreviation||awAbbr,runs:((ls.teams||{}).away||{}).runs||0,hits:((ls.teams||{}).away||{}).hits||0,errors:((ls.teams||{}).away||{}).errors||0},
+    homeAbbr:hmAbbr,awayAbbr:awAbbr,
     batter:off.batter?{id:off.batter.id,name:off.batter.fullName,team:ls.inningHalf==='Top'?awAbbr:hmAbbr}:null,on_deck:off.onDeck?{id:off.onDeck.id,name:off.onDeck.fullName}:null,in_hole:off.inHole?{id:off.inHole.id,name:off.inHole.fullName}:null,pitcher:def.pitcher?{id:def.pitcher.id,name:def.pitcher.fullName,team:ls.inningHalf==='Top'?hmAbbr:awAbbr}:null,
     count:{balls:cnt.balls||0,strikes:cnt.strikes||0,outs:ls.outs||0},runners,pitches,lastPitch:lp,bip,batOrder,playerABs,allGameABs}}
 async function pollLive(){
@@ -2016,20 +2018,21 @@ function buildGamePlayLog(allABs,playerName){
     if(ab.rbi)evDetails.push(`${ab.rbi}RBI`);
     const hasPitches=ab.pitches&&ab.pitches.length>0;
     const isOpen=expandedGLIdx===glId;
-    html+=`<div class="gl-row ab-row ${isOpen?'open':''}" data-glid="${glId}" onclick="toggleGLDetail('${glId}',event)" style="${isMine?'background:rgba(91,141,239,.06);margin:0 -10px;padding-left:10px;padding-right:10px':''}">`;
+    html+=`<div class="gl-row ab-row ${isOpen?'open':''}" data-glid="${glId}" onclick="toggleGLDetail('${glId}',event)" style="${isMine?'background:rgba(91,141,239,.08);margin:0 -10px;padding-left:8px;padding-right:10px;border-left:2px solid var(--blue)':''}">`;
     html+=`<span class="ab-icon">${evIcon}</span>`;
-    html+=`<span style="font-weight:${isMine?'800':'600'};color:${batCol};min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px">${ab.batterName}</span>`;
-    html+=`<span class="ab-event" style="color:${evCol};min-width:50px;font-size:10px">${ab.event}</span>`;
+    html+=`<span style="font-weight:${isMine?'800':'600'};color:${batCol};min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:${isMine?'11px':'10px'}">${ab.batterName}</span>`;
+    html+=`<span class="ab-event" style="color:${evCol};min-width:50px;font-size:10px;font-weight:${isMine?'800':'700'}">${ab.event}</span>`;
     html+=`<span class="ab-meta">${evDetails.join(' · ')}</span>`;
     html+=`${hasPitches?'<span class="ab-chevron">▶</span>':''}`;
     html+=`</div>`;
     // Expandable detail
     if(hasPitches){
-      const pitCol=ab.vsPitcherTeam?teamColor(ab.vsPitcherTeam):'var(--dim)';
+      const batColDet=ab.batterTeam?teamColor(ab.batterTeam):'var(--dim)';
+      const pitColDet=ab.vsPitcherTeam?teamColor(ab.vsPitcherTeam):'var(--dim)';
       html+=`<div class="gl-detail ab-detail ${isOpen?'open':''}" data-glid="${glId}">`;
-      // Description + vs pitcher
       html+=`<div style="display:flex;align-items:center;gap:6px;padding:2px 0 4px;font-size:10px;font-family:var(--mono)">`;
-      if(ab.vsPitcher)html+=`<span style="color:var(--muted)">vs</span><span style="color:${pitCol};font-weight:600">${ab.vsPitcher}</span>`;
+      html+=`<span style="color:${batColDet};font-weight:700">${ab.batterName}</span>`;
+      if(ab.vsPitcher)html+=`<span style="color:var(--muted)">vs</span><span style="color:${pitColDet};font-weight:600">${ab.vsPitcher}</span>`;
       html+=`<span style="color:var(--muted);margin-left:auto">${ab.pitchCount||ab.pitches.length}P</span></div>`;
       if(ab.description)html+=`<div class="ab-detail-desc">${ab.description}</div>`;
       html+=`<div class="ab-detail-body">`;
