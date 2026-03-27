@@ -836,12 +836,18 @@ function parseFeed(d){
     for(const ev of(ab.playEvents||[])){if(!ev.isPitch||!(ev.details||{}).isInPlay)continue;const hd=ev.hitData||{};if(!hd.launchSpeed&&!(hd.coordinates||{}).coordX)continue;
       bip.push({batter:batterName,event:res.event||'',exitVelo:hd.launchSpeed,launchAngle:hd.launchAngle,distance:hd.totalDistance,hitX:(hd.coordinates||{}).coordX,hitY:(hd.coordinates||{}).coordY,inning:ab.about?.inning||0,halfInning:isTop?'top':'bot',isHit:['Single','Double','Triple','Home Run'].includes(res.event)})}}
   const t=gd.teams||{};
+  // Extract boxscore season stats for all players
+  const boxSeasonStats={};// {playerId: {batting:{ops,runs,rbi,homeRuns,...}, pitching:{era,whip,wins,losses,...}}}
+  try{const box=ld.boxscore||{};
+    for(const side of['away','home']){const pl=(box.teams||{})[side]?.players||{};
+      for(const[key,val]of Object.entries(pl)){const pid=val?.person?.id;if(!pid)continue;
+        boxSeasonStats[String(pid)]={batting:val?.seasonStats?.batting||{},pitching:val?.seasonStats?.pitching||{}}}}}catch(e){}
   return{state:(gd.status||{}).abstractGameState||'',detailedState:(gd.status||{}).detailedState||'',inning:ls.currentInning,inning_ordinal:ls.currentInningOrdinal||'',inning_half:ls.inningHalf||'',
     home:{name:(t.home||{}).teamName||'',abbr:(t.home||{}).abbreviation||hmAbbr,runs:((ls.teams||{}).home||{}).runs||0,hits:((ls.teams||{}).home||{}).hits||0,errors:((ls.teams||{}).home||{}).errors||0},
     away:{name:(t.away||{}).teamName||'',abbr:(t.away||{}).abbreviation||awAbbr,runs:((ls.teams||{}).away||{}).runs||0,hits:((ls.teams||{}).away||{}).hits||0,errors:((ls.teams||{}).away||{}).errors||0},
     homeAbbr:hmAbbr,awayAbbr:awAbbr,
     batter:off.batter?{id:off.batter.id,name:off.batter.fullName,team:ls.inningHalf==='Top'?awAbbr:hmAbbr}:null,on_deck:off.onDeck?{id:off.onDeck.id,name:off.onDeck.fullName}:null,in_hole:off.inHole?{id:off.inHole.id,name:off.inHole.fullName}:null,pitcher:def.pitcher?{id:def.pitcher.id,name:def.pitcher.fullName,team:ls.inningHalf==='Top'?hmAbbr:awAbbr}:null,
-    count:{balls:cnt.balls||0,strikes:cnt.strikes||0,outs:ls.outs||0},runners,pitches,lastPitch:lp,bip,batOrder,playerABs,allGameABs}}
+    count:{balls:cnt.balls||0,strikes:cnt.strikes||0,outs:ls.outs||0},runners,pitches,lastPitch:lp,bip,batOrder,playerABs,allGameABs,boxSeasonStats}}
 async function pollLive(){
   const dot=document.getElementById('pollDot'),st=document.getElementById('pollStatus');
   dot.className='poll-dot live';st.textContent='Updating...';
@@ -2224,9 +2230,18 @@ function buildStatcastLive(p,ls){
   const mk=(n,m,cl)=>Array.from({length:m},(_,i)=>`<div class="sc-pip ${i<n?cl:''}"></div>`).join('');
   const r=f.runners||{};
   html+=`<div class="sc-count-bar"><div class="sc-count-group"><span class="sc-count-label">B</span>${mk(f.count.balls,4,'fb')}</div><div class="sc-count-group"><span class="sc-count-label">S</span>${mk(f.count.strikes,3,'fs')}</div><div class="sc-count-group"><span class="sc-count-label">O</span>${mk(f.count.outs,3,'fo')}</div><div class="sc-bases"><div class="sc-base sc-b2 ${r.second?'on':''}"></div><div class="sc-base sc-b3 ${r.third?'on':''}"></div><div class="sc-base sc-b1 ${r.first?'on':''}"></div></div></div>`;
-  // Matchup line
-  if(f.batter||f.pitcher){const bc=f.batter?.team?teamColor(f.batter.team):'var(--text)',pc=f.pitcher?.team?teamColor(f.pitcher.team):'var(--text)';
-    html+=`<div style="padding:6px 14px;font-size:12px;border-bottom:1px solid var(--border)"><b style="color:${bc}">${f.batter?.name||'—'}</b> <span style="color:var(--muted)">vs</span> <b style="color:${pc}">${f.pitcher?.name||'—'}</b></div>`}
+  // Matchup line with season stats
+  if(f.batter||f.pitcher){
+    const bc=f.batter?.team?teamColor(f.batter.team):'var(--text)',pc=f.pitcher?.team?teamColor(f.pitcher.team):'var(--text)';
+    const bss=f.batter?.id?(f.boxSeasonStats||{})[String(f.batter.id)]?.batting||{}:{};
+    const pss=f.pitcher?.id?(f.boxSeasonStats||{})[String(f.pitcher.id)]?.pitching||{}:{};
+    // Batter: OPS · R · RBI · HR
+    const bOps=bss.ops||'—';const bR=bss.runs??'—';const bRbi=bss.rbi??'—';const bHr=bss.homeRuns??'—';
+    const batStats=f.batter?`<span style="font-size:9px;color:var(--dim);font-family:var(--mono);margin-left:6px">${bOps} OPS · ${bR} R · ${bRbi} RBI · ${bHr} HR</span>`:'';
+    // Pitcher: W-L · ERA · WHIP
+    const pW=pss.wins??0;const pL=pss.losses??0;const pEra=pss.era||'—';const pWhip=pss.whip||'—';
+    const pitStats=f.pitcher?`<span style="font-size:9px;color:var(--dim);font-family:var(--mono);margin-left:6px">${pW}-${pL} · ${parseFloat(pEra||0).toFixed(2)} ERA · ${parseFloat(pWhip||0).toFixed(2)} WHIP</span>`:'';
+    html+=`<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;padding:6px 14px;font-size:12px;border-bottom:1px solid var(--border)"><span><b style="color:${bc}">${f.batter?.name||'—'}</b>${batStats}</span><span style="color:var(--muted);flex-shrink:0">vs</span><span><b style="color:${pc}">${f.pitcher?.name||'—'}</b>${pitStats}</span></div>`}
   // Statcast body: swipeable cards
   const pitches=f.pitches||[],bip=f.bip||[];
   const snapId=`snap_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
