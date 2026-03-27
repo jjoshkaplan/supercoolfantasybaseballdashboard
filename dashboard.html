@@ -118,6 +118,11 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .gc-preview{color:var(--dim);font-family:var(--mono);font-size:11px}
 .gc-final{color:var(--muted);font-family:var(--mono);font-size:11px}
 @keyframes pulse-st{0%,100%{box-shadow:0 0 0 0 rgba(45,212,160,.3)}70%{box-shadow:0 0 0 4px rgba(45,212,160,0)}}
+/* Inline game situation */
+.gc-sit{display:flex;align-items:center;gap:5px}
+.gc-outs{display:flex;align-items:center;gap:2px}
+.gc-out-dot{width:6px;height:6px;border-radius:50%;border:1.2px solid var(--muted);flex-shrink:0}
+.gc-out-dot.on{background:var(--orange);border-color:var(--orange)}
 
 /* ─── STATCAST PANEL ─── */
 .sc-row{display:none}.sc-row.open{display:table-row}
@@ -331,10 +336,11 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .period-btn{flex:1;text-align:center;padding:8px 4px;min-height:44px;font-size:11px}
 
   /* Roster table */
+  #view-roster .tw{padding:0 6px}
   table .col-player{position:static;min-width:90px;max-width:110px}
   table .col-pos{width:32px;min-width:32px;padding-left:4px;padding-right:2px}
   .pos-select{min-width:30px;padding:4px 2px;min-height:28px;font-size:10px!important;border-radius:4px}
-  .player-cell{gap:5px}.player-hs{width:22px;height:22px}
+  .player-cell{gap:5px}#view-roster .player-hs{display:none}
   .player-info .name{font-size:12px}.player-info .meta{font-size:9px}
   tbody td.num{font-size:11px}
   .trend-arrow{font-size:8px}
@@ -343,6 +349,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   /* Game cell */
   .game-cell{gap:4px;min-width:85px;font-size:10px}.gc-score{font-size:9px}.gc-score .abbr{width:20px}.gc-inn{font-size:9px}
   .gc-status{font-size:8px;padding:2px 4px}
+  .gc-sit{gap:3px}.gc-out-dot{width:5px;height:5px}.gc-sit svg{width:14px;height:14px}
 
   /* Statcast */
   .sc-panel{margin:0 0 4px;border-radius:0;border-left:none;border-right:none}
@@ -1376,7 +1383,14 @@ function buildGameCell(p){
       const h=abs.filter(a=>a.isHit).length;
       const ab=abs.filter(a=>!['Walk','Hit By Pitch','Sac Fly','Sac Bunt','Intent Walk','Catcher Interference'].includes(a.event)).length;
       gameLine=`<span style="font-family:var(--mono);font-size:10px;font-weight:700;color:${h>0?'var(--green)':'var(--dim)'};margin-left:4px">${h}/${ab}</span>`}}
-  return`<div class="game-cell"><div class="gc-score"><div class="away"><span class="abbr">${aw}</span><span class="runs">${aR}</span></div><div class="home"><span class="abbr">${hm}</span><span class="runs">${hR}</span></div></div><span class="gc-inn">${stateLabel}</span>${ls.label&&ls.status!=='final'&&ls.status!=='preview'?`<span class="gc-status ${ls.cls}">${ls.label}</span>`:''}${gameLine}</div>`}
+  // Situation indicator (outs + bases) — live games only
+  let sitHtml='';
+  if(f&&ls.status!=='final'){
+    const outs=f.count?.outs||0;const r=f.runners||{};
+    const b1=r.first?'var(--yellow)':'var(--muted)',b2=r.second?'var(--yellow)':'var(--muted)',b3=r.third?'var(--yellow)':'var(--muted)';
+    const b1f=r.first?1:.25,b2f=r.second?1:.25,b3f=r.third?1:.25;
+    sitHtml=`<div class="gc-sit"><div class="gc-outs"><div class="gc-out-dot ${outs>=1?'on':''}"></div><div class="gc-out-dot ${outs>=2?'on':''}"></div><div class="gc-out-dot ${outs>=3?'on':''}"></div></div><svg width="16" height="16" viewBox="0 0 16 16"><rect x="8" y="1" width="5" height="5" rx=".5" transform="rotate(45 10.5 3.5)" fill="${b2}" opacity="${b2f}"/><rect x="11" y="4" width="5" height="5" rx=".5" transform="rotate(45 13.5 6.5)" fill="${b1}" opacity="${b1f}"/><rect x="5" y="4" width="5" height="5" rx=".5" transform="rotate(45 7.5 6.5)" fill="${b3}" opacity="${b3f}"/></svg></div>`}
+  return`<div class="game-cell"><div class="gc-score"><div class="away"><span class="abbr">${aw}</span><span class="runs">${aR}</span></div><div class="home"><span class="abbr">${hm}</span><span class="runs">${hR}</span></div></div><span class="gc-inn">${stateLabel}</span>${sitHtml}${ls.label&&ls.status!=='final'&&ls.status!=='preview'?`<span class="gc-status ${ls.cls}">${ls.label}</span>`:''}${gameLine}</div>`}
 
 // Get a player's at-bats from a feed, matching by name
 function getPlayerABs(f,playerName){
