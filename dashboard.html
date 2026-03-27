@@ -97,6 +97,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .player-info .meta{font-size:11px;color:var(--dim)}
 .player-info .meta .status{font-weight:600;margin-left:4px}
 .player-info .meta .status.dtd{color:var(--orange)}.player-info .meta .status.il{color:var(--red)}
+.sp-start-badge{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:1px 5px;border-radius:3px;background:var(--green-dim);color:var(--green);font-family:var(--mono);margin-left:5px;vertical-align:middle}
 .trend{display:inline-flex;align-items:center;gap:3px}
 .trend-arrow{font-size:9px;font-weight:700;line-height:1}
 .trend-up{color:var(--green)}.trend-down{color:var(--red)}
@@ -963,6 +964,18 @@ function getPlayerIsHome(teamAbbr){
   return game.teams.home.team.abbreviation===teamAbbr;
 }
 
+function isScheduledStarter(playerName,teamAbbr){
+  const game=findGameForTeam(teamAbbr);
+  if(!game)return false;
+  const st=game.status?.abstractGameState;
+  if(st==='Final')return false; // game already done
+  const isAway=game.teams.away.team.abbreviation===teamAbbr;
+  const myTeam=isAway?game.teams.away:game.teams.home;
+  const pp=myTeam.probablePitcher;
+  if(!pp||!pp.fullName)return false;
+  return nameMatch(playerName,pp.fullName);
+}
+
 // ─── MLB STATS API ──────────────────────────────────────
 function mlbDateRange(period){
   const today=new Date();
@@ -1350,8 +1363,9 @@ function buildTable(players,sn,ht){
     // Player
     const sc=p.status&&(p.status.includes('IL')||p.status.includes('DL'))?'il':p.status?'dtd':'';
     const sh=p.statusFull?`<span class="status ${sc}">${p.status}</span>`:'';
+    const spBadge=p.type==='pitcher'&&isScheduledStarter(p.name,p.team)?'<span class="sp-start-badge">START</span>':'';
     html+=`<td class="col-player"><div class="player-cell">${p.hs?`<img class="player-hs" src="${p.hs}" alt="" onerror="this.style.display='none'">`:''}
-      <div class="player-info"><div class="name">${p.name}</div><div class="meta">${p.team} · ${p.pos} ${sh}</div></div></div></td>`;
+      <div class="player-info"><div class="name">${p.name}${spBadge}</div><div class="meta">${p.team} · ${p.pos} ${sh}</div></div></div></td>`;
     // Game status
     html+=`<td>${buildGameCell(p)}</td>`;
     // Stats with sparklines + color coding
