@@ -2223,9 +2223,7 @@ function buildStatcastLive(p,ls){
   html+=`<div class="sc-count-bar"><div class="sc-count-group"><span class="sc-count-label">B</span>${mk(f.count.balls,4,'fb')}</div><div class="sc-count-group"><span class="sc-count-label">S</span>${mk(f.count.strikes,3,'fs')}</div><div class="sc-count-group"><span class="sc-count-label">O</span>${mk(f.count.outs,3,'fo')}</div><div class="sc-bases"><div class="sc-base sc-b2 ${r.second?'on':''}"></div><div class="sc-base sc-b3 ${r.third?'on':''}"></div><div class="sc-base sc-b1 ${r.first?'on':''}"></div></div></div>`;
   // Matchup line
   if(f.batter||f.pitcher){const bc=f.batter?.team?teamColor(f.batter.team):'var(--text)',pc=f.pitcher?.team?teamColor(f.pitcher.team):'var(--text)';
-    const batAbbr=f.batter?.team?` <span style="font-size:9px;opacity:.6">${f.batter.team}</span>`:'';
-    const pitAbbr=f.pitcher?.team?` <span style="font-size:9px;opacity:.6">${f.pitcher.team}</span>`:'';
-    html+=`<div style="padding:6px 14px;font-size:12px;border-bottom:1px solid var(--border)"><b style="color:${bc}">${f.batter?.name||'—'}</b>${batAbbr} <span style="color:var(--muted)">vs</span> <b style="color:${pc}">${f.pitcher?.name||'—'}</b>${pitAbbr}</div>`}
+    html+=`<div style="padding:6px 14px;font-size:12px;border-bottom:1px solid var(--border)"><b style="color:${bc}">${f.batter?.name||'—'}</b> <span style="color:var(--muted)">vs</span> <b style="color:${pc}">${f.pitcher?.name||'—'}</b></div>`}
   // Statcast body: swipeable cards
   const pitches=f.pitches||[],bip=f.bip||[];
   const snapId=`snap_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
