@@ -1847,7 +1847,7 @@ function buildBipList(bip,playerName){
   html+='</div>';return html}
 
 function buildImprovedSpray(bip,playerName,w,h){
-  const spW=w||220,spH=h||190,topPad=23,spCx=spW/2,spCy=spH-10;
+  const spW=w||220,spH=h||190,topPad=30,spCx=spW/2,spCy=spH-10;
   const fH=spH-topPad-10; // field drawing height
   const mine=n=>nameMatch(playerName,n);
   let svg=`<svg width="${spW}" height="${spH}" viewBox="0 0 ${spW} ${spH}">`;
