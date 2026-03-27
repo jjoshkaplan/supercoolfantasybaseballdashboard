@@ -153,6 +153,15 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .sc-snap::-webkit-scrollbar{display:none}
 .sc-card{flex:0 0 100%;scroll-snap-align:start;min-width:0;padding:10px}
 .sc-card-inner{display:flex;flex-direction:column;align-items:center}
+/* Spray tooltip */
+.spray-wrap{position:relative;display:inline-block}
+.bip-tip{display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 6px);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:10px;z-index:10;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none;min-width:140px}
+.bip-tip.open{display:block;pointer-events:auto}
+.bip-tip-name{font-weight:700;font-size:11px;margin-bottom:3px}
+.bip-tip-event{font-weight:700;margin-bottom:4px}
+.bip-tip-row{display:flex;gap:10px;color:var(--dim);font-size:9px}
+.bip-tip-row span{display:flex;align-items:center;gap:3px}
+.bip-tip-val{color:var(--text);font-weight:600}
 /* Desktop: side-by-side, hide swipe controls */
 @media(min-width:769px){
   .sc-snap{overflow-x:visible;scroll-snap-type:none}
@@ -165,16 +174,6 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .sc-dots{display:flex;justify-content:center;gap:6px;padding:6px 0;border-top:1px solid var(--border)}
 .sc-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);transition:background .2s;cursor:pointer}
 .sc-dot.active{background:var(--green)}
-/* BIP log improved */
-.bip-list{width:100%;margin-top:8px}
-.bip-entry{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:11px;font-family:var(--mono);border-bottom:1px solid var(--border);transition:background .15s}
-.bip-entry:last-child{border-bottom:none}
-.bip-entry.mine{background:rgba(91,141,239,.06)}
-.bip-ev-badge{display:inline-flex;align-items:center;justify-content:center;min-width:42px;padding:2px 5px;border-radius:4px;font-weight:700;font-size:10px;text-align:center;flex-shrink:0}
-.bip-la-badge{width:32px;text-align:right;color:var(--dim);font-size:10px;flex-shrink:0}
-.bip-dist-badge{width:32px;text-align:right;color:var(--dim);font-size:10px;flex-shrink:0}
-.bip-event{font-weight:600;min-width:60px;flex-shrink:0}
-.bip-who{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim);font-size:10px}
 .pl-row{display:flex;align-items:center;gap:4px;padding:2px 0;font-size:11px;font-family:var(--mono)}
 .pl-num{width:14px;color:var(--muted);text-align:right}.pl-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}.pl-abbr{width:22px;color:var(--dim)}.pl-velo{width:36px;text-align:right}.pl-call{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim)}
 .sc-stats{display:flex;gap:1px;border-top:1px solid var(--border);background:var(--border)}
@@ -365,6 +364,9 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .sc-tab{padding:8px 8px;font-size:10px}
   .sc-card{padding:8px}
   .sc-card svg{max-width:100%;height:auto}
+  .bip-tip{font-size:9px;padding:6px 8px;min-width:120px}
+  .bip-tip-name{font-size:10px}
+  .bip-tip-row{gap:6px}
   /* AB detail */
   .ab-row{gap:4px;padding:6px 0}
   .ab-row .ab-inn{width:22px;font-size:9px}
@@ -380,13 +382,6 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .ab-detail-log .pl-row{font-size:10px}
   .ab-detail-log .pl-call{font-size:9px}
   .ab-detail-desc{font-size:9px;padding:2px 0 4px}
-  /* BIP list mobile */
-  .bip-entry{gap:4px;font-size:10px}
-  .bip-ev-badge{min-width:36px;font-size:9px;padding:2px 3px}
-  .bip-la-badge{width:28px;font-size:9px}
-  .bip-dist-badge{width:28px;font-size:9px}
-  .bip-event{min-width:48px;font-size:9px}
-  .bip-who{font-size:9px}
   /* Savant */
   .sav-panel{margin:0 0 4px;border-radius:0;border-left:none;border-right:none}
   .sav-body{padding:10px 8px}
@@ -1826,46 +1821,48 @@ function hitEventColor(event,isMine){
   if(event==='Single')return isMine?'#2dd4a0':'#22c55e';
   return isMine?'#f06449':'#a04030'}
 
-function buildBipList(bip,playerName){
-  if(!bip||!bip.length)return'<div style="color:var(--muted);font-size:11px;text-align:center;padding:12px 0">No balls in play yet</div>';
-  const mine=n=>nameMatch(playerName,n);
-  const sorted=[...bip].reverse();
-  sorted.sort((a,b)=>{const am=mine(a.batter)?0:1,bm=mine(b.batter)?0:1;return am-bm});
-  let html='<div class="bip-list">';
-  for(const b of sorted){
-    const m=mine(b.batter);
-    const col=hitEventColor(b.event,m);
-    const evBg=evBadgeBg(b.exitVelo);
-    const evCol=evHeatColor(b.exitVelo);
-    html+=`<div class="bip-entry ${m?'mine':''}">`;
-    html+=`<span class="bip-ev-badge" style="background:${evBg};color:${evCol}">${b.exitVelo?Math.round(b.exitVelo):'—'}</span>`;
-    html+=`<span class="bip-la-badge">${b.launchAngle!=null?Math.round(b.launchAngle)+'°':'—'}</span>`;
-    html+=`<span class="bip-dist-badge">${b.distance?Math.round(b.distance)+"'":'—'}</span>`;
-    html+=`<span class="bip-event" style="color:${col}">${b.event}</span>`;
-    html+=`<span class="bip-who" ${m?'style="color:var(--blue);font-weight:600"':''}>${b.batter}</span>`;
-    html+=`</div>`}
-  html+='</div>';return html}
+let sprayBipData={}; // {sprayId: bip[]}
+function showBipTip(sprayId,idx,evt){
+  evt.stopPropagation();
+  const wrap=document.getElementById('sw_'+sprayId);if(!wrap)return;
+  const tip=wrap.querySelector('.bip-tip');if(!tip)return;
+  const d=(sprayBipData[sprayId]||[])[idx];if(!d){tip.classList.remove('open');return}
+  const col=hitEventColor(d.event,d._mine);
+  const evCol=evHeatColor(d.exitVelo);
+  tip.innerHTML=`<div class="bip-tip-name">${d.batter}</div><div class="bip-tip-event" style="color:${col}">${d.event}</div><div class="bip-tip-row"><span>EV <span class="bip-tip-val" style="color:${evCol}">${d.exitVelo?Math.round(d.exitVelo)+'mph':'—'}</span></span><span>LA <span class="bip-tip-val">${d.launchAngle!=null?Math.round(d.launchAngle)+'°':'—'}</span></span><span>Dist <span class="bip-tip-val">${d.distance?Math.round(d.distance)+"'":'—'}</span></span></div>`;
+  // Position near the clicked dot
+  const svg=wrap.querySelector('svg');if(!svg)return;
+  const rect=svg.getBoundingClientRect(),wr=wrap.getBoundingClientRect();
+  const dotX=evt.clientX-wr.left,dotY=evt.clientY-wr.top;
+  tip.style.left=dotX+'px';tip.style.bottom=(wr.height-dotY+8)+'px';
+  tip.classList.toggle('open',!tip.classList.contains('open'))}
+document.addEventListener('click',()=>{document.querySelectorAll('.bip-tip.open').forEach(t=>t.classList.remove('open'))});
 
-function buildImprovedSpray(bip,playerName,w,h){
-  const spW=w||220,spH=h||190,topPad=30,spCx=spW/2,spCy=spH-10;
-  const fH=spH-topPad-10; // field drawing height
+function buildImprovedSpray(bip,playerName,w,h,sprayId){
+  const spW=w||220,spH=h||240,topPad=20,spCx=spW/2,spCy=spH-12;
+  const fH=spH-topPad-12;
   const mine=n=>nameMatch(playerName,n);
-  let svg=`<svg width="${spW}" height="${spH}" viewBox="0 0 ${spW} ${spH}">`;
+  // Store bip data for tooltip lookups
+  const allDots=[];
+  bip.forEach(b=>{if(b.hitX==null||b.hitY==null)return;allDots.push({...b,_mine:mine(b.batter)})});
+  // Sort: others first, player on top
+  allDots.sort((a,b)=>(a._mine?1:0)-(b._mine?1:0));
+  sprayBipData[sprayId]=allDots;
+  let svg=`<svg width="${spW}" height="${spH}" viewBox="0 0 ${spW} ${spH}" style="cursor:pointer">`;
   svg+=`<path d="M ${spCx},${spCy} L ${spCx-spW*.47},${spCy-fH*.87} A ${spW*.64} ${fH*.92} 0 0 1 ${spCx+spW*.47},${spCy-fH*.87} Z" fill="#1a2618" stroke="#2d4a25" stroke-width="0.8"/>`;
   const dS=spW*.12;
   svg+=`<path d="M ${spCx},${spCy-dS*2.2} L ${spCx+dS},${spCy-dS*1.1} L ${spCx},${spCy} L ${spCx-dS},${spCy-dS*1.1} Z" fill="#2a2215" stroke="#3d3520" stroke-width="0.5"/>`;
   svg+=`<rect x="${spCx-3}" y="${spCy-3}" width="6" height="6" transform="rotate(45 ${spCx} ${spCy})" fill="#505878"/>`;
   svg+=`<line x1="${spCx}" y1="${spCy}" x2="${spCx-spW*.47}" y2="${spCy-fH*.87}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
   svg+=`<line x1="${spCx}" y1="${spCy}" x2="${spCx+spW*.47}" y2="${spCy-fH*.87}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
-  const others=[],playerBips=[];
-  bip.forEach(b=>{if(b.hitX==null||b.hitY==null)return;(mine(b.batter)?playerBips:others).push(b)});
-  for(const b of others){
+  allDots.forEach((b,i)=>{
     const nx=(b.hitX-125)/125,ny=(250-b.hitY)/250,sx=spCx+nx*spW*.45,sy=spCy-ny*fH*.9;
-    svg+=`<circle cx="${sx}" cy="${sy}" r="3" fill="${hitEventColor(b.event,false)}" opacity=".4"/>`}
-  for(const b of playerBips){
-    const nx=(b.hitX-125)/125,ny=(250-b.hitY)/250,sx=spCx+nx*spW*.45,sy=spCy-ny*fH*.9;
-    svg+=`<circle cx="${sx}" cy="${sy}" r="5.5" fill="${hitEventColor(b.event,true)}" stroke="#fff" stroke-width="1.2"/>`}
-  svg+=`</svg>`;return svg}
+    const col=hitEventColor(b.event,b._mine);const r=b._mine?5.5:3.5;const op=b._mine?1:.45;
+    const stroke=b._mine?'stroke="#fff" stroke-width="1.2"':'';
+    svg+=`<circle cx="${sx}" cy="${sy}" r="${r}" fill="${col}" opacity="${op}" ${stroke} style="cursor:pointer" onclick="showBipTip('${sprayId}',${i},event)"/>`});
+  if(!allDots.length)svg+=`<text x="${spCx}" y="${spCy-fH*.4}" text-anchor="middle" fill="#5c6478" font-size="10" font-family="var(--mono)">No balls in play</text>`;
+  svg+=`</svg>`;
+  return`<div class="spray-wrap" id="sw_${sprayId}">${svg}<div class="bip-tip"></div></div>`}
 function buildMiniZone(pitches,size){
   if(!pitches||!pitches.length)return'';
   const S=size||100,P=12,W=S-P*2,H=S-P*2-6;
@@ -2111,9 +2108,9 @@ function buildStatcastLive(p,ls){
   let statsBar='';
   if(lp){const vc=lp.speed>=96?'hot':lp.speed>=90?'warm':'cool';const ec=lp.exitVelo>=100?'hot':lp.exitVelo>=90?'warm':'cool';
     statsBar=`<div class="sc-stats" style="margin-top:8px;border-radius:6px;overflow:hidden"><div class="sc-stat"><div class="sc-sv ${vc}">${lp.speed?Math.round(lp.speed):'—'}</div><div class="sc-sl">Velo</div></div><div class="sc-stat"><div class="sc-sv">${lp.spin?Math.round(lp.spin).toLocaleString():'—'}</div><div class="sc-sl">Spin</div></div><div class="sc-stat"><div class="sc-sv ${ec}">${lp.exitVelo?Math.round(lp.exitVelo):'—'}</div><div class="sc-sl">Exit V</div></div><div class="sc-stat"><div class="sc-sv">${lp.launchAngle!=null?Math.round(lp.launchAngle)+'°':'—'}</div><div class="sc-sl">LA</div></div><div class="sc-stat"><div class="sc-sv">${lp.distance?Math.round(lp.distance)+"'":'—'}</div><div class="sc-sl">Dist</div></div></div>`}
-  // Improved spray chart + BIP
-  const spray=buildImprovedSpray(bip,p.name,220,190);
-  const bipList=buildBipList(bip,p.name);
+  // Improved spray chart — interactive dots
+  const sprayUID=`sp_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+  const spray=buildImprovedSpray(bip,p.name,220,240,sprayUID);
   // Spray legend
   const sprayLeg=`<div class="sc-legend" style="border-top:none;padding:4px 0 0;justify-content:center"><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#f0a030"></span>HR</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#a855f7"></span>3B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#3b82f6"></span>2B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#2dd4a0"></span>1B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#f06449"></span>Out</span></div>`;
   // Zone legend
@@ -2172,8 +2169,8 @@ function buildStatcastLive(p,ls){
   html+=`<div class="sc-snap" id="${snapId}">`;
   // Card 1: Strike zone
   html+=`<div class="sc-card"><div class="sc-card-inner">${zone}${zoneLeg}</div>${pLog}${statsBar}</div>`;
-  // Card 2: Spray chart + BIP
-  html+=`<div class="sc-card"><div class="sc-card-inner">${spray}${sprayLeg}</div>${bipList}</div>`;
+  // Card 2: Spray chart (interactive)
+  html+=`<div class="sc-card"><div class="sc-card-inner">${spray}${sprayLeg}</div></div>`;
   // Card 3: Stats + AB log
   html+=`<div class="sc-card">${card3}</div>`;
   html+=`</div>`;
