@@ -2161,6 +2161,29 @@ function buildStatcastLive(p,ls){
       html+=ss('ERA',apiEra!=='—'?fmtStat(apiEra,'ERA'):'—');
       html+=ss('WHIP',apiWhip!=='—'?fmtStat(apiWhip,'WHIP'):'—');
       html+=`</div>`}
+    else{
+      // Hitter summary from play-by-play
+      const pa=pABs.filter(a=>!a.isPitching);
+      const noABevents=['Walk','Hit By Pitch','Sac Fly','Sac Bunt','Intent Walk','Catcher Interference'];
+      const atBats=pa.filter(a=>!noABevents.includes(a.event));
+      const hits=pa.filter(a=>a.isHit);
+      const h=hits.length,ab=atBats.length;
+      const hr=pa.filter(a=>a.event==='Home Run').length;
+      const rbi=pa.reduce((s,a)=>s+(a.rbi||0),0);
+      const bb=pa.filter(a=>['Walk','Intent Walk'].includes(a.event)).length;
+      const so=pa.filter(a=>a.event==='Strikeout').length;
+      const hbp=pa.filter(a=>a.event==='Hit By Pitch').length;
+      const sf=pa.filter(a=>a.event==='Sac Fly').length;
+      const obpD=ab+bb+hbp+sf;
+      const obp=obpD>0?((h+bb+hbp)/obpD).toFixed(3).replace(/^0/,''):'.000';
+      html+=`<div style="display:flex;flex-wrap:wrap;gap:1px;border-top:1px solid var(--border);background:var(--border)">`;
+      const ss=(l,v,c)=>`<div style="flex:1;min-width:0;padding:6px 4px;text-align:center;background:var(--surface)"><div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${c||'var(--text)'}">${v}</div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">${l}</div></div>`;
+      html+=ss('H/AB',`${h}/${ab}`,h>0?'var(--green)':'');
+      html+=ss('HR',hr,hr>0?'var(--green)':'');
+      html+=ss('RBI',rbi,rbi>0?'var(--green)':'');
+      html+=ss('BB',bb);html+=ss('K',so,so>=3?'var(--red)':'');
+      html+=ss('OBP',obp);
+      html+=`</div>`}
     html+=buildABLog(pABs,isP,`live_${p.playerKey}`)}
   return html+'</div>'}
 
