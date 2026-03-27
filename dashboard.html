@@ -155,6 +155,13 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .sc-card-inner{display:flex;flex-direction:column;align-items:center}
 /* Spray tooltip */
 .spray-wrap{position:relative;display:inline-block}
+/* Spray filter toggles */
+.spray-filters{display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 0 2px;flex-wrap:wrap}
+.sf-btn{font-size:9px;font-weight:700;font-family:var(--mono);padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;letter-spacing:.02em;text-transform:uppercase;white-space:nowrap}
+.sf-btn:hover{color:var(--dim);border-color:var(--dim)}
+.sf-btn.active{background:var(--green-dim);color:var(--green);border-color:rgba(45,212,160,.3)}
+.sf-sep{color:var(--muted);font-size:10px;margin:0 2px}
+.sf-inn{padding:3px 6px;min-width:22px;text-align:center}
 .bip-tip{display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 6px);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:10px;z-index:10;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none;min-width:140px}
 .bip-tip.open{display:block;pointer-events:auto}
 .bip-tip-name{font-weight:700;font-size:11px;margin-bottom:3px}
@@ -368,6 +375,9 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .sc-card svg{max-width:100%;height:auto}
   .sc-card-inner{max-width:100%;overflow:hidden}
   .spray-wrap{max-width:100%;overflow:visible}
+  .spray-filters{gap:3px;padding:4px 0 0}
+  .sf-btn{font-size:8px;padding:3px 6px}
+  .sf-inn{padding:3px 4px;min-width:18px}
   .bip-tip{font-size:9px;padding:6px 8px;min-width:120px}
   .bip-tip-name{font-size:10px}
   .bip-tip-row{gap:6px}
@@ -823,7 +833,7 @@ function parseFeed(d){
         pitches:pitchDetail,
         vsBatter:batterName,vsBatterTeam:batTeam,isPitching:true})}
     for(const ev of(ab.playEvents||[])){if(!ev.isPitch||!(ev.details||{}).isInPlay)continue;const hd=ev.hitData||{};if(!hd.launchSpeed&&!(hd.coordinates||{}).coordX)continue;
-      bip.push({batter:batterName,event:res.event||'',exitVelo:hd.launchSpeed,launchAngle:hd.launchAngle,distance:hd.totalDistance,hitX:(hd.coordinates||{}).coordX,hitY:(hd.coordinates||{}).coordY})}}
+      bip.push({batter:batterName,event:res.event||'',exitVelo:hd.launchSpeed,launchAngle:hd.launchAngle,distance:hd.totalDistance,hitX:(hd.coordinates||{}).coordX,hitY:(hd.coordinates||{}).coordY,inning:ab.about?.inning||0,halfInning:isTop?'top':'bot',isHit:['Single','Double','Triple','Home Run'].includes(res.event)})}}
   const t=gd.teams||{};
   return{state:(gd.status||{}).abstractGameState||'',detailedState:(gd.status||{}).detailedState||'',inning:ls.currentInning,inning_ordinal:ls.currentInningOrdinal||'',inning_half:ls.inningHalf||'',
     home:{name:(t.home||{}).teamName||'',abbr:(t.home||{}).abbreviation||'',runs:((ls.teams||{}).home||{}).runs||0,hits:((ls.teams||{}).home||{}).hits||0,errors:((ls.teams||{}).home||{}).errors||0},
@@ -1832,6 +1842,7 @@ function hitEventColor(event,isMine){
   return isMine?'#f06449':'#a04030'}
 
 let sprayBipData={}; // {sprayId: bip[]}
+let sprayFilterCache={}; // {sprayId: filterHtml}
 function showBipTip(sprayId,idx,evt){
   evt.stopPropagation();
   const wrap=document.getElementById('sw_'+sprayId);if(!wrap)return;
@@ -1848,6 +1859,33 @@ function showBipTip(sprayId,idx,evt){
   tip.classList.toggle('open',!tip.classList.contains('open'))}
 document.addEventListener('click',()=>{document.querySelectorAll('.bip-tip.open').forEach(t=>t.classList.remove('open'))});
 
+// Spray chart filter state: {sprayId: {hits:false, mine:false, inning:'all'}}
+const sprayFilters={};
+function getSprayFilter(id){if(!sprayFilters[id])sprayFilters[id]={hits:false,mine:false,inning:'all'};return sprayFilters[id]}
+
+function toggleSprayFilter(sprayId,type,btn){
+  const f=getSprayFilter(sprayId);
+  f[type]=!f[type];btn.classList.toggle('active',f[type]);
+  applySprayFilters(sprayId)}
+
+function toggleSprayInning(sprayId,inn,btn){
+  const f=getSprayFilter(sprayId);
+  f.inning=String(inn);
+  // Update inning button active states
+  const wrap=btn.closest('.spray-filters');
+  wrap.querySelectorAll('.sf-inn').forEach(b=>b.classList.toggle('active',b.dataset.filter===`inn_${inn}`));
+  applySprayFilters(sprayId)}
+
+function applySprayFilters(sprayId){
+  const svg=document.getElementById('svg_'+sprayId);if(!svg)return;
+  const f=getSprayFilter(sprayId);
+  svg.querySelectorAll('.sp-dot').forEach(dot=>{
+    let show=true;
+    if(f.hits&&dot.dataset.hit!=='1')show=false;
+    if(f.mine&&dot.dataset.mine!=='1')show=false;
+    if(f.inning!=='all'&&dot.dataset.inn!==f.inning)show=false;
+    dot.style.display=show?'':'none'})}
+
 function buildImprovedSpray(bip,playerName,w,h,sprayId){
   const spW=w||280,spH=h||240,topPad=40,spCx=spW/2,spCy=spH-12;
   const fH=spH-topPad-12;
@@ -1858,7 +1896,9 @@ function buildImprovedSpray(bip,playerName,w,h,sprayId){
   // Sort: others first, player on top
   allDots.sort((a,b)=>(a._mine?1:0)-(b._mine?1:0));
   sprayBipData[sprayId]=allDots;
-  let svg=`<svg width="${spW}" height="${spH}" viewBox="0 0 ${spW} ${spH}" style="cursor:pointer">`;
+  // Collect unique innings for filter
+  const innings=[...new Set(allDots.map(b=>b.inning).filter(Boolean))].sort((a,b)=>a-b);
+  let svg=`<svg width="${spW}" height="${spH}" viewBox="0 0 ${spW} ${spH}" style="cursor:pointer" id="svg_${sprayId}">`;
   svg+=`<path d="M ${spCx},${spCy} L ${spCx-spW*.47},${spCy-fH*.87} A ${spW*.64} ${fH*.92} 0 0 1 ${spCx+spW*.47},${spCy-fH*.87} Z" fill="#1a2618" stroke="#2d4a25" stroke-width="0.8"/>`;
   const dS=spW*.12;
   svg+=`<path d="M ${spCx},${spCy-dS*2.2} L ${spCx+dS},${spCy-dS*1.1} L ${spCx},${spCy} L ${spCx-dS},${spCy-dS*1.1} Z" fill="#2a2215" stroke="#3d3520" stroke-width="0.5"/>`;
@@ -1869,9 +1909,20 @@ function buildImprovedSpray(bip,playerName,w,h,sprayId){
     const nx=(b.hitX-125)/125,ny=(250-b.hitY)/250,sx=spCx+nx*spW*.45,sy=spCy-ny*fH*.9;
     const col=hitEventColor(b.event,b._mine);const r=b._mine?5.5:3.5;const op=b._mine?1:.45;
     const stroke=b._mine?'stroke="#fff" stroke-width="1.2"':'';
-    svg+=`<circle cx="${sx}" cy="${sy}" r="${r}" fill="${col}" opacity="${op}" ${stroke} style="cursor:pointer" onclick="showBipTip('${sprayId}',${i},event)"/>`});
+    svg+=`<circle class="sp-dot" cx="${sx}" cy="${sy}" r="${r}" fill="${col}" opacity="${op}" ${stroke} data-mine="${b._mine?1:0}" data-hit="${b.isHit?1:0}" data-inn="${b.inning||0}" style="cursor:pointer" onclick="showBipTip('${sprayId}',${i},event)"/>`});
   if(!allDots.length)svg+=`<text x="${spCx}" y="${spCy-fH*.4}" text-anchor="middle" fill="#5c6478" font-size="10" font-family="var(--mono)">No balls in play</text>`;
   svg+=`</svg>`;
+  // Filter toggles (returned separately via sprayFilterHtml)
+  let filterHtml=`<div class="spray-filters" onclick="event.stopPropagation()">`;
+  filterHtml+=`<button class="sf-btn" data-filter="hits" onclick="toggleSprayFilter('${sprayId}','hits',this)">Hits Only</button>`;
+  filterHtml+=`<button class="sf-btn" data-filter="mine" onclick="toggleSprayFilter('${sprayId}','mine',this)">My Player</button>`;
+  if(innings.length>1){
+    filterHtml+=`<span class="sf-sep">|</span>`;
+    filterHtml+=`<button class="sf-btn sf-inn active" data-filter="inn_all" onclick="toggleSprayInning('${sprayId}','all',this)">All</button>`;
+    for(const inn of innings){
+      filterHtml+=`<button class="sf-btn sf-inn" data-filter="inn_${inn}" onclick="toggleSprayInning('${sprayId}',${inn},this)">${inn}</button>`}}
+  filterHtml+=`</div>`;
+  sprayFilterCache[sprayId]=filterHtml;
   return`<div class="spray-wrap" id="sw_${sprayId}">${svg}<div class="bip-tip"></div></div>`}
 function buildMiniZone(pitches,size){
   if(!pitches||!pitches.length)return'';
@@ -2188,8 +2239,9 @@ function buildStatcastLive(p,ls){
   html+=`<div class="sc-snap" id="${snapId}">`;
   // Card 1: Strike zone
   html+=`<div class="sc-card"><div class="sc-card-inner">${zone}${zoneLeg}</div>${pLog}${statsBar}</div>`;
-  // Card 2: Spray chart (interactive)
-  html+=`<div class="sc-card"><div class="sc-card-inner">${spray}${sprayLeg}</div></div>`;
+  // Card 2: Spray chart (interactive) with legend + filters
+  const sprayFilterHtml=sprayFilterCache[sprayUID]||'';
+  html+=`<div class="sc-card"><div class="sc-card-inner">${spray}${sprayLeg}${sprayFilterHtml}</div></div>`;
   // Card 3: Full game log
   html+=`<div class="sc-card">${gameLog}</div>`;
   html+=`</div>`;
