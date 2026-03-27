@@ -171,9 +171,9 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .bip-tip-val{color:var(--text);font-weight:600}
 /* Desktop: side-by-side, hide swipe controls */
 @media(min-width:769px){
-  .sc-snap{overflow-x:visible;scroll-snap-type:none;align-items:stretch}
-  .sc-card{flex:0 0 33.33%;border-right:1px solid var(--border);display:flex;flex-direction:column}
-  .sc-card:last-child{border-right:none;overflow-y:auto}
+  .sc-snap{overflow-x:visible;scroll-snap-type:none}
+  .sc-card{flex:0 0 33.33%;border-right:1px solid var(--border);max-height:375px;overflow-y:auto}
+  .sc-card:last-child{border-right:none}
   .sc-tabs{display:none}
   .sc-dots{display:none}
 }
