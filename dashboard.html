@@ -153,6 +153,14 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .sc-snap::-webkit-scrollbar{display:none}
 .sc-card{flex:0 0 100%;scroll-snap-align:start;min-width:0;padding:10px}
 .sc-card-inner{display:flex;flex-direction:column;align-items:center}
+/* Desktop: side-by-side, hide swipe controls */
+@media(min-width:769px){
+  .sc-snap{overflow-x:visible;scroll-snap-type:none}
+  .sc-card{flex:0 0 50%;border-right:1px solid var(--border)}
+  .sc-card:last-child{border-right:none}
+  .sc-tabs{display:none}
+  .sc-dots{display:none}
+}
 /* Dot indicators */
 .sc-dots{display:flex;justify-content:center;gap:6px;padding:6px 0;border-top:1px solid var(--border)}
 .sc-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);transition:background .2s;cursor:pointer}
@@ -699,6 +707,10 @@ const PAbbr={'Four-Seam Fastball':'FF',Fastball:'FF',Sinker:'SI','Two-Seam Fastb
 function pitchColor(t){return PC[t]||'#8891a5'} function pitchAbbr(t){return PAbbr[t]||'--'}
 function callColor(call){if(!call)return'#8891a5';const c=call.toLowerCase();if(c.includes('ball')||c.includes('hit by pitch'))return'#5b8def';if(c.includes('in play'))return'#2dd4a0';return'#f06449'}
 
+// MLB team primary colors
+const TC={ARI:'#E4002B',ATL:'#CE1141',BAL:'#DF4601',BOS:'#BD3039',CHC:'#4878CB',CWS:'#8C8C8C',CIN:'#C6011F',CLE:'#1A6EAF',COL:'#7B68A8',DET:'#FA6400',HOU:'#EB6E1F',KC:'#4B92DB',LAA:'#BA0021',LAD:'#5B8FD4',MIA:'#00A3E0',MIL:'#FFC52F',MIN:'#D31145',NYM:'#FF5910',NYY:'#5B7FBF',OAK:'#4CA363',PHI:'#E81828',PIT:'#FDB827',SD:'#C09462',SF:'#FD5A1E',SEA:'#00856D',STL:'#C41E3A',TB:'#79B8E8',TEX:'#4B8AD4',TOR:'#4BA3E2',WSH:'#AB0003'};
+function teamColor(abbr){return TC[abbr]||'var(--dim)'}
+
 // ─── AUTH / YAHOO ───────────────────────────────────────
 async function checkAuth(){try{const r=await fetch('/api/auth-me'),d=await r.json();if(d.authenticated){document.getElementById('authGate').style.display='none';document.getElementById('appLayout').style.display='block';document.getElementById('logoutBtn').style.display='';document.getElementById('mobileNav').classList.add('visible');loadLeagues();startLivePoll()}}catch(e){console.error(e)}}
 async function yahooGet(ep){const r=await fetch(`/api/yahoo?endpoint=${encodeURIComponent(ep)}`);if(r.status===401){window.location.href='/api/auth-login';return null}return r.ok?r.json():null}
@@ -766,9 +778,12 @@ function parseFeed(d){
   const bip=[];
   // Per-player at-bat results for the game
   const playerABs={}; // {playerName: [{inning, result, event, rbi, pitches, exitVelo, launchAngle, description}]}
+  const awAbbr=(gd.teams?.away?.abbreviation)||'',hmAbbr=(gd.teams?.home?.abbreviation)||'';
   for(const ab of(plays.allPlays||[])){const res=ab.result||{};if(!res.event)continue;const mu=ab.matchup||{};
     const batterName=(mu.batter||{}).fullName||'';
     const pitcherName=(mu.pitcher||{}).fullName||'';
+    const isTop=ab.about?.halfInning==='top';
+    const batTeam=isTop?awAbbr:hmAbbr,pitTeam=isTop?hmAbbr:awAbbr;
     // Track batter ABs
     if(batterName){
       if(!playerABs[batterName])playerABs[batterName]=[];
@@ -778,14 +793,14 @@ function parseFeed(d){
       const pitchDetail=abPitches.map((ev,i)=>{const pd=ev.pitchData||{},det=ev.details||{},hd2=ev.hitData||{},co=pd.coordinates||{};
         return{num:ev.pitchNumber||i+1,type:(det.type||{}).description||'',code:(det.type||{}).code||'',speed:pd.startSpeed,spin:(pd.breaks||{}).spinRate,pX:co.pX,pZ:co.pZ,call:det.description||'',isInPlay:det.isInPlay||false,exitVelo:hd2.launchSpeed,launchAngle:hd2.launchAngle,distance:hd2.totalDistance}});
       playerABs[batterName].push({
-        inning:`${ab.about?.halfInning==='top'?'▲':'▼'}${ab.about?.inning||''}`,
+        inning:`${isTop?'▲':'▼'}${ab.about?.inning||''}`,
         event:res.event||'',description:res.description||'',
         rbi:res.rbi||0,isHit:['Single','Double','Triple','Home Run'].includes(res.event),
         isOut:res.isOut||false,pitchCount:abPitches.length,
         exitVelo:hd.launchSpeed,launchAngle:hd.launchAngle,
         hitX:hdCoord.coordX,hitY:hdCoord.coordY,
         pitches:pitchDetail,
-        vsPitcher:pitcherName})}
+        vsPitcher:pitcherName,vsPitcherTeam:pitTeam})}
     // Track pitcher matchups
     if(pitcherName){
       if(!playerABs[pitcherName])playerABs[pitcherName]=[];
@@ -795,20 +810,20 @@ function parseFeed(d){
       const lastPitch=abPitches.length?abPitches[abPitches.length-1]:null;
       const hd=lastPitch?.hitData||{};const hdCoord=(lastPitch?.hitData||{}).coordinates||{};
       playerABs[pitcherName].push({
-        inning:`${ab.about?.halfInning==='top'?'▲':'▼'}${ab.about?.inning||''}`,
+        inning:`${isTop?'▲':'▼'}${ab.about?.inning||''}`,
         event:res.event||'',description:res.description||'',
         rbi:res.rbi||0,isHit:['Single','Double','Triple','Home Run'].includes(res.event),
         isOut:res.isOut||false,pitchCount:abPitches.length,
         hitX:hdCoord.coordX,hitY:hdCoord.coordY,
         pitches:pitchDetail,
-        vsBatter:batterName,isPitching:true})}
+        vsBatter:batterName,vsBatterTeam:batTeam,isPitching:true})}
     for(const ev of(ab.playEvents||[])){if(!ev.isPitch||!(ev.details||{}).isInPlay)continue;const hd=ev.hitData||{};if(!hd.launchSpeed&&!(hd.coordinates||{}).coordX)continue;
       bip.push({batter:batterName,event:res.event||'',exitVelo:hd.launchSpeed,launchAngle:hd.launchAngle,distance:hd.totalDistance,hitX:(hd.coordinates||{}).coordX,hitY:(hd.coordinates||{}).coordY})}}
   const t=gd.teams||{};
   return{state:(gd.status||{}).abstractGameState||'',detailedState:(gd.status||{}).detailedState||'',inning:ls.currentInning,inning_ordinal:ls.currentInningOrdinal||'',inning_half:ls.inningHalf||'',
     home:{name:(t.home||{}).teamName||'',abbr:(t.home||{}).abbreviation||'',runs:((ls.teams||{}).home||{}).runs||0,hits:((ls.teams||{}).home||{}).hits||0,errors:((ls.teams||{}).home||{}).errors||0},
     away:{name:(t.away||{}).teamName||'',abbr:(t.away||{}).abbreviation||'',runs:((ls.teams||{}).away||{}).runs||0,hits:((ls.teams||{}).away||{}).hits||0,errors:((ls.teams||{}).away||{}).errors||0},
-    batter:off.batter?{id:off.batter.id,name:off.batter.fullName}:null,on_deck:off.onDeck?{id:off.onDeck.id,name:off.onDeck.fullName}:null,in_hole:off.inHole?{id:off.inHole.id,name:off.inHole.fullName}:null,pitcher:def.pitcher?{id:def.pitcher.id,name:def.pitcher.fullName}:null,
+    batter:off.batter?{id:off.batter.id,name:off.batter.fullName,team:ls.inningHalf==='Top'?awAbbr:hmAbbr}:null,on_deck:off.onDeck?{id:off.onDeck.id,name:off.onDeck.fullName}:null,in_hole:off.inHole?{id:off.inHole.id,name:off.inHole.fullName}:null,pitcher:def.pitcher?{id:def.pitcher.id,name:def.pitcher.fullName,team:ls.inningHalf==='Top'?hmAbbr:awAbbr}:null,
     count:{balls:cnt.balls||0,strikes:cnt.strikes||0,outs:ls.outs||0},runners,pitches,lastPitch:lp,bip,batOrder,playerABs}}
 async function pollLive(){
   const dot=document.getElementById('pollDot'),st=document.getElementById('pollStatus');
@@ -1867,7 +1882,10 @@ function buildABLog(pABs,isP,playerKey){
     const isHit=ab.isHit;const isHR=ab.event==='Home Run';const isK=ab.event==='Strikeout';const isBB=['Walk','Intent Walk','Hit By Pitch'].includes(ab.event);
     let evCol='var(--dim)';if(isHR)evCol='var(--red)';else if(isHit)evCol='var(--green)';else if(isBB)evCol='var(--blue)';else if(isK)evCol='var(--muted)';
     const evIcon=isHR?'💣':isHit?'✓':isK?'K':isBB?'BB':ab.isOut?'✗':'·';
-    const vs=isP?(ab.vsBatter?`vs ${ab.vsBatter}`:''):(ab.vsPitcher?`vs ${ab.vsPitcher}`:'');
+    const vsTeam=isP?ab.vsBatterTeam:ab.vsPitcherTeam;
+    const vsCol=vsTeam?teamColor(vsTeam):'var(--dim)';
+    const vsName=isP?(ab.vsBatter||''):(ab.vsPitcher||'');
+    const vs=vsName?`vs <span style="color:${vsCol};font-weight:600">${vsName}</span>`:'';
     const evDetails=[];
     if(ab.exitVelo)evDetails.push(`${Math.round(ab.exitVelo)} mph`);
     if(ab.launchAngle!=null)evDetails.push(`${Math.round(ab.launchAngle)}°`);
@@ -2073,7 +2091,8 @@ function buildStatcastLive(p,ls){
   const r=f.runners||{};
   html+=`<div class="sc-count-bar"><div class="sc-count-group"><span class="sc-count-label">B</span>${mk(f.count.balls,4,'fb')}</div><div class="sc-count-group"><span class="sc-count-label">S</span>${mk(f.count.strikes,3,'fs')}</div><div class="sc-count-group"><span class="sc-count-label">O</span>${mk(f.count.outs,3,'fo')}</div><div class="sc-bases"><div class="sc-base sc-b2 ${r.second?'on':''}"></div><div class="sc-base sc-b3 ${r.third?'on':''}"></div><div class="sc-base sc-b1 ${r.first?'on':''}"></div></div></div>`;
   // Matchup line
-  if(f.batter||f.pitcher)html+=`<div style="padding:6px 14px;font-size:12px;border-bottom:1px solid var(--border)"><b>${f.batter?.name||'—'}</b> <span style="color:var(--muted)">vs</span> <b>${f.pitcher?.name||'—'}</b></div>`;
+  if(f.batter||f.pitcher){const bc=f.batter?.team?teamColor(f.batter.team):'var(--text)',pc=f.pitcher?.team?teamColor(f.pitcher.team):'var(--text)';
+    html+=`<div style="padding:6px 14px;font-size:12px;border-bottom:1px solid var(--border)"><b style="color:${bc}">${f.batter?.name||'—'}</b> <span style="color:var(--muted)">vs</span> <b style="color:${pc}">${f.pitcher?.name||'—'}</b></div>`}
   // Statcast body: swipeable cards
   const pitches=f.pitches||[],bip=f.bip||[];
   const snapId=`snap_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
