@@ -405,6 +405,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .game-cell{gap:3px;min-width:70px;font-size:9px}.gc-score{font-size:8px}.gc-score .abbr{width:18px}.gc-inn{font-size:8px}
   .gc-status{font-size:7px;padding:1px 3px}
   #roster-hitters .game-cell .gc-status{display:none}
+  #roster-hitters .gc-preview .lu-badge{display:none}
   .mob-live-status{display:inline-block;font-family:var(--mono);font-size:7px;font-weight:700;padding:1px 3px;border-radius:3px;white-space:nowrap;letter-spacing:.03em;margin-left:auto;margin-right:4px}
   .player-info .meta{display:flex;align-items:center}
   .gc-sit{gap:3px}.gc-out-dot{width:5px;height:5px}.gc-sit svg{width:14px;height:14px}
@@ -1506,7 +1507,18 @@ function buildTable(players,sn,ht){
     const sh=p.statusFull?`<span class="status ${sc}">${p.status}</span>`:'';
     const spBadge=p.type==='pitcher'&&isScheduledStarter(p.name,p.team)?'<span class="sp-start-badge">START</span>':'';
     const mls=p.type==='hitter'?getPlayerLiveStatus(p.name,p.team,p.type):null;
-    const mobStatus=mls&&mls.label&&mls.status!=='final'&&mls.status!=='preview'?`<span class="mob-live-status ${mls.cls}">${mls.label}</span>`:'';
+    let mobStatus='';
+    if(mls&&p.type==='hitter'){
+      if(mls.status==='preview'){
+        const luPos=getLineupPosition(p.mlbId,p.team);
+        const g=mls.game,aw=g.teams.away.team.abbreviation;
+        const hasLD=(()=>{if(!p.mlbId)return false;const gpk=g.gamePk;const isAw=p.team===aw;const feed=liveFeeds[gpk];if(feed){const bo=isAw?feed.awayBatOrder:feed.homeBatOrder;if(bo&&bo.length)return true}if(g.lineups){const pl=isAw?(g.lineups.awayPlayers||[]):(g.lineups.homePlayers||[]);if(pl.length)return true}return false})();
+        if(luPos.order)mobStatus=`<span class="mob-live-status lu-badge">#${luPos.order}</span>`;
+        else if(hasLD&&!luPos.inLineup)mobStatus=`<span class="mob-live-status lu-badge lu-out">OUT</span>`;
+      }else if(mls.label&&mls.status!=='final'){
+        mobStatus=`<span class="mob-live-status ${mls.cls}">${mls.label}</span>`;
+      }
+    }
     html+=`<td class="col-player"><div class="player-cell">${p.hs?`<img class="player-hs" src="${p.hs}" alt="" onerror="this.style.display='none'">`:''}
       <div class="player-info"><div class="name">${p.name}${spBadge}</div><div class="meta">${p.team} · ${p.pos} ${sh}${mobStatus}</div></div></div></td>`;
     // Game status
