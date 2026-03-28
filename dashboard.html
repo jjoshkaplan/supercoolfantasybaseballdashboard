@@ -2422,45 +2422,119 @@ async function fetchPlayerNews(pk){
   if(playerNewsCache[pk]?.loaded)return playerNewsCache[pk];
   playerNewsCache[pk]={items:[],loaded:false,error:false};
   try{
-    const d=await yahooGet(`player/${pk}/news`);
+    // Yahoo Fantasy API: try player/{key} with out=news filter
+    const d=await yahooGetWithTimeout(`player/${pk}`, 8000);
+    console.log('[News] Yahoo response for',pk,':',JSON.stringify(d).slice(0,500));
     if(!d){playerNewsCache[pk].error=true;playerNewsCache[pk].loaded=true;return playerNewsCache[pk]}
     const items=[];
     try{
-      // Yahoo response: fantasy_content.player[1].news.items[]
       const pc=d.fantasy_content?.player;
       if(pc){
-        let newsBlock=null;
-        if(Array.isArray(pc)){for(const b of pc){if(b&&typeof b==='object'&&b.news)newsBlock=b.news}}
-        else if(pc.news)newsBlock=pc.news;
-        if(!newsBlock){
-          // Try alternate shape: fantasy_content.player[1].player_news
-          for(const b of(Array.isArray(pc)?pc:[])){if(b?.player_news)newsBlock=b.player_news}
-        }
-        if(newsBlock){
-          const rawItems=newsBlock.items||newsBlock;
-          const arr=Array.isArray(rawItems)?rawItems:Object.values(rawItems).filter(x=>typeof x==='object');
-          for(const it of arr){
-            if(!it||typeof it!=='object')continue;
-            const item=it.news_item||it.item||it;
-            if(item.title||item.headline||item.description){
-              items.push({
-                title:item.title||item.headline||'',
-                body:item.description||item.text||item.summary||'',
-                date:item.pub_date||item.date||item.timestamp||'',
-                source:item.source||item.credit||'',
-                link:item.link||item.url||''
-              });
+        // Walk entire response looking for anything news-like
+        const flat=Array.isArray(pc)?pc:Object.values(pc);
+        for(const b of flat){
+          if(!b||typeof b!=='object')continue;
+          // Check for player_notes (Yahoo sometimes includes these)
+          if(b.player_notes){
+            const note=b.player_notes;
+            if(typeof note==='string'&&note.trim()){
+              items.push({title:'Player Note',body:note,date:'',source:'Yahoo',link:''});
+            }else if(typeof note==='object'){
+              items.push({title:note.title||'Player Note',body:note.text||note.description||note.note||JSON.stringify(note),date:note.date||'',source:'Yahoo',link:note.link||note.url||''});
+            }
+          }
+          // Check for transaction_data (recent moves)
+          if(b.transaction_data){
+            const tx=b.transaction_data;
+            const txType=tx.type||tx.transaction_type||'';
+            const txDate=tx.timestamp?new Date(tx.timestamp*1000).toISOString():'';
+            if(txType)items.push({title:`Transaction: ${txType}`,body:tx.destination_team_name?`Moved to ${tx.destination_team_name}`:'',date:txDate,source:'Yahoo',link:''});
+          }
+          // Check for news block
+          for(const key of['news','player_news','editorial']){
+            if(!b[key])continue;
+            const nb=b[key];
+            const rawItems=nb.items||nb;
+            const arr=Array.isArray(rawItems)?rawItems:Object.values(rawItems).filter(x=>typeof x==='object');
+            for(const it of arr){
+              if(!it||typeof it!=='object')continue;
+              const item=it.news_item||it.item||it;
+              if(item.title||item.headline||item.description){
+                items.push({
+                  title:item.title||item.headline||'',
+                  body:item.description||item.text||item.summary||'',
+                  date:item.pub_date||item.date||item.timestamp||'',
+                  source:item.source||item.credit||'',
+                  link:item.link||item.url||''
+                });
+              }
             }
           }
         }
       }
     }catch(e){console.warn('News parse error:',e)}
+    // If Yahoo had no news, try MLB transactions as fallback
+    if(!items.length){
+      const player=rosterData.find(x=>x.playerKey===pk);
+      if(player?.mlbId){
+        const txItems=await fetchMLBTransactions(player.mlbId,player.name);
+        items.push(...txItems);
+      }
+    }
     playerNewsCache[pk]={items,loaded:true,error:false};
   }catch(e){
     console.warn('News fetch error:',e);
+    // Fallback to MLB transactions on Yahoo error
+    try{
+      const player=rosterData.find(x=>x.playerKey===pk);
+      if(player?.mlbId){
+        const txItems=await fetchMLBTransactions(player.mlbId,player.name);
+        playerNewsCache[pk]={items:txItems,loaded:true,error:false};
+        return playerNewsCache[pk];
+      }
+    }catch(e2){console.warn('MLB tx fallback error:',e2)}
     playerNewsCache[pk]={items:[],loaded:true,error:true};
   }
   return playerNewsCache[pk];
+}
+async function yahooGetWithTimeout(ep,ms){
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),ms);
+  try{
+    const r=await fetch(`/api/yahoo?endpoint=${encodeURIComponent(ep)}`,{signal:ctrl.signal});
+    clearTimeout(timer);
+    if(r.status===401){window.location.href='/api/auth-login';return null}
+    return r.ok?r.json():null;
+  }catch(e){
+    clearTimeout(timer);
+    if(e.name==='AbortError')console.warn('[News] Yahoo request timed out for',ep);
+    else throw e;
+    return null;
+  }
+}
+async function fetchMLBTransactions(mlbId,name){
+  const items=[];
+  try{
+    const r=await fetch(`${MLB}/v1/people/${mlbId}?hydrate=transactions`);
+    if(!r.ok)return items;
+    const d=await r.json();
+    const txs=d.people?.[0]?.transactions||[];
+    for(const tx of txs.slice(0,5)){
+      const desc=tx.description||'';
+      const dt=tx.date||'';
+      const type=tx.typeDesc||tx.type_cd||'';
+      if(desc||type){
+        items.push({
+          title:type||'Transaction',
+          body:desc,
+          date:dt,
+          source:'MLB',
+          link:''
+        });
+      }
+    }
+  }catch(e){console.warn('MLB tx fetch error:',e)}
+  return items;
 }
 function showNewsPopup(pk,ev){
   ev.stopPropagation();
