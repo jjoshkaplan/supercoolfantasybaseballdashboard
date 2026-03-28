@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="2" y="2" width="60" height="60" rx="13" fill="#0a0c10" stroke="#1e2838" stroke-width="1.5"/>
+  <polygon points="32,12 52,32 32,52 12,32" fill="rgba(45,212,160,0.12)" stroke="#2dd4a0" stroke-width="1.5"/>
+  <!-- stitching left -->
+  <g stroke="#2dd4a0" stroke-width="1" stroke-linecap="round">
+    <line x1="15" y1="28" x2="19" y2="28"/>
+    <line x1="15" y1="31" x2="19" y2="31"/>
+    <line x1="15" y1="34" x2="19" y2="34"/>
+  </g>
+  <!-- stitching right -->
+  <g stroke="#2dd4a0" stroke-width="1" stroke-linecap="round">
+    <line x1="45" y1="28" x2="49" y2="28"/>
+    <line x1="45" y1="31" x2="49" y2="31"/>
+    <line x1="45" y1="34" x2="49" y2="34"/>
+  </g>
+  <text x="32" y="38" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-weight="800" font-size="26" fill="#2dd4a0">S</text>
+</svg>
