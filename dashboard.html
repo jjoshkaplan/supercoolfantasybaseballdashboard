@@ -118,6 +118,8 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .gc-st-due{background:var(--surface-3);color:var(--dim)}
 .gc-preview{color:var(--dim);font-family:var(--mono);font-size:11px}
 .gc-final{color:var(--muted);font-family:var(--mono);font-size:11px}
+.lu-badge{font-size:8px;font-weight:800;font-family:var(--mono);padding:1px 4px;border-radius:3px;background:var(--green-dim);color:var(--green);margin-left:4px;letter-spacing:.02em}
+.lu-badge.lu-out{background:var(--surface-3);color:var(--muted)}
 @keyframes pulse-st{0%,100%{box-shadow:0 0 0 0 rgba(45,212,160,.3)}70%{box-shadow:0 0 0 4px rgba(45,212,160,0)}}
 /* Inline game situation */
 .gc-sit{display:flex;align-items:center;gap:5px}
@@ -377,6 +379,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .game-cell{gap:3px;min-width:70px;font-size:9px}.gc-score{font-size:8px}.gc-score .abbr{width:18px}.gc-inn{font-size:8px}
   .gc-status{font-size:7px;padding:1px 3px}
   .gc-sit{gap:3px}.gc-out-dot{width:5px;height:5px}.gc-sit svg{width:14px;height:14px}
+  .lu-badge{font-size:7px;padding:1px 3px;margin-left:2px}
 
   /* Statcast */
   .sc-snap{max-width:100vw}
@@ -736,7 +739,7 @@ async function checkAuth(){try{const r=await fetch('/api/auth-me'),d=await r.jso
 async function yahooGet(ep){const r=await fetch(`/api/yahoo?endpoint=${encodeURIComponent(ep)}`);if(r.status===401){window.location.href='/api/auth-login';return null}return r.ok?r.json():null}
 
 // ─── MLB LIVE POLLING ───────────────────────────────────
-async function fetchMLBSchedule(){try{const n=new Date(),td=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;const r=await fetch(`${MLB}/v1/schedule?sportId=1&date=${td}&hydrate=probablePitcher,team,linescore`);const d=await r.json();mlbSchedule=(d.dates||[]).flatMap(x=>x.games||[])}catch(e){console.error(e)}}
+async function fetchMLBSchedule(){try{const n=new Date(),td=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;const r=await fetch(`${MLB}/v1/schedule?sportId=1&date=${td}&hydrate=probablePitcher,team,linescore,lineups`);const d=await r.json();mlbSchedule=(d.dates||[]).flatMap(x=>x.games||[])}catch(e){console.error(e)}}
 
 // 11am ET cutoff: before = show last night, after = show today's matchup + splits
 function isAfter11amET(){
@@ -849,7 +852,13 @@ function parseFeed(d){
   const t=gd.teams||{};
   // Extract boxscore season stats for all players
   const boxSeasonStats={};// {playerId: {batting:{ops,runs,rbi,homeRuns,...}, pitching:{era,whip,wins,losses,...}}}
+  const homeBatOrder=[],awayBatOrder=[];
   try{const box=ld.boxscore||{};
+    // Batting order arrays (player IDs in lineup order)
+    const hbo=(box.teams||{}).home?.battingOrder||[];
+    const abo=(box.teams||{}).away?.battingOrder||[];
+    hbo.forEach(id=>homeBatOrder.push(String(id)));
+    abo.forEach(id=>awayBatOrder.push(String(id)));
     for(const side of['away','home']){const pl=(box.teams||{})[side]?.players||{};
       for(const[key,val]of Object.entries(pl)){const pid=val?.person?.id;if(!pid)continue;
         boxSeasonStats[String(pid)]={batting:val?.seasonStats?.batting||{},pitching:val?.seasonStats?.pitching||{}}}}}catch(e){}
@@ -858,7 +867,7 @@ function parseFeed(d){
     away:{name:(t.away||{}).teamName||'',abbr:(t.away||{}).abbreviation||awAbbr,runs:((ls.teams||{}).away||{}).runs||0,hits:((ls.teams||{}).away||{}).hits||0,errors:((ls.teams||{}).away||{}).errors||0},
     homeAbbr:hmAbbr,awayAbbr:awAbbr,
     batter:off.batter?{id:off.batter.id,name:off.batter.fullName,team:ls.inningHalf==='Top'?awAbbr:hmAbbr}:null,on_deck:off.onDeck?{id:off.onDeck.id,name:off.onDeck.fullName}:null,in_hole:off.inHole?{id:off.inHole.id,name:off.inHole.fullName}:null,pitcher:def.pitcher?{id:def.pitcher.id,name:def.pitcher.fullName,team:ls.inningHalf==='Top'?hmAbbr:awAbbr}:null,
-    count:{balls:cnt.balls||0,strikes:cnt.strikes||0,outs:ls.outs||0},runners,pitches,lastPitch:lp,bip,batOrder,playerABs,allGameABs,boxSeasonStats}}
+    count:{balls:cnt.balls||0,strikes:cnt.strikes||0,outs:ls.outs||0},runners,pitches,lastPitch:lp,bip,batOrder,playerABs,allGameABs,boxSeasonStats,homeBatOrder,awayBatOrder}}
 async function pollLive(){
   const dot=document.getElementById('pollDot'),st=document.getElementById('pollStatus');
   dot.className='poll-dot live';st.textContent='Updating...';
@@ -1029,6 +1038,30 @@ function isScheduledStarter(playerName,teamAbbr){
   if(!pp||!pp.fullName)return false;
   return nameMatch(playerName,pp.fullName);
 }
+
+// Returns {inLineup:bool, order:number|null} — order is 1-based batting position
+function getLineupPosition(mlbId,teamAbbr){
+  if(!mlbId)return{inLineup:false,order:null};
+  const id=String(mlbId);
+  const game=findGameForTeam(teamAbbr);
+  if(!game)return{inLineup:false,order:null};
+  const gpk=game.gamePk;
+  const isAway=game.teams.away.team.abbreviation===teamAbbr;
+  const f=liveFeeds[gpk];
+  // 1) Check live feed boxscore batting order (most reliable for live/final)
+  if(f){
+    const bo=isAway?f.awayBatOrder:f.homeBatOrder;
+    if(bo&&bo.length){
+      const idx=bo.indexOf(id);
+      return idx>=0?{inLineup:true,order:idx+1}:{inLineup:false,order:null}}}
+  // 2) Check schedule hydrated lineups (for preview/pre-game)
+  const lineups=game.lineups;
+  if(lineups){
+    const players=isAway?(lineups.awayPlayers||[]):(lineups.homePlayers||[]);
+    if(players.length){
+      const idx=players.findIndex(p=>String(p.id)===id);
+      return idx>=0?{inLineup:true,order:idx+1}:{inLineup:false,order:null}}}
+  return{inLineup:false,order:null}}
 
 function buildMiniGameTag(teamAbbr){
   const game=findGameForTeam(teamAbbr);
@@ -1458,7 +1491,18 @@ function buildGameCell(p){
   if(!ls.game)return'<span class="gc-preview">No game</span>';
   const g=ls.game,f=ls.feed,aw=g.teams.away.team.abbreviation,hm=g.teams.home.team.abbreviation;
   const isAway=p.team===aw;
-  if(ls.status==='preview')return`<span class="gc-preview">${isAway?'@'+hm:'v'+aw} ${new Date(g.gameDate).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</span>`;
+  // Lineup position lookup (hitters only)
+  const luPos=p.type==='hitter'?getLineupPosition(p.mlbId,p.team):{inLineup:false,order:null};
+  // Only show OUT if we have positive lineup data (batting order was posted)
+  const hasLineupData=(()=>{if(!p.mlbId||p.type!=='hitter')return false;
+    const gpk=g.gamePk;const isAw=p.team===aw;const feed=liveFeeds[gpk];
+    if(feed){const bo=isAw?feed.awayBatOrder:feed.homeBatOrder;if(bo&&bo.length)return true}
+    if(g.lineups){const pl=isAw?(g.lineups.awayPlayers||[]):(g.lineups.homePlayers||[]);if(pl.length)return true}
+    return false})();
+  const luBadge=luPos.order?`<span class="lu-badge">#${luPos.order}</span>`:hasLineupData&&!luPos.inLineup&&g.status?.abstractGameState!=='Final'?'<span class="lu-badge lu-out">OUT</span>':'';
+  if(ls.status==='preview'){
+    const timeStr=new Date(g.gameDate).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+    return`<span class="gc-preview">${isAway?'@'+hm:'v'+aw} ${timeStr}${luBadge}</span>`}
   // Live or final - show mini scoreboard + status + game line
   const aR=f?f.away.runs:g.teams.away.score||0,hR=f?f.home.runs:g.teams.home.score||0;
   const inn=f?`${f.inning_half==='Top'?'▲':'▼'}${f.inning_ordinal||''}`:'';
