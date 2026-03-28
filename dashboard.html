@@ -351,16 +351,27 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .period-btn{flex:1;text-align:center;padding:8px 4px;min-height:44px;font-size:11px}
 
   /* Roster table */
-  #view-roster .tw{padding:0 6px}
-  table .col-player{position:static;min-width:80px;max-width:100px;padding-left:2px!important}
-  table .col-pos{width:28px;min-width:28px;padding-left:3px;padding-right:0}
-  .pos-select{min-width:26px;padding:3px 2px;min-height:28px;font-size:9px!important;border-radius:4px}
+  #view-roster .tw{padding:0 4px}
+  #view-roster table{table-layout:fixed;width:100%}
+  table .col-player{position:static;min-width:0;max-width:none;padding-left:1px!important;padding-right:0!important;width:28%}
+  table .col-pos{width:26px;min-width:26px;padding-left:2px;padding-right:0}
+  .pos-select{min-width:24px;padding:3px 1px;min-height:28px;font-size:9px!important;border-radius:4px}
   .player-cell{gap:0}#view-roster .player-hs{display:none}
   .player-info .name{font-size:11px}.player-info .meta{font-size:8px}
-  tbody td.num{font-size:10px;padding:5px 2px!important;min-width:0;white-space:nowrap}
+  tbody td.num{font-size:10px;padding:4px 1px!important;min-width:0;white-space:nowrap}
   .trend-arrow{font-size:7px}
-  tbody td{padding:5px 3px}thead th{padding:6px 2px;font-size:8px;letter-spacing:0}
+  tbody td{padding:4px 2px}thead th{padding:5px 1px;font-size:8px;letter-spacing:0}
+  thead th.num{padding:5px 1px}
   .sparkline{display:none}
+  /* Expanded row containment */
+  .sc-row td{max-width:100vw;overflow:hidden;word-break:break-word}
+  .sc-panel{margin:0 0 4px;border-radius:0;border-left:none;border-right:none;overflow:hidden;max-width:100vw;box-sizing:border-box}
+  .sc-panel *{max-width:100%;box-sizing:border-box}
+  .sc-header{padding:6px 8px;font-size:11px}
+  .sc-count-bar{padding:6px 8px;gap:8px}
+  .sc-stats{flex-wrap:wrap}
+  .sc-stat{min-width:0;padding:5px 2px}
+  .sc-sv{font-size:12px}.sc-sl{font-size:8px}
 
   /* Game cell */
   .game-cell{gap:3px;min-width:70px;font-size:9px}.gc-score{font-size:8px}.gc-score .abbr{width:18px}.gc-inn{font-size:8px}
@@ -368,7 +379,6 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .gc-sit{gap:3px}.gc-out-dot{width:5px;height:5px}.gc-sit svg{width:14px;height:14px}
 
   /* Statcast */
-  .sc-panel{margin:0 0 4px;border-radius:0;border-left:none;border-right:none;overflow:hidden}
   .sc-snap{max-width:100vw}
   .sc-tab{padding:8px 8px;font-size:10px}
   .sc-card{padding:8px;max-width:100vw;overflow:hidden}
