@@ -143,6 +143,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .gc-final{color:var(--muted);font-family:var(--mono);font-size:11px}
 .lu-badge{font-size:8px;font-weight:800;font-family:var(--mono);padding:1px 4px;border-radius:3px;background:var(--green-dim);color:var(--green);margin-left:4px;letter-spacing:.02em}
 .lu-badge.lu-out{background:var(--surface-3);color:var(--muted)}
+.mob-live-status{display:none}
 @keyframes pulse-st{0%,100%{box-shadow:0 0 0 0 rgba(45,212,160,.3)}70%{box-shadow:0 0 0 4px rgba(45,212,160,0)}}
 /* Inline game situation */
 .gc-sit{display:flex;align-items:center;gap:5px}
@@ -382,6 +383,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   table .col-pos{width:26px;min-width:26px;padding-left:2px;padding-right:0}
   .pos-select{min-width:24px;padding:3px 1px;min-height:28px;font-size:9px!important;border-radius:4px}
   .player-cell{gap:0}#view-roster .player-hs{display:none}
+  .player-info{flex:1;min-width:0}
   .player-info .name{font-size:11px}.player-info .meta{font-size:8px}
   tbody td.num{font-size:10px;padding:4px 1px!important;min-width:0;white-space:nowrap}
   .trend-arrow{font-size:7px}
@@ -401,6 +403,9 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   /* Game cell */
   .game-cell{gap:3px;min-width:70px;font-size:9px}.gc-score{font-size:8px}.gc-score .abbr{width:18px}.gc-inn{font-size:8px}
   .gc-status{font-size:7px;padding:1px 3px}
+  #roster-hitters .game-cell .gc-status{display:none}
+  .mob-live-status{display:inline-block;font-family:var(--mono);font-size:7px;font-weight:700;padding:1px 3px;border-radius:3px;white-space:nowrap;letter-spacing:.03em;margin-left:auto}
+  .player-info .meta{display:flex;align-items:center}
   .gc-sit{gap:3px}.gc-out-dot{width:5px;height:5px}.gc-sit svg{width:14px;height:14px}
   .lu-badge{font-size:7px;padding:1px 3px;margin-left:2px}
 
@@ -1493,8 +1498,10 @@ function buildTable(players,sn,ht){
     const sc=p.status&&(p.status.includes('IL')||p.status.includes('DL'))?'il':p.status?'dtd':'';
     const sh=p.statusFull?`<span class="status ${sc}">${p.status}</span>`:'';
     const spBadge=p.type==='pitcher'&&isScheduledStarter(p.name,p.team)?'<span class="sp-start-badge">START</span>':'';
+    const mls=p.type==='hitter'?getPlayerLiveStatus(p.name,p.team,p.type):null;
+    const mobStatus=mls&&mls.label&&mls.status!=='final'&&mls.status!=='preview'?`<span class="mob-live-status ${mls.cls}">${mls.label}</span>`:'';
     html+=`<td class="col-player"><div class="player-cell">${p.hs?`<img class="player-hs" src="${p.hs}" alt="" onerror="this.style.display='none'">`:''}
-      <div class="player-info"><div class="name">${p.name}${spBadge}</div><div class="meta">${p.team} · ${p.pos} ${sh}</div></div></div></td>`;
+      <div class="player-info"><div class="name">${p.name}${spBadge}</div><div class="meta">${p.team} · ${p.pos} ${sh}${mobStatus}</div></div></div></td>`;
     // Game status
     html+=`<td>${buildGameCell(p)}</td>`;
     // Stats with sparklines + color coding
