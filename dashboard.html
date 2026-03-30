@@ -389,7 +389,6 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .trend-arrow{font-size:7px}
   tbody td{padding:4px 1px}thead th{padding:5px 0px;font-size:8px;letter-spacing:0}
   thead th.num{padding:4px 0px;font-size:7px;text-align:center;width:32px}
-  thead th.num-wide,tbody td.num-wide{width:28px}
   #view-roster table td.num:last-child,#view-roster table th.num:last-child{padding-right:6px!important}
   .col-game{padding-left:4px!important}
   .sparkline{display:none}
@@ -1490,8 +1489,7 @@ function buildTable(players,sn,ht){
     return`background:rgba(${color},${opacity});color:${textColor};font-weight:${fw}`;
   }
   let html='<table><thead><tr><th class="col-pos">Pos</th><th class="col-player">Player</th><th class="col-game">Game</th>';
-  const WIDE_STATS=['OBP','ERA','WHIP','AVG','SLG','OPS'];
-  for(const s of sn){const wc=WIDE_STATS.includes(s)?'num num-wide':'num';html+=`<th class="${wc}">${s}</th>`}html+='</tr></thead><tbody>';
+  for(const s of sn)html+=`<th class="num">${s}</th>`;html+='</tr></thead><tbody>';
   let bench=false;
   for(const p of players){
     if(BENCH_POSITIONS.includes(p.selPos)&&!bench){bench=true;html+=`<tr><td colspan="${cols}" style="padding:3px 12px;background:var(--surface-2);border-top:2px solid var(--border)"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono)">Bench / IL</span></td></tr>`}
@@ -1511,8 +1509,8 @@ function buildTable(players,sn,ht){
     const pr=refData[p.playerKey]||null;
     for(const s of sn){const v=statVal(p.stats,s),f=fmtStat(v,s);const a=ht?trend(s,v,pr):'';
       const sparkHtml=(currentPeriod!=='today'&&p.mlbId)?buildSparklineSVG(sparklineCache[p.mlbId],s,p.type):'';
-      const cs=rosterCellStyle(p.playerKey,s);const wc=WIDE_STATS.includes(s)?'num num-wide':'num';
-      html+=`<td class="${wc}" style="${cs}"><span class="trend">${f}${a}${sparkHtml}</span></td>`}
+      const cs=rosterCellStyle(p.playerKey,s);
+      html+=`<td class="num" style="${cs}"><span class="trend">${f}${a}${sparkHtml}</span></td>`}
     html+='</tr>';
     // Expanded statcast row
     html+=`<tr class="sc-row ${isExp?'open':''}" id="sc-${p.playerKey}"><td colspan="${cols}">${isExp?buildStatcast(p):''}</td></tr>`;
