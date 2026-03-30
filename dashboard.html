@@ -2510,7 +2510,7 @@ async function loadStandings(){const el=document.getElementById('standings-conte
 
 function renderStandings(){
   const el=document.getElementById('standings-content');
-  let h='<div class="tw"><table class="st-table"><thead><tr><th class="st-rank">#</th><th class="st-team">Team</th><th class="st-num">Record</th><th class="st-num">Win %</th><th class="st-num">PF</th><th class="st-num">PA</th><th class="st-num">GB</th></tr></thead><tbody>';
+  let h='<div class="tw"><table class="st-table"><thead><tr><th class="st-rank">#</th><th class="st-team">Team</th><th class="st-num">Record</th><th class="st-num">Win %</th><th class="st-num">GB</th></tr></thead><tbody>';
   standingsData.forEach(t=>{
     const isExp=expandedStTeam===t.team_key;
     const isMe=t.team_key&&myTeamKey&&t.team_key===myTeamKey;
@@ -2521,11 +2521,9 @@ function renderStandings(){
 <div><div class="st-name">${t.name}</div><div class="st-mgr">${t.mgrs.join(', ')}</div></div></div></td>`;
     h+=`<td class="st-num st-bold">${t.w}-${t.l}${t.t>0?'-'+t.t:''}</td>`;
     h+=`<td class="st-num">${t.pct}</td>`;
-    h+=`<td class="st-num">${t.pf}</td>`;
-    h+=`<td class="st-num">${t.pa}</td>`;
     h+=`<td class="st-num">${t.gb}</td></tr>`;
     // Expanded roster row
-    h+=`<tr class="sc-row ${isExp?'open':''}" style="${isExp?'display:table-row':''}"><td colspan="7" style="padding:0!important;border-top:none!important;background:var(--bg)">${isExp?buildStTeamRoster(t):''}</td></tr>`;
+    h+=`<tr class="sc-row ${isExp?'open':''}" style="${isExp?'display:table-row':''}"><td colspan="5" style="padding:0!important;border-top:none!important;background:var(--bg)">${isExp?buildStTeamRoster(t):''}</td></tr>`;
   });
   el.innerHTML=h+'</tbody></table></div>';
 }
