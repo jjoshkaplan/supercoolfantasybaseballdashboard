@@ -1383,11 +1383,9 @@ async function loadRoster(){
   console.log(`[Roster] ${rosterData.length} players, ${resolved} MLB IDs resolved, ${unresolved.length} unresolved`);
   if(unresolved.length)console.warn('[Roster] Unresolved:',unresolved.map(p=>p.name));
   // Step 2: Fetch stats from MLB Stats API
-  const refP=TREND_REF[currentPeriod]||null;
-  console.log(`[Roster] Fetching stats: period=${currentPeriod}, ref=${refP||'none'}, leagueSeason=${leagueSeason}`);
-  const[primary,ref]=await Promise.all([
-    fetchMLBStats(rosterData,currentPeriod),
-    refP?fetchMLBStats(rosterData,refP):Promise.resolve({})
+  console.log(`[Roster] Fetching stats: period=${currentPeriod}, leagueSeason=${leagueSeason}`);
+  const[primary]=await Promise.all([
+    fetchMLBStats(rosterData,currentPeriod)
   ]);
   // Step 3: Assign stats to players
   let assigned=0;
@@ -1412,7 +1410,6 @@ async function loadRoster(){
     }
   }
   console.log(`[Roster] Stats assigned to ${assigned}/${rosterData.length} players`);
-  refData=ref||{};
   renderRoster();
   // Non-blocking: fetch standings rank + matchup snapshot for header
   loadRosterContext();
@@ -1475,9 +1472,8 @@ function trend(sn,cv,rs){if(!rs||cv==='—')return'';const rv=statVal(rs,sn);if(
 function renderRoster(){
   const h=rosterData.filter(p=>p.type==='hitter').sort((a,b)=>(POS_ORDER_H.indexOf(a.selPos)===-1?99:POS_ORDER_H.indexOf(a.selPos))-(POS_ORDER_H.indexOf(b.selPos)===-1?99:POS_ORDER_H.indexOf(b.selPos)));
   const p=rosterData.filter(p=>p.type==='pitcher').sort((a,b)=>(POS_ORDER_P.indexOf(a.selPos)===-1?99:POS_ORDER_P.indexOf(a.selPos))-(POS_ORDER_P.indexOf(b.selPos)===-1?99:POS_ORDER_P.indexOf(b.selPos)));
-  const ht=!!TREND_REF[currentPeriod];
-  document.getElementById('roster-hitters').innerHTML=buildTable(h,HITTER_STATS,ht);
-  document.getElementById('roster-pitchers').innerHTML=buildTable(p,PITCHER_STATS,ht);
+  document.getElementById('roster-hitters').innerHTML=buildTable(h,HITTER_STATS);
+  document.getElementById('roster-pitchers').innerHTML=buildTable(p,PITCHER_STATS);
   const sy=parseInt(leagueSeason||2026);
   const pL={today:'Today',season:`${sy} Season`,lastweek:'Last 7 days',last14:'Last 14 days',lastmonth:'Last 30 days',prevyear:`${sy-1} Season`};
   document.getElementById('rosterSub').textContent=`${h.length} hitters · ${p.length} pitchers · ${pL[currentPeriod]||currentPeriod}`}
@@ -1529,7 +1525,7 @@ async function loadRosterContext(){
   }catch(e){console.error('[RosterCtx] fetch error:',e)}
 }
 
-function buildTable(players,sn,ht){
+function buildTable(players,sn){
   if(!players.length)return'<div class="empty"><h3>No players</h3></div>';
   const cols=3+sn.length;// pos, player, game, stats...
   // Color coding: compute percentile ranks for non-bench players per stat
@@ -1585,11 +1581,10 @@ function buildTable(players,sn,ht){
     // Game status
     html+=`<td class="col-game">${buildGameCell(p)}</td>`;
     // Stats with sparklines + color coding
-    const pr=refData[p.playerKey]||null;
-    for(const s of sn){const v=statVal(p.stats,s),f=fmtStat(v,s);const a=ht?trend(s,v,pr):'';
+    for(const s of sn){const v=statVal(p.stats,s),f=fmtStat(v,s);
       const sparkHtml=(currentPeriod!=='today'&&p.mlbId)?buildSparklineSVG(sparklineCache[p.mlbId],s,p.type):'';
       const cs=rosterCellStyle(p.playerKey,s);
-      html+=`<td class="num" style="${cs}"><span class="trend">${f}${a}${sparkHtml}</span></td>`}
+      html+=`<td class="num" style="${cs}"><span class="trend">${f}${sparkHtml}</span></td>`}
     html+='</tr>';
     // Expanded statcast row
     html+=`<tr class="sc-row ${isExp?'open':''}" id="sc-${p.playerKey}"><td colspan="${cols}">${isExp?buildStatcast(p):''}</td></tr>`;
