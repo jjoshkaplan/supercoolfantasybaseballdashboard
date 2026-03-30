@@ -1483,12 +1483,15 @@ async function loadRosterContext(){
     // Parse standings rank
     if(stResp){try{
       const sd=stResp.fantasy_content?.league?.[1]?.standings?.[0]?.teams||{};
+      console.log('[RosterCtx] standings teams count:',sd.count);
       for(let i=0;i<(sd.count||0);i++){const t=sd[String(i)]?.team||[];if(t.length<2)continue;
         const info=t[0],ts=t[1]?.team_standings||{};let tk='';
         for(const it of info)if(typeof it==='object'&&it.team_key)tk=it.team_key;
         if(tk===myTeamKey){
+          console.log('[RosterCtx] My team standings raw:',JSON.stringify(ts));
           const rank=parseInt(ts.rank)||0;
           const oc=ts.outcome_totals||{};
+          console.log('[RosterCtx] outcome_totals:',JSON.stringify(oc));
           const w=oc.wins||0,l=oc.losses||0,ti=oc.ties||0;
           const ord=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0])};
           document.getElementById('rosterRank').textContent=`· ${ord(rank)} (${w}-${l}-${ti})`;
@@ -2502,7 +2505,7 @@ function buildStatcastLive(p,ls){
 function showStatus(m,t){const e=document.createElement('div');e.className=`status-msg ${t}`;e.textContent=m;document.body.appendChild(e);setTimeout(()=>e.remove(),3000)}
 
 // ─── STANDINGS / MATCHUPS / TX ──────────────────────────
-async function loadStandings(){const el=document.getElementById('standings-content');el.innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';const d=await yahooGet(`league/${currentLeagueKey}/standings`);if(!d){el.innerHTML='<div class="empty">Could not load</div>';return}standingsData=[];try{const sd=d.fantasy_content?.league?.[1]?.standings?.[0]?.teams||{};for(let i=0;i<(sd.count||0);i++){const t=sd[String(i)]?.team||[];if(t.length<2)continue;const info=t[0],ts=t[1]?.team_standings||{};let n='',l='',mg=[],tk='';for(const it of info)if(typeof it==='object'){if(it.name)n=it.name;if(it.team_logos)l=it.team_logos?.[0]?.team_logo?.url||'';if(it.managers)for(const m of it.managers)mg.push(m.manager?.nickname||'');if(it.team_key)tk=it.team_key}const oc=ts.outcome_totals||{};standingsData.push({rank:ts.rank,name:n,logo:l,mgrs:mg,team_key:tk,w:oc.wins||0,l:oc.losses||0,t:oc.ties||0,pct:oc.percentage||'.000',pf:ts.points_for||'—',pa:ts.points_against||'—',gb:ts.games_back||'—'})}}catch(e){}standingsData.sort((a,b)=>(parseInt(a.rank)||99)-(parseInt(b.rank)||99));
+async function loadStandings(){const el=document.getElementById('standings-content');el.innerHTML='<div class="loading"><div class="spinner"></div>Loading...</div>';const d=await yahooGet(`league/${currentLeagueKey}/standings`);if(!d){el.innerHTML='<div class="empty">Could not load</div>';return}standingsData=[];try{const sd=d.fantasy_content?.league?.[1]?.standings?.[0]?.teams||{};console.log('[Standings] Raw response league[1]:',JSON.stringify(d.fantasy_content?.league?.[1]).slice(0,2000));for(let i=0;i<(sd.count||0);i++){const t=sd[String(i)]?.team||[];if(t.length<2)continue;const info=t[0],ts=t[1]?.team_standings||{};if(i===0)console.log('[Standings] First team t[1]:',JSON.stringify(t[1]).slice(0,1000));let n='',l='',mg=[],tk='';for(const it of info)if(typeof it==='object'){if(it.name)n=it.name;if(it.team_logos)l=it.team_logos?.[0]?.team_logo?.url||'';if(it.managers)for(const m of it.managers)mg.push(m.manager?.nickname||'');if(it.team_key)tk=it.team_key}const oc=ts.outcome_totals||{};if(i===0)console.log('[Standings] First team standings:',JSON.stringify(ts),'outcome_totals:',JSON.stringify(oc));standingsData.push({rank:ts.rank,name:n,logo:l,mgrs:mg,team_key:tk,w:oc.wins||0,l:oc.losses||0,t:oc.ties||0,pct:oc.percentage||'.000',pf:ts.points_for||'—',pa:ts.points_against||'—',gb:ts.games_back||'—'})}}catch(e){console.error('[Standings] parse error:',e)}standingsData.sort((a,b)=>(parseInt(a.rank)||99)-(parseInt(b.rank)||99));
   // Fill in missing ranks from sort order
   standingsData.forEach((t,i)=>{if(t.rank==null||t.rank===undefined)t.rank=i+1});
   renderStandings()}
