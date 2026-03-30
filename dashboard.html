@@ -126,7 +126,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .player-hs{width:28px;height:28px;border-radius:50%;object-fit:cover;background:var(--surface-2);flex-shrink:0}
 .player-info{flex:1;min-width:0}
 .player-info .name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.player-info .meta{font-size:11px;color:var(--dim);display:flex;align-items:center;gap:4px}
+.player-info .meta{font-size:11px;color:var(--dim)}
 .player-info .meta .status{font-weight:600;margin-left:4px}
 .player-info .meta .status.dtd{color:var(--orange)}.player-info .meta .status.il{color:var(--red)}
 .sp-start-badge{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:1px 5px;border-radius:3px;background:var(--green-dim);color:var(--green);font-family:var(--mono);margin-left:5px;vertical-align:middle}
@@ -1582,7 +1582,7 @@ function buildTable(players,sn){
     const sh=p.statusFull?`<span class="status ${sc}">${p.status}</span>`:'';
     const playerBadge=buildPlayerBadge(p);
     html+=`<td class="col-player"><div class="player-cell">${p.hs?`<img class="player-hs" src="${p.hs}" alt="" onerror="this.style.display='none'">`:''}
-      <div class="player-info"><div class="name">${p.name}</div><div class="meta"><span>${p.team} · ${p.pos} ${sh}</span>${playerBadge?`<span class="player-badge-col">${playerBadge}</span>`:''}</div></div></div></td>`;
+      <div class="player-info"><div class="name">${p.name}</div><div class="meta">${p.team} · ${p.pos} ${sh}${playerBadge?` · ${playerBadge}`:''}</div></div></div></td>`;
     // Game status
     html+=`<td class="col-game">${buildGameCell(p)}</td>`;
     // Stats with color coding
