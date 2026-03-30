@@ -143,7 +143,8 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .gc-final{color:var(--muted);font-family:var(--mono);font-size:11px}
 .lu-badge{font-size:8px;font-weight:800;font-family:var(--mono);padding:1px 4px;border-radius:3px;background:var(--green-dim);color:var(--green);margin-left:4px;letter-spacing:.02em}
 .lu-badge.lu-out{background:var(--surface-3);color:var(--muted)}
-.lu-badge-col{margin-left:auto;flex-shrink:0}
+.player-badge-col{margin-left:auto;flex-shrink:0;display:flex;align-items:center}
+.player-badge-col .gc-status{font-size:8px;padding:1px 5px}
 @keyframes pulse-st{0%,100%{box-shadow:0 0 0 0 rgba(45,212,160,.3)}70%{box-shadow:0 0 0 4px rgba(45,212,160,0)}}
 /* Inline game situation */
 .gc-sit{display:flex;align-items:center;gap:5px}
@@ -391,7 +392,9 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   #view-roster table td.num:last-child,#view-roster table th.num:last-child{padding-right:6px!important}
   .col-game{padding-left:4px!important}
   .sparkline{display:none}
-  .lu-badge-col .lu-badge{margin-left:2px}
+  .player-badge-col .lu-badge{margin-left:2px}
+  .player-badge-col{margin-left:auto}
+  .player-badge-col .gc-status{font-size:7px;padding:1px 3px}
   /* Expanded row containment */
   .sc-row td{max-width:100vw;overflow:hidden;word-break:break-word}
   .sc-panel{margin:0 0 4px;border-radius:0;border-left:none;border-right:none;overflow:hidden;max-width:100vw;box-sizing:border-box}
@@ -1497,10 +1500,9 @@ function buildTable(players,sn,ht){
     // Player
     const sc=p.status&&(p.status.includes('IL')||p.status.includes('DL'))?'il':p.status?'dtd':'';
     const sh=p.statusFull?`<span class="status ${sc}">${p.status}</span>`:'';
-    const spBadge=p.type==='pitcher'&&isScheduledStarter(p.name,p.team)?'<span class="sp-start-badge">START</span>':'';
-    const luBadge=buildLuBadge(p);
+    const playerBadge=buildPlayerBadge(p);
     html+=`<td class="col-player"><div class="player-cell">${p.hs?`<img class="player-hs" src="${p.hs}" alt="" onerror="this.style.display='none'">`:''}
-      <div class="player-info"><div class="name">${p.name}</div><div class="meta">${p.team} · ${p.pos}${spBadge} ${sh}</div></div>${luBadge?`<span class="lu-badge-col">${luBadge}</span>`:''}</div></td>`;
+      <div class="player-info"><div class="name">${p.name}</div><div class="meta">${p.team} · ${p.pos} ${sh}</div></div>${playerBadge?`<span class="player-badge-col">${playerBadge}</span>`:''}</div></td>`;
     // Game status
     html+=`<td class="col-game">${buildGameCell(p)}</td>`;
     // Stats with sparklines + color coding
@@ -1515,18 +1517,27 @@ function buildTable(players,sn,ht){
   }
   return html+'</tbody></table>'}
 
-// Build lineup badge for player column (hitters only)
-function buildLuBadge(p){
-  if(p.type!=='hitter'||!p.mlbId)return'';
-  const game=findGameForTeam(p.team);if(!game)return'';
-  const aw=game.teams.away.team.abbreviation;
-  const luPos=getLineupPosition(p.mlbId,p.team);
-  const hasLineupData=(()=>{const gpk=game.gamePk;const isAw=p.team===aw;const feed=liveFeeds[gpk];
-    if(feed){const bo=isAw?feed.awayBatOrder:feed.homeBatOrder;if(bo&&bo.length)return true}
-    if(game.lineups){const pl=isAw?(game.lineups.awayPlayers||[]):(game.lineups.homePlayers||[]);if(pl.length)return true}
-    return false})();
-  if(luPos.order)return`<span class="lu-badge">#${luPos.order}</span>`;
-  if(hasLineupData&&!luPos.inLineup&&game.status?.abstractGameState!=='Final')return'<span class="lu-badge lu-out">OUT</span>';
+// Build player badge for player column — lineup position (pre-game) or live status (in-game)
+function buildPlayerBadge(p){
+  const ls=getPlayerLiveStatus(p.name,p.team,p.type);
+  if(!ls.game)return'';
+  const g=ls.game;
+  // Live/in-progress: show in-game status badge
+  if(ls.status&&ls.status!=='preview'&&ls.status!=='final'&&ls.label){
+    return`<span class="gc-status ${ls.cls}">${ls.label}</span>`}
+  // Preview: show lineup position for hitters, start status for pitchers
+  if(ls.status==='preview'){
+    if(p.type==='pitcher'&&isScheduledStarter(p.name,p.team)){
+      return'<span class="sp-start-badge">START</span>'}
+    if(p.type==='hitter'&&p.mlbId){
+      const aw=g.teams.away.team.abbreviation;
+      const luPos=getLineupPosition(p.mlbId,p.team);
+      const hasLineupData=(()=>{const gpk=g.gamePk;const isAw=p.team===aw;const feed=liveFeeds[gpk];
+        if(feed){const bo=isAw?feed.awayBatOrder:feed.homeBatOrder;if(bo&&bo.length)return true}
+        if(g.lineups){const pl=isAw?(g.lineups.awayPlayers||[]):(g.lineups.homePlayers||[]);if(pl.length)return true}
+        return false})();
+      if(luPos.order)return`<span class="lu-badge">#${luPos.order}</span>`;
+      if(hasLineupData&&!luPos.inLineup)return'<span class="lu-badge lu-out">OUT</span>'}}
   return''}
 
 function buildGameCell(p){
@@ -1555,7 +1566,7 @@ function buildGameCell(p){
     const b1=r.first?'var(--yellow)':'var(--muted)',b2=r.second?'var(--yellow)':'var(--muted)',b3=r.third?'var(--yellow)':'var(--muted)';
     const b1f=r.first?1:.25,b2f=r.second?1:.25,b3f=r.third?1:.25;
     sitHtml=`<div class="gc-sit"><div class="gc-outs"><div class="gc-out-dot ${outs>=1?'on':''}"></div><div class="gc-out-dot ${outs>=2?'on':''}"></div><div class="gc-out-dot ${outs>=3?'on':''}"></div></div><svg width="16" height="16" viewBox="0 0 16 16"><rect x="8" y="1" width="5" height="5" rx=".5" transform="rotate(45 10.5 3.5)" fill="${b2}" opacity="${b2f}"/><rect x="11" y="4" width="5" height="5" rx=".5" transform="rotate(45 13.5 6.5)" fill="${b1}" opacity="${b1f}"/><rect x="5" y="4" width="5" height="5" rx=".5" transform="rotate(45 7.5 6.5)" fill="${b3}" opacity="${b3f}"/></svg></div>`}
-  return`<div class="game-cell"><div class="gc-score"><div class="away"><span class="abbr">${aw}</span><span class="runs">${aR}</span></div><div class="home"><span class="abbr">${hm}</span><span class="runs">${hR}</span></div></div><span class="gc-inn">${stateLabel}</span>${sitHtml}${ls.label&&ls.status!=='final'&&ls.status!=='preview'?`<span class="gc-status ${ls.cls}">${ls.label}</span>`:''}${gameLine}</div>`}
+  return`<div class="game-cell"><div class="gc-score"><div class="away"><span class="abbr">${aw}</span><span class="runs">${aR}</span></div><div class="home"><span class="abbr">${hm}</span><span class="runs">${hR}</span></div></div><span class="gc-inn">${stateLabel}</span>${sitHtml}${gameLine}</div>`}
 
 // Get a player's at-bats from a feed, matching by name
 function getPlayerABs(f,playerName){
