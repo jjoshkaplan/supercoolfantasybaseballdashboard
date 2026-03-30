@@ -1414,9 +1414,6 @@ async function loadRoster(){
   renderRoster();
   // Non-blocking: fetch standings rank + matchup snapshot for header
   loadRosterContext();
-  // Fetch sparkline data for all players with MLB IDs (non-blocking, batch re-render)
-  const sparkPromises=rosterData.filter(p=>p.mlbId&&!sparklineCache[p.mlbId]).map(p=>fetchSparklineData(p.mlbId,p.type));
-  if(sparkPromises.length)Promise.all(sparkPromises).then(()=>{if(document.querySelector('.nav-tab[data-view="roster"].active'))renderRoster()});
 }
 
 function computeLiveHitterStats(abs){
@@ -1578,11 +1575,10 @@ function buildTable(players,sn){
       <div class="player-info"><div class="name">${p.name}</div><div class="meta">${p.team} · ${p.pos} ${sh}</div></div>${playerBadge?`<span class="player-badge-col">${playerBadge}</span>`:''}</div></td>`;
     // Game status
     html+=`<td class="col-game">${buildGameCell(p)}</td>`;
-    // Stats with sparklines + color coding
+    // Stats with color coding
     for(const s of sn){const v=statVal(p.stats,s),f=fmtStat(v,s);
-      const sparkHtml=(currentPeriod!=='today'&&p.mlbId)?buildSparklineSVG(sparklineCache[p.mlbId],s,p.type):'';
       const cs=rosterCellStyle(p.playerKey,s);
-      html+=`<td class="num" style="${cs}"><span class="trend">${f}${sparkHtml}</span></td>`}
+      html+=`<td class="num" style="${cs}">${f}</td>`}
     html+='</tr>';
     // Expanded statcast row
     html+=`<tr class="sc-row ${isExp?'open':''}" id="sc-${p.playerKey}"><td colspan="${cols}">${isExp?buildStatcast(p):''}</td></tr>`;
@@ -2857,8 +2853,6 @@ async function loadWaivers(){
   waiverPlayers=waiverOffset?[...waiverPlayers,...parsed]:parsed;
   waiverOffset+=parsed.length;
   renderWaivers();
-  const wwSparkPromises=parsed.filter(p=>p.mlbId&&!sparklineCache[p.mlbId]).map(p=>fetchSparklineData(p.mlbId,p.type));
-  if(wwSparkPromises.length)Promise.all(wwSparkPromises).then(()=>{if(document.querySelector('.nav-tab[data-view="waivers"].active'))renderWaivers()});
   document.getElementById('waiversSub').textContent=`${waiverPlayers.length} free agents · ${waiverPosFilter==='ALL'?'All positions':waiverPosFilter} · Ranked by Yahoo AR`;
   document.getElementById('wwLoadMore').style.display=parsed.length>=25?'':'none';
 }
@@ -3047,14 +3041,12 @@ function renderWaivers(){
   html+=`</tr></thead><tbody>`;
   for(const p of sorted){
     const isExp=expandedWaiver===p.playerKey;
-    const sparkStat=isP?'K':'HR';
-    const sparkHtml=p.mlbId?buildSparklineSVG(sparklineCache[p.mlbId],sparkStat,p.type):'';
     html+=`<tr class="${isExp?'expanded':''}" onclick="toggleWaiverExpand('${p.playerKey}',event)" style="cursor:pointer">`;
     // Rank
     html+=`<td class="num" style="color:var(--dim)">${p.rank}</td>`;
     // Player
     html+=`<td><div class="player-cell">${p.hs?`<img class="player-hs" src="${p.hs}" alt="" onerror="this.style.display='none'">`:''}
-      <div class="player-info"><div class="name">${p.name}${sparkHtml}</div><div class="meta">${p.team} · ${p.pos}</div></div></div></td>`;
+      <div class="player-info"><div class="name">${p.name}</div><div class="meta">${p.team} · ${p.pos}</div></div></div></td>`;
     // Game column
     const game=findGameForTeam(p.team);
     if(game){const aw=game.teams.away.team.abbreviation,hm=game.teams.home.team.abbreviation;const isAway=p.team===aw;
@@ -3159,12 +3151,11 @@ function buildWaiverComparePanel(wp){
     const p=allPlayers[i];
     const isWaiver=i===0;
     const st=wwCompareStats[p.playerKey]||{};
-    const sparkHtml=p.mlbId?buildSparklineSVG(sparklineCache[p.mlbId],isP?'K':'HR',p.type):'';
     const isSavExp=wwSavantPlayer===p.playerKey;
     const nameClick=p.mlbId?` class="ww-name"${isWaiver?' style="color:var(--green)"':''} onclick="toggleWwSavant('${p.playerKey}',event)" title="Click for Savant"`:'';
     html+=`<tr${isWaiver?' class="ww-fa"':''}>`;
     html+=`<td><div class="player-cell" style="gap:6px">${p.hs?`<img class="player-hs" src="${p.hs}" style="width:22px;height:22px" onerror="this.style.display='none'">`:''}`;
-    html+=`<div><div style="font-weight:${isWaiver?'700':'600'};font-size:12px"><span${nameClick}>${p.name}</span>${isWaiver?' <span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:3px;background:var(--green-dim);color:var(--green);font-family:var(--mono);vertical-align:middle">FA</span>':''}${p.mlbId&&isSavExp?' <span style="font-size:9px;color:var(--purple);font-family:var(--mono);font-weight:700">▼ SAV</span>':''}${sparkHtml}</div>`;
+    html+=`<div><div style="font-weight:${isWaiver?'700':'600'};font-size:12px"><span${nameClick}>${p.name}</span>${isWaiver?' <span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:3px;background:var(--green-dim);color:var(--green);font-family:var(--mono);vertical-align:middle">FA</span>':''}${p.mlbId&&isSavExp?' <span style="font-size:9px;color:var(--purple);font-family:var(--mono);font-weight:700">▼ SAV</span>':''}</div>`;
     html+=`<div style="font-size:10px;color:var(--dim)">${p.team} · ${p.pos}${p.selPos?' · <span style="font-family:var(--mono);font-weight:700">'+p.selPos+'</span>':''}</div></div></div></td>`;
     for(const s of sn){
       const v=statVal(st,s),f=fmtStat(v,s);
