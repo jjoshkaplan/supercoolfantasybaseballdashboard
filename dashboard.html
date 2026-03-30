@@ -78,6 +78,14 @@ select,input,textarea{font-size:16px!important}
 .pg-title-row{display:flex;align-items:center;gap:12px;margin-bottom:4px}
 .pg-title-row .pg-title{margin-bottom:0}
 .pg-sub{color:var(--dim);font-size:14px;margin-bottom:20px;font-weight:300}
+.roster-header{display:flex;justify-content:space-between;align-items:flex-start}
+.roster-header-left{flex:1;min-width:0}
+.roster-header-right{flex-shrink:0;text-align:right;padding-top:2px}
+.rank-badge{font-size:13px;font-weight:700;color:var(--dim);font-family:var(--mono)}
+.mu-snap{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.mu-snap-opp{font-size:12px;font-weight:600;color:var(--dim)}
+.mu-snap-score{font-size:14px;font-weight:800;font-family:var(--mono);letter-spacing:-.01em}
+.mu-snap-cats{font-size:10px;color:var(--muted);font-family:var(--mono)}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px}
 
 /* Roster toolbar */
@@ -363,6 +371,11 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .pg-title-row .btn-save{padding:4px 10px;font-size:10px;border-radius:5px;gap:4px;min-height:28px}
   .pg-title-row .btn-save svg{width:11px;height:11px}
   .pg-title{font-size:18px}.pg-sub{font-size:12px;margin-bottom:8px;padding:0 4px}
+  .roster-header{padding:0 4px}
+  .rank-badge{font-size:11px}
+  .mu-snap-opp{font-size:10px}
+  .mu-snap-score{font-size:12px}
+  .mu-snap-cats{font-size:9px}
 
   /* Scrollable tab bars — no cramming */
   .tab-bar{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap}
@@ -656,8 +669,13 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 <div id="appLayout" style="display:none">
   <div class="main">
     <div id="view-roster" class="view-panel">
-      <div class="pg-title-row"><h2 class="pg-title">My Roster</h2></div>
-      <p class="pg-sub" id="rosterSub">Loading roster data...</p>
+      <div class="roster-header">
+        <div class="roster-header-left">
+          <div class="pg-title-row"><h2 class="pg-title">My Roster</h2><span class="rank-badge" id="rosterRank"></span></div>
+          <p class="pg-sub" id="rosterSub">Loading roster data...</p>
+        </div>
+        <div class="roster-header-right" id="rosterMatchup"></div>
+      </div>
       <div class="roster-toolbar">
         <div class="roster-toolbar-left">
           <div class="tab-bar" id="rosterTabs"><button class="tab-btn active" data-tab="hitters" onclick="switchRosterTab('hitters')">Hitters</button><button class="tab-btn" data-tab="pitchers" onclick="switchRosterTab('pitchers')">Pitchers</button></div>
@@ -965,7 +983,7 @@ function getPlayerLiveStatus(playerName, teamAbbr, playerType){
 
 // ─── VIEWS ──────────────────────────────────────────────
 function switchView(v){document.querySelectorAll('.view-panel').forEach(p=>p.style.display='none');document.querySelectorAll('.nav-tab[data-view]').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.mob-tab[data-view]').forEach(i=>i.classList.remove('active'));document.getElementById(`view-${v}`).style.display='block';const sb=document.querySelector(`.nav-tab[data-view="${v}"]`);if(sb)sb.classList.add('active');const mb=document.querySelector(`.mob-tab[data-view="${v}"]`);if(mb)mb.classList.add('active');if(currentLeague)loadViewData(v)}
-function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};refData={};expandedPlayer=null;splitsCache={};todayPanelMode={};waiverPlayers=[];waiverOffset=0;expandedWaiver=null;wwCompareStats={};sparklineCache={};sparklineLoading.clear();standingsData=[];expandedStTeam=null;stTeamRosters={};stTeamPeriod='today';initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
+function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};refData={};expandedPlayer=null;splitsCache={};todayPanelMode={};waiverPlayers=[];waiverOffset=0;expandedWaiver=null;wwCompareStats={};sparklineCache={};sparklineLoading.clear();standingsData=[];expandedStTeam=null;stTeamRosters={};stTeamPeriod='today';rosterContextLoaded=false;initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
 function switchRosterTab(t){rosterTab=t;document.querySelectorAll('#rosterTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.getElementById('roster-hitters').style.display=t==='hitters'?'':'none';document.getElementById('roster-pitchers').style.display=t==='pitchers'?'':'none'}
 function switchPeriod(p){currentPeriod=p;expandedPlayer=null;todayPanelMode={};document.querySelectorAll('#periodBar .period-btn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));loadRoster()}
 function updatePeriodLabels(){const sy=parseInt(leagueSeason||2026);const m={season:String(sy),prevyear:String(sy-1)};document.querySelectorAll('#periodBar .period-btn').forEach(b=>{if(m[b.dataset.period])b.textContent=m[b.dataset.period]})}
@@ -1384,6 +1402,8 @@ async function loadRoster(){
   console.log(`[Roster] Stats assigned to ${assigned}/${rosterData.length} players`);
   refData=ref||{};
   renderRoster();
+  // Non-blocking: fetch standings rank + matchup snapshot for header
+  loadRosterContext();
   // Fetch sparkline data for all players with MLB IDs (non-blocking, batch re-render)
   const sparkPromises=rosterData.filter(p=>p.mlbId&&!sparklineCache[p.mlbId]).map(p=>fetchSparklineData(p.mlbId,p.type));
   if(sparkPromises.length)Promise.all(sparkPromises).then(()=>{if(document.querySelector('.nav-tab[data-view="roster"].active'))renderRoster()});
@@ -1449,6 +1469,52 @@ function renderRoster(){
   const sy=parseInt(leagueSeason||2026);
   const pL={today:'Today',season:`${sy} Season`,lastweek:'Last 7 days',last14:'Last 14 days',lastmonth:'Last 30 days',prevyear:`${sy-1} Season`};
   document.getElementById('rosterSub').textContent=`${h.length} hitters · ${p.length} pitchers · ${pL[currentPeriod]||currentPeriod}`}
+
+// ─── ROSTER HEADER CONTEXT (standings rank + matchup snapshot) ──
+let rosterContextLoaded=false;
+async function loadRosterContext(){
+  if(rosterContextLoaded||!myTeamKey||!currentLeagueKey)return;
+  rosterContextLoaded=true;
+  try{
+    const[stResp,sbResp]=await Promise.all([
+      yahooGet(`league/${currentLeagueKey}/standings`),
+      yahooGet(`league/${currentLeagueKey}/scoreboard`)
+    ]);
+    // Parse standings rank
+    if(stResp){try{
+      const sd=stResp.fantasy_content?.league?.[1]?.standings?.[0]?.teams||{};
+      for(let i=0;i<(sd.count||0);i++){const t=sd[String(i)]?.team||[];if(t.length<2)continue;
+        const info=t[0],ts=t[1]?.team_standings||{};let tk='';
+        for(const it of info)if(typeof it==='object'&&it.team_key)tk=it.team_key;
+        if(tk===myTeamKey){
+          const rank=parseInt(ts.rank)||0;
+          const oc=ts.outcome_totals||{};
+          const w=oc.wins||0,l=oc.losses||0,ti=oc.ties||0;
+          const ord=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0])};
+          document.getElementById('rosterRank').textContent=`· ${ord(rank)} (${w}-${l}-${ti})`;
+          break}}
+    }catch(e){console.error('[RosterCtx] standings parse error:',e)}}
+    // Parse matchup snapshot
+    if(sbResp){try{
+      const md=sbResp.fantasy_content?.league?.[1]?.scoreboard?.['0']?.matchups||{};
+      for(let i=0;i<(md.count||0);i++){const m=md[String(i)]?.matchup||{},tms=m['0']?.teams||{};
+        let myTeam=null,oppTeam=null;
+        for(let j=0;j<(tms.count||0);j++){const t=tms[String(j)]?.team||[];if(t.length<2)continue;
+          let n='',tk='';for(const it of t[0])if(typeof it==='object'){if(it.name)n=it.name;if(it.team_key)tk=it.team_key}
+          if(tk===myTeamKey)myTeam={name:n,tk};else oppTeam={name:n,tk}}
+        if(!myTeam||!oppTeam)continue;
+        // Count category wins/losses/ties
+        let w=0,l=0,ti=0;
+        const sw=m.stat_winners;
+        if(Array.isArray(sw))for(const item of sw){const s=item.stat_winner||item;
+          if(s.is_tied)ti++;else if(s.winner_team_key===myTeamKey)w++;else l++}
+        const wCol=w>l?'var(--green)':w<l?'var(--red)':'var(--dim)';
+        const el=document.getElementById('rosterMatchup');
+        el.innerHTML=`<div class="mu-snap"><span class="mu-snap-opp">vs ${oppTeam.name}</span><span class="mu-snap-score" style="color:${wCol}">${w}-${l}-${ti}</span></div>`;
+        break}
+    }catch(e){console.error('[RosterCtx] matchup parse error:',e)}}
+  }catch(e){console.error('[RosterCtx] fetch error:',e)}
+}
 
 function buildTable(players,sn,ht){
   if(!players.length)return'<div class="empty"><h3>No players</h3></div>';
