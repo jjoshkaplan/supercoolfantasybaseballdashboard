@@ -438,7 +438,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   /* Game cell */
   .game-cell{gap:3px;min-width:70px;font-size:9px}.gc-score{font-size:8px}.gc-score .abbr{width:18px}.gc-inn{font-size:8px}
   .gc-status{font-size:7px;padding:1px 3px}
-  .gc-sit{gap:3px}.gc-out-dot{width:5px;height:5px}.gc-sit svg{width:14px;height:14px}
+  .gc-sit{gap:1px;flex-direction:column;align-items:center}.gc-out-dot{width:5px;height:5px}.gc-sit svg{width:14px;height:14px}
   .lu-badge{font-size:7px;padding:1px 3px;margin-left:2px}
   .sp-start-badge{font-size:7px;padding:1px 3px;margin-left:3px}
 
@@ -1642,7 +1642,7 @@ function buildGameCell(p){
     const outs=f.count?.outs||0;const r=f.runners||{};
     const b1=r.first?'var(--yellow)':'var(--muted)',b2=r.second?'var(--yellow)':'var(--muted)',b3=r.third?'var(--yellow)':'var(--muted)';
     const b1f=r.first?1:.25,b2f=r.second?1:.25,b3f=r.third?1:.25;
-    sitHtml=`<div class="gc-sit"><div class="gc-outs"><div class="gc-out-dot ${outs>=1?'on':''}"></div><div class="gc-out-dot ${outs>=2?'on':''}"></div><div class="gc-out-dot ${outs>=3?'on':''}"></div></div><svg width="16" height="16" viewBox="0 0 16 16"><rect x="8" y="1" width="5" height="5" rx=".5" transform="rotate(45 10.5 3.5)" fill="${b2}" opacity="${b2f}"/><rect x="11" y="4" width="5" height="5" rx=".5" transform="rotate(45 13.5 6.5)" fill="${b1}" opacity="${b1f}"/><rect x="5" y="4" width="5" height="5" rx=".5" transform="rotate(45 7.5 6.5)" fill="${b3}" opacity="${b3f}"/></svg></div>`}
+    sitHtml=`<div class="gc-sit"><svg width="16" height="16" viewBox="0 0 16 16"><rect x="8" y="1" width="5" height="5" rx=".5" transform="rotate(45 10.5 3.5)" fill="${b2}" opacity="${b2f}"/><rect x="11" y="4" width="5" height="5" rx=".5" transform="rotate(45 13.5 6.5)" fill="${b1}" opacity="${b1f}"/><rect x="5" y="4" width="5" height="5" rx=".5" transform="rotate(45 7.5 6.5)" fill="${b3}" opacity="${b3f}"/></svg><div class="gc-outs"><div class="gc-out-dot ${outs>=1?'on':''}"></div><div class="gc-out-dot ${outs>=2?'on':''}"></div><div class="gc-out-dot ${outs>=3?'on':''}"></div></div></div>`}
   return`<div class="game-cell"><div class="gc-score"><div class="away"><span class="abbr">${aw}</span><span class="runs">${aR}</span></div><div class="home"><span class="abbr">${hm}</span><span class="runs">${hR}</span></div></div><span class="gc-inn">${stateLabel}</span>${sitHtml}${gameLine}</div>`}
 
 // Get a player's at-bats from a feed, matching by name
