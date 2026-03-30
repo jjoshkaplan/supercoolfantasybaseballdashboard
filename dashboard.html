@@ -684,7 +684,6 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
       <div class="roster-header">
         <div class="roster-header-left">
           <div class="pg-title-row"><h2 class="pg-title">My Roster</h2><span class="rank-badge" id="rosterRank"></span></div>
-          <p class="pg-sub" id="rosterSub">Loading roster data...</p>
         </div>
         <div class="roster-header-right" id="rosterMatchup"></div>
       </div>
@@ -1473,10 +1472,7 @@ function renderRoster(){
   const h=rosterData.filter(p=>p.type==='hitter').sort((a,b)=>(POS_ORDER_H.indexOf(a.selPos)===-1?99:POS_ORDER_H.indexOf(a.selPos))-(POS_ORDER_H.indexOf(b.selPos)===-1?99:POS_ORDER_H.indexOf(b.selPos)));
   const p=rosterData.filter(p=>p.type==='pitcher').sort((a,b)=>(POS_ORDER_P.indexOf(a.selPos)===-1?99:POS_ORDER_P.indexOf(a.selPos))-(POS_ORDER_P.indexOf(b.selPos)===-1?99:POS_ORDER_P.indexOf(b.selPos)));
   document.getElementById('roster-hitters').innerHTML=buildTable(h,HITTER_STATS);
-  document.getElementById('roster-pitchers').innerHTML=buildTable(p,PITCHER_STATS);
-  const sy=parseInt(leagueSeason||2026);
-  const pL={today:'Today',season:`${sy} Season`,lastweek:'Last 7 days',last14:'Last 14 days',lastmonth:'Last 30 days',prevyear:`${sy-1} Season`};
-  document.getElementById('rosterSub').textContent=`${h.length} hitters · ${p.length} pitchers · ${pL[currentPeriod]||currentPeriod}`}
+  document.getElementById('roster-pitchers').innerHTML=buildTable(p,PITCHER_STATS)}
 
 // ─── ROSTER HEADER CONTEXT (standings rank + matchup snapshot) ──
 let rosterContextLoaded=false;
