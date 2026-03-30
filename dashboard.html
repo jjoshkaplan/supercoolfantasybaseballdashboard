@@ -143,11 +143,10 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .gc-final{color:var(--muted);font-family:var(--mono);font-size:11px}
 .lu-badge{font-size:8px;font-weight:800;font-family:var(--mono);padding:1px 4px;border-radius:3px;background:var(--green-dim);color:var(--green);margin-left:4px;letter-spacing:.02em}
 .lu-badge.lu-out{background:var(--surface-3);color:var(--muted)}
-.mob-live-status{display:none}
+.lu-badge-col{margin-left:auto;flex-shrink:0}
 @keyframes pulse-st{0%,100%{box-shadow:0 0 0 0 rgba(45,212,160,.3)}70%{box-shadow:0 0 0 4px rgba(45,212,160,0)}}
 /* Inline game situation */
-.gc-state{display:flex;align-items:center;gap:5px}
-.gc-bases{flex-shrink:0}
+.gc-sit{display:flex;align-items:center;gap:5px}
 .gc-outs{display:flex;align-items:center;gap:2px}
 .gc-out-dot{width:6px;height:6px;border-radius:50%;border:1.2px solid var(--muted);flex-shrink:0}
 .gc-out-dot.on{background:var(--orange);border-color:var(--orange)}
@@ -384,13 +383,15 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   table .col-pos{width:26px;min-width:26px;padding-left:2px;padding-right:0}
   .pos-select{min-width:24px;padding:3px 1px;min-height:28px;font-size:9px!important;border-radius:4px}
   .player-cell{gap:0}#view-roster .player-hs{display:none}
-  .player-info{flex:1;min-width:0}
   .player-info .name{font-size:11px}.player-info .meta{font-size:8px}
-  tbody td.num{font-size:10px;padding:4px 1px!important;min-width:0;white-space:nowrap}
+  tbody td.num{font-size:9px;padding:4px 0px!important;min-width:0;white-space:nowrap}
   .trend-arrow{font-size:7px}
-  tbody td{padding:4px 2px}thead th{padding:5px 1px;font-size:8px;letter-spacing:0}
-  thead th.num{padding:5px 1px}
+  tbody td{padding:4px 1px}thead th{padding:5px 0px;font-size:8px;letter-spacing:0}
+  thead th.num{padding:5px 0px;font-size:7px}
+  #view-roster table td.num:last-child,#view-roster table th.num:last-child{padding-right:6px!important}
+  .col-game{padding-left:4px!important}
   .sparkline{display:none}
+  .lu-badge-col .lu-badge{margin-left:2px}
   /* Expanded row containment */
   .sc-row td{max-width:100vw;overflow:hidden;word-break:break-word}
   .sc-panel{margin:0 0 4px;border-radius:0;border-left:none;border-right:none;overflow:hidden;max-width:100vw;box-sizing:border-box}
@@ -404,18 +405,9 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   /* Game cell */
   .game-cell{gap:3px;min-width:70px;font-size:9px}.gc-score{font-size:8px}.gc-score .abbr{width:18px}.gc-inn{font-size:8px}
   .gc-status{font-size:7px;padding:1px 3px}
-  #roster-hitters .game-cell .gc-status,#roster-pitchers .game-cell .gc-status{display:none}
-  #roster-hitters .gc-preview .lu-badge{display:none}
-  .mob-live-status{display:inline-block;font-family:var(--mono);font-size:7px;font-weight:700;padding:1px 3px;border-radius:3px;white-space:nowrap;letter-spacing:.03em;margin-left:auto;margin-right:4px}
-  .player-info .meta{display:flex;align-items:center}
   .gc-sit{gap:3px}.gc-out-dot{width:5px;height:5px}.gc-sit svg{width:14px;height:14px}
-  .gc-score .runs{width:auto;margin-left:1px}
-  .gc-state{flex-direction:column;align-items:center;gap:1px}
-  .gc-state .gc-bases{width:14px;height:14px;order:-1}
-  .gc-state .gc-inn{font-size:7px}
-  .gc-state .gc-outs{order:1}
-  .gc-out-dot{width:4px;height:4px}
   .lu-badge{font-size:7px;padding:1px 3px;margin-left:2px}
+  .sp-start-badge{font-size:7px;padding:1px 3px;margin-left:3px}
 
   /* Statcast */
   .sc-snap{max-width:100vw}
@@ -1493,7 +1485,7 @@ function buildTable(players,sn,ht){
     const fw=clampSev>0.7?'700':'600';
     return`background:rgba(${color},${opacity});color:${textColor};font-weight:${fw}`;
   }
-  let html='<table><thead><tr><th class="col-pos">Pos</th><th class="col-player">Player</th><th>Game</th>';
+  let html='<table><thead><tr><th class="col-pos">Pos</th><th class="col-player">Player</th><th class="col-game">Game</th>';
   for(const s of sn)html+=`<th class="num">${s}</th>`;html+='</tr></thead><tbody>';
   let bench=false;
   for(const p of players){
@@ -1506,23 +1498,11 @@ function buildTable(players,sn,ht){
     const sc=p.status&&(p.status.includes('IL')||p.status.includes('DL'))?'il':p.status?'dtd':'';
     const sh=p.statusFull?`<span class="status ${sc}">${p.status}</span>`:'';
     const spBadge=p.type==='pitcher'&&isScheduledStarter(p.name,p.team)?'<span class="sp-start-badge">START</span>':'';
-    const mls=getPlayerLiveStatus(p.name,p.team,p.type);
-    let mobStatus='';
-    if(mls){
-      if(mls.status==='preview'&&p.type==='hitter'){
-        const luPos=getLineupPosition(p.mlbId,p.team);
-        const g=mls.game,aw=g.teams.away.team.abbreviation;
-        const hasLD=(()=>{if(!p.mlbId)return false;const gpk=g.gamePk;const isAw=p.team===aw;const feed=liveFeeds[gpk];if(feed){const bo=isAw?feed.awayBatOrder:feed.homeBatOrder;if(bo&&bo.length)return true}if(g.lineups){const pl=isAw?(g.lineups.awayPlayers||[]):(g.lineups.homePlayers||[]);if(pl.length)return true}return false})();
-        if(luPos.order)mobStatus=`<span class="mob-live-status lu-badge">#${luPos.order}</span>`;
-        else if(hasLD&&!luPos.inLineup)mobStatus=`<span class="mob-live-status lu-badge lu-out">OUT</span>`;
-      }else if(mls.label&&mls.status!=='final'&&mls.status!=='preview'){
-        mobStatus=`<span class="mob-live-status ${mls.cls}">${mls.label}</span>`;
-      }
-    }
+    const luBadge=buildLuBadge(p);
     html+=`<td class="col-player"><div class="player-cell">${p.hs?`<img class="player-hs" src="${p.hs}" alt="" onerror="this.style.display='none'">`:''}
-      <div class="player-info"><div class="name">${p.name}${spBadge}</div><div class="meta">${p.team} · ${p.pos} ${sh}${mobStatus}</div></div></div></td>`;
+      <div class="player-info"><div class="name">${p.name}</div><div class="meta">${p.team} · ${p.pos}${spBadge} ${sh}</div></div>${luBadge?`<span class="lu-badge-col">${luBadge}</span>`:''}</div></td>`;
     // Game status
-    html+=`<td>${buildGameCell(p)}</td>`;
+    html+=`<td class="col-game">${buildGameCell(p)}</td>`;
     // Stats with sparklines + color coding
     const pr=refData[p.playerKey]||null;
     for(const s of sn){const v=statVal(p.stats,s),f=fmtStat(v,s);const a=ht?trend(s,v,pr):'';
@@ -1535,23 +1515,28 @@ function buildTable(players,sn,ht){
   }
   return html+'</tbody></table>'}
 
+// Build lineup badge for player column (hitters only)
+function buildLuBadge(p){
+  if(p.type!=='hitter'||!p.mlbId)return'';
+  const game=findGameForTeam(p.team);if(!game)return'';
+  const aw=game.teams.away.team.abbreviation;
+  const luPos=getLineupPosition(p.mlbId,p.team);
+  const hasLineupData=(()=>{const gpk=game.gamePk;const isAw=p.team===aw;const feed=liveFeeds[gpk];
+    if(feed){const bo=isAw?feed.awayBatOrder:feed.homeBatOrder;if(bo&&bo.length)return true}
+    if(game.lineups){const pl=isAw?(game.lineups.awayPlayers||[]):(game.lineups.homePlayers||[]);if(pl.length)return true}
+    return false})();
+  if(luPos.order)return`<span class="lu-badge">#${luPos.order}</span>`;
+  if(hasLineupData&&!luPos.inLineup&&game.status?.abstractGameState!=='Final')return'<span class="lu-badge lu-out">OUT</span>';
+  return''}
+
 function buildGameCell(p){
   const ls=getPlayerLiveStatus(p.name,p.team,p.type);
   if(!ls.game)return'<span class="gc-preview">No game</span>';
   const g=ls.game,f=ls.feed,aw=g.teams.away.team.abbreviation,hm=g.teams.home.team.abbreviation;
   const isAway=p.team===aw;
-  // Lineup position lookup (hitters only)
-  const luPos=p.type==='hitter'?getLineupPosition(p.mlbId,p.team):{inLineup:false,order:null};
-  // Only show OUT if we have positive lineup data (batting order was posted)
-  const hasLineupData=(()=>{if(!p.mlbId||p.type!=='hitter')return false;
-    const gpk=g.gamePk;const isAw=p.team===aw;const feed=liveFeeds[gpk];
-    if(feed){const bo=isAw?feed.awayBatOrder:feed.homeBatOrder;if(bo&&bo.length)return true}
-    if(g.lineups){const pl=isAw?(g.lineups.awayPlayers||[]):(g.lineups.homePlayers||[]);if(pl.length)return true}
-    return false})();
-  const luBadge=luPos.order?`<span class="lu-badge">#${luPos.order}</span>`:hasLineupData&&!luPos.inLineup&&g.status?.abstractGameState!=='Final'?'<span class="lu-badge lu-out">OUT</span>':'';
   if(ls.status==='preview'){
     const timeStr=new Date(g.gameDate).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
-    return`<span class="gc-preview">${isAway?'@'+hm:'v'+aw} ${timeStr}${luBadge}</span>`}
+    return`<span class="gc-preview">${isAway?'@'+hm:'v'+aw} ${timeStr}</span>`}
   // Live or final - show mini scoreboard + status + game line
   const aR=f?f.away.runs:g.teams.away.score||0,hR=f?f.home.runs:g.teams.home.score||0;
   const inn=f?`${f.inning_half==='Top'?'▲':'▼'}${f.inning_ordinal||''}`:'';
@@ -1569,9 +1554,8 @@ function buildGameCell(p){
     const outs=f.count?.outs||0;const r=f.runners||{};
     const b1=r.first?'var(--yellow)':'var(--muted)',b2=r.second?'var(--yellow)':'var(--muted)',b3=r.third?'var(--yellow)':'var(--muted)';
     const b1f=r.first?1:.25,b2f=r.second?1:.25,b3f=r.third?1:.25;
-    sitHtml=`<svg class="gc-bases" width="16" height="16" viewBox="0 0 16 16"><rect x="8" y="1" width="5" height="5" rx=".5" transform="rotate(45 10.5 3.5)" fill="${b2}" opacity="${b2f}"/><rect x="11" y="4" width="5" height="5" rx=".5" transform="rotate(45 13.5 6.5)" fill="${b1}" opacity="${b1f}"/><rect x="5" y="4" width="5" height="5" rx=".5" transform="rotate(45 7.5 6.5)" fill="${b3}" opacity="${b3f}"/></svg><div class="gc-outs"><div class="gc-out-dot ${outs>=1?'on':''}"></div><div class="gc-out-dot ${outs>=2?'on':''}"></div><div class="gc-out-dot ${outs>=3?'on':''}"></div></div>`}
-  const stateHtml=sitHtml?`<div class="gc-state">${sitHtml}<span class="gc-inn">${stateLabel}</span></div>`:`<span class="gc-inn">${stateLabel}</span>`;
-  return`<div class="game-cell"><div class="gc-score"><div class="away"><span class="abbr">${aw}</span><span class="runs">${aR}</span></div><div class="home"><span class="abbr">${hm}</span><span class="runs">${hR}</span></div></div>${stateHtml}${ls.label&&ls.status!=='final'&&ls.status!=='preview'?`<span class="gc-status ${ls.cls}">${ls.label}</span>`:''}${gameLine}</div>`}
+    sitHtml=`<div class="gc-sit"><div class="gc-outs"><div class="gc-out-dot ${outs>=1?'on':''}"></div><div class="gc-out-dot ${outs>=2?'on':''}"></div><div class="gc-out-dot ${outs>=3?'on':''}"></div></div><svg width="16" height="16" viewBox="0 0 16 16"><rect x="8" y="1" width="5" height="5" rx=".5" transform="rotate(45 10.5 3.5)" fill="${b2}" opacity="${b2f}"/><rect x="11" y="4" width="5" height="5" rx=".5" transform="rotate(45 13.5 6.5)" fill="${b1}" opacity="${b1f}"/><rect x="5" y="4" width="5" height="5" rx=".5" transform="rotate(45 7.5 6.5)" fill="${b3}" opacity="${b3f}"/></svg></div>`}
+  return`<div class="game-cell"><div class="gc-score"><div class="away"><span class="abbr">${aw}</span><span class="runs">${aR}</span></div><div class="home"><span class="abbr">${hm}</span><span class="runs">${hR}</span></div></div><span class="gc-inn">${stateLabel}</span>${sitHtml}${ls.label&&ls.status!=='final'&&ls.status!=='preview'?`<span class="gc-status ${ls.cls}">${ls.label}</span>`:''}${gameLine}</div>`}
 
 // Get a player's at-bats from a feed, matching by name
 function getPlayerABs(f,playerName){
@@ -2598,7 +2582,7 @@ function buildStRosterTable(players,sn,statsMap,title){
     html+=`<td><div class="player-cell">${p.hs?`<img class="player-hs" src="${p.hs}" onerror="this.style.display='none'">`:''}`;
     const gameTag=buildMiniGameTag(p.team);
     const spBadge2=p.type==='pitcher'&&isScheduledStarter(p.name,p.team)?'<span class="sp-start-badge">START</span>':'';
-    html+=`<div class="player-info"><div class="name">${p.name}${spBadge2}</div><div class="meta">${p.team} · ${p.pos} ${sh}${gameTag}</div></div></div></td>`;
+    html+=`<div class="player-info"><div class="name">${p.name}</div><div class="meta">${p.team} · ${p.pos}${spBadge2} ${sh}${gameTag}</div></div></div></td>`;
     for(const s of sn){
       const v=statVal(st,s),f=fmtStat(v,s);
       const cs=cellStyle(p.playerKey,s);
