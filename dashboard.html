@@ -2523,7 +2523,7 @@ async function loadStandings(){const el=document.getElementById('standings-conte
   renderStandings()}
 
 function renderStandings(){
-  const el=document.getElementById('standings-content');
+  const el=document.getElementById('standings-content');el.className='';
   let h='<div class="tw"><table class="st-table"><thead><tr><th class="st-rank">#</th><th class="st-team">Team</th><th class="st-num">Record</th><th class="st-num">Win %</th><th class="st-num">GB</th></tr></thead><tbody>';
   standingsData.forEach(t=>{
     const isExp=expandedStTeam===t.team_key;
@@ -2722,7 +2722,7 @@ async function loadMatchups(){
   renderLeagueRankings()}
 
 function renderMatchupCard(){
-  const el=document.getElementById('matchups-content');
+  const el=document.getElementById('matchups-content');el.className='';
   if(!muData.length){el.innerHTML='<div class="empty">No matchups this week</div>';return}
   const m=muData[muIdx];
   const t1=m.teams[0],t2=m.teams[1];
@@ -2779,7 +2779,7 @@ function switchMuTab(tab){
 function sortRankings(sid){rankSortId=rankSortId===sid?null:sid;renderLeagueRankings()}
 
 function renderLeagueRankings(){
-  const el=document.getElementById('rankings-content');
+  const el=document.getElementById('rankings-content');el.className='';
   if(!allTeamsStats.length||!Object.keys(statCategories).length){el.innerHTML='<div class="empty">No data available</div>';return}
   const HIDE_CATS=['H','AB','H/AB','Hits','At Bats'];
   const ds=Object.entries(statCategories).filter(([,c])=>c.display_name&&!HIDE_CATS.includes(c.display_name));
