@@ -2489,7 +2489,7 @@ function buildStatcastLive(p,ls){
     statsBar=`<div class="sc-stats" style="margin-top:8px;border-radius:6px;overflow:hidden"><div class="sc-stat"><div class="sc-sv ${vc}">${lp.speed?Math.round(lp.speed):'—'}</div><div class="sc-sl">Velo</div></div><div class="sc-stat"><div class="sc-sv">${lp.spin?Math.round(lp.spin).toLocaleString():'—'}</div><div class="sc-sl">Spin</div></div><div class="sc-stat"><div class="sc-sv ${ec}">${lp.exitVelo?Math.round(lp.exitVelo):'—'}</div><div class="sc-sl">Exit V</div></div><div class="sc-stat"><div class="sc-sv">${lp.launchAngle!=null?Math.round(lp.launchAngle)+'°':'—'}</div><div class="sc-sl">LA</div></div><div class="sc-stat"><div class="sc-sv">${lp.distance?Math.round(lp.distance)+"'":'—'}</div><div class="sc-sl">Dist</div></div></div>`}
   // Improved spray chart — interactive dots
   const sprayUID=`sp_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
-  const spray=buildImprovedSpray(bip,p.name,320,280,sprayUID,hm);
+  const spray=buildImprovedSpray(bip,p.name,360,320,sprayUID,hm);
   // Spray legend
   const sprayLeg=`<div class="sc-legend" style="border-top:none;padding:4px 0 0;justify-content:center"><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#f0a030"></span>HR</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#a855f7"></span>3B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#3b82f6"></span>2B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#2dd4a0"></span>1B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#f06449"></span>Out</span></div>`;
   // Zone legend
