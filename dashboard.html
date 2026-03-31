@@ -2079,7 +2079,35 @@ function applySprayFilters(sprayId){
     if(f.half!=='all'&&dot.dataset.half!==f.half)show=false;
     dot.style.display=show?'':'none'})}
 
-function buildImprovedSpray(bip,playerName,w,h,sprayId){
+// ── Stadium fence dimensions: [LF_line, LF_alley, CF, RF_alley, RF_line] ──
+const STADIUM_DIMS={
+  ARI:[330,374,407,374,334],ATL:[335,380,400,375,325],BAL:[333,364,400,373,318],
+  BOS:[310,379,389,380,302],CHC:[355,368,400,368,353],CWS:[330,377,400,372,335],
+  CIN:[328,370,404,370,325],CLE:[325,370,400,375,325],COL:[347,390,415,375,350],
+  DET:[345,370,420,365,330],HOU:[315,362,409,373,326],KC:[330,387,410,387,330],
+  LAA:[330,370,396,370,330],LAD:[330,375,395,370,330],MIA:[344,386,407,386,335],
+  MIL:[344,371,400,374,345],MIN:[339,377,404,367,328],NYM:[335,379,408,375,330],
+  NYY:[318,399,408,385,314],OAK:[330,367,400,367,330],PHI:[329,374,401,369,330],
+  PIT:[325,383,399,375,320],SD:[336,390,396,382,322],SF:[339,382,399,365,309],
+  SEA:[331,378,401,381,326],STL:[336,375,400,375,335],TB:[315,370,404,370,322],
+  TEX:[329,372,407,374,326],TOR:[328,375,400,375,328],WSH:[336,377,402,370,335],
+  _DEFAULT:[330,370,400,370,330]
+};
+function _fenceInterp(angle,dims){
+  // Cosine-interpolate fence distance at any angle (-45°=LF line → +45°=RF line)
+  const as=[-45,-22.5,0,22.5,45];
+  if(angle<=as[0])return dims[0];if(angle>=as[4])return dims[4];
+  for(let i=0;i<4;i++){if(angle<=as[i+1]){
+    const t=(angle-as[i])/(as[i+1]-as[i]),tc=(1-Math.cos(t*Math.PI))/2;
+    return dims[i]*(1-tc)+dims[i+1]*tc}}
+  return dims[2]}
+function _fenceToSVG(angleDeg,distFt,spCx,spCy,spW,fH){
+  const rad=angleDeg*Math.PI/180,scale=2.51;
+  const mlbX=125+(distFt/scale)*Math.sin(rad),mlbY=199-(distFt/scale)*Math.cos(rad);
+  const nx=(mlbX-125)/125,ny=(250-mlbY)/250;
+  return{x:spCx+nx*spW*.45,y:spCy-ny*fH*.9}}
+
+function buildImprovedSpray(bip,playerName,w,h,sprayId,homeAbbr){
   const spW=w||320,spH=h||280,topPad=40,spCx=spW/2,spCy=spH-12;
   const fH=spH-topPad-12;
   const mine=n=>nameMatch(playerName,n);
@@ -2098,14 +2126,22 @@ function buildImprovedSpray(bip,playerName,w,h,sprayId){
   svg+=`<rect x="${spCx-3}" y="${spCy-3}" width="6" height="6" transform="rotate(45 ${spCx} ${spCy})" fill="#505878"/>`;
   svg+=`<line x1="${spCx}" y1="${spCy}" x2="${spCx-spW*.47}" y2="${spCy-fH*.87}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
   svg+=`<line x1="${spCx}" y1="${spCy}" x2="${spCx+spW*.47}" y2="${spCy-fH*.87}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
-  // Warning track band (wide stroke along fence arc)
-  const fArc=`M ${spCx-spW*.47},${spCy-fH*.87} A ${spW*.64} ${fH*.92} 0 0 1 ${spCx+spW*.47},${spCy-fH*.87}`;
-  svg+=`<path d="${fArc}" fill="none" stroke="#3d2c18" stroke-width="10" opacity="0.4"/>`;
-  // Fence wall
-  svg+=`<path d="${fArc}" fill="none" stroke="#8b7b5e" stroke-width="2"/>`;
-  // Distance markers along fence
-  const dLabels=[[-.40,-.83,"330'"],[-.23,-.92,"370'"],[0,-.96,"400'"],[.23,-.92,"370'"],[.40,-.83,"330'"]];
-  dLabels.forEach(([dx,dy,t])=>{svg+=`<text x="${spCx+dx*spW*.52}" y="${(spCy+dy*fH)-4}" text-anchor="middle" fill="#8b7b5e" font-size="7" font-family="var(--mono)" font-weight="600" opacity="0.8">${t}</text>`});
+  // Stadium-specific fence
+  const dims=STADIUM_DIMS[homeAbbr]||STADIUM_DIMS._DEFAULT;
+  const fPts=[];for(let a=-45;a<=45;a+=2){const d=_fenceInterp(a,dims);fPts.push({..._fenceToSVG(a,d,spCx,spCy,spW,fH),d,a})}
+  // Warning track (15ft inward from fence)
+  const wtPts=[];for(let a=-45;a<=45;a+=2){const d=_fenceInterp(a,dims)-15;wtPts.push(_fenceToSVG(a,d,spCx,spCy,spW,fH))}
+  const fPath='M '+fPts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ');
+  const wtPath='M '+wtPts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ');
+  // Warning track fill between fence and inner edge
+  svg+=`<path d="${fPath} L ${wtPts[wtPts.length-1].x.toFixed(1)},${wtPts[wtPts.length-1].y.toFixed(1)} ${wtPts.slice().reverse().map(p=>`L ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')} Z" fill="#3d2c18" opacity="0.35"/>`;
+  // Fence wall line
+  svg+=`<path d="${fPath}" fill="none" stroke="#8b7b5e" stroke-width="2" stroke-linecap="round"/>`;
+  // Distance labels at key positions
+  const labelAngles=[[-45,dims[0]],[-22.5,dims[1]],[0,dims[2]],[22.5,dims[3]],[45,dims[4]]];
+  labelAngles.forEach(([a,d])=>{const pt=_fenceToSVG(a,d+12,spCx,spCy,spW,fH);svg+=`<text x="${pt.x.toFixed(1)}" y="${pt.y.toFixed(1)}" text-anchor="middle" fill="#8b7b5e" font-size="7" font-family="var(--mono)" font-weight="600" opacity="0.8">${d}'</text>`});
+  // Stadium name
+  if(homeAbbr&&STADIUM_DIMS[homeAbbr]){const cfPt=_fenceToSVG(0,dims[2]+25,spCx,spCy,spW,fH);svg+=`<text x="${cfPt.x.toFixed(1)}" y="${cfPt.y.toFixed(1)}" text-anchor="middle" fill="#5c6478" font-size="8" font-family="var(--mono)" font-weight="700" opacity="0.6">${homeAbbr}</text>`}
   allDots.forEach((b,i)=>{
     const nx=(b.hitX-125)/125,ny=(250-b.hitY)/250,sx=spCx+nx*spW*.45,sy=spCy-ny*fH*.9;
     const col=hitEventColor(b.event,b._mine);const r=b._mine?5.5:3.5;const op=b._mine?1:.45;
@@ -2447,7 +2483,7 @@ function buildStatcastLive(p,ls){
     statsBar=`<div class="sc-stats" style="margin-top:8px;border-radius:6px;overflow:hidden"><div class="sc-stat"><div class="sc-sv ${vc}">${lp.speed?Math.round(lp.speed):'—'}</div><div class="sc-sl">Velo</div></div><div class="sc-stat"><div class="sc-sv">${lp.spin?Math.round(lp.spin).toLocaleString():'—'}</div><div class="sc-sl">Spin</div></div><div class="sc-stat"><div class="sc-sv ${ec}">${lp.exitVelo?Math.round(lp.exitVelo):'—'}</div><div class="sc-sl">Exit V</div></div><div class="sc-stat"><div class="sc-sv">${lp.launchAngle!=null?Math.round(lp.launchAngle)+'°':'—'}</div><div class="sc-sl">LA</div></div><div class="sc-stat"><div class="sc-sv">${lp.distance?Math.round(lp.distance)+"'":'—'}</div><div class="sc-sl">Dist</div></div></div>`}
   // Improved spray chart — interactive dots
   const sprayUID=`sp_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
-  const spray=buildImprovedSpray(bip,p.name,320,280,sprayUID);
+  const spray=buildImprovedSpray(bip,p.name,320,280,sprayUID,hm);
   // Spray legend
   const sprayLeg=`<div class="sc-legend" style="border-top:none;padding:4px 0 0;justify-content:center"><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#f0a030"></span>HR</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#a855f7"></span>3B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#3b82f6"></span>2B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#2dd4a0"></span>1B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#f06449"></span>Out</span></div>`;
   // Zone legend
