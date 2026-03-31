@@ -2109,7 +2109,7 @@ function _fenceToSVG(angleDeg,distFt,spCx,spCy,spW,fH){
   return{x:spCx+nx*spW*.45,y:spCy-ny*fH*.9}}
 
 function buildImprovedSpray(bip,playerName,w,h,sprayId,homeAbbr){
-  const spW=w||320,spH=h||280,topPad=40,spCx=spW/2,spCy=spH-12;
+  const spW=w||320,spH=h||280,topPad=20,spCx=spW/2,spCy=spH-12;
   const fH=spH-topPad-12;
   const mine=n=>nameMatch(playerName,n);
   // Store bip data for tooltip lookups
