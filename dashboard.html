@@ -2475,14 +2475,14 @@ function buildStatcastLive(p,ls){
   const pitches=f.pitches||[],bip=f.bip||[];
   const snapId=`snap_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
   // Strike zone
-  const W=280,H=310,P=36,sW=W+P*2,sH=H+P*2+12;
+  const W=180,H=200,P=28,sW=W+P*2,sH=H+P*2+12;
   const mx=px=>P+(W/2)+(px/1.2)*(W/2),mz=pz=>P+H-((pz-1.0)/3.0)*H;
   const zx1=mx(-.83),zx2=mx(.83),zy1=mz(3.5),zy2=mz(1.5),zw=zx2-zx1,zh=zy2-zy1;
-  let grid='';for(let i=1;i<3;i++)grid+=`<line x1="${zx1+zw/3*i}" y1="${zy1}" x2="${zx1+zw/3*i}" y2="${zy2}" stroke="#303850" stroke-width="0.7"/><line x1="${zx1}" y1="${zy1+zh/3*i}" x2="${zx2}" y2="${zy1+zh/3*i}" stroke="#303850" stroke-width="0.7"/>`;
-  let dots='';pitches.forEach((pt,i)=>{if(pt.pX==null||pt.pZ==null)return;const cx=mx(pt.pX),cy=mz(pt.pZ),last=i===pitches.length-1,rad=last?9:6.5,col=callColor(pt.call);
-    dots+=`<circle cx="${cx}" cy="${cy}" r="${rad}" fill="${col}" opacity="${last?1:.65}" stroke="${last?'#fff':'none'}" stroke-width="${last?2:0}"/><text x="${cx}" y="${cy+.5}" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="${last?11:9}" font-family="var(--mono)" font-weight="600" style="pointer-events:none">${pt.num}</text>`});
-  const zone=`<svg width="${sW}" height="${sH}" viewBox="0 0 ${sW} ${sH}"><rect x="${zx1}" y="${zy1}" width="${zw}" height="${zh}" fill="none" stroke="#505878" stroke-width="1.5" rx="3"/>${grid}${dots}<text x="${P+W/2}" y="${sH-2}" text-anchor="middle" fill="#5c6478" font-size="10" font-family="var(--mono)">Catcher's view</text></svg>`;
-  let pLog='';if(pitches.length)pLog='<div style="margin-top:6px;max-height:120px;overflow-y:auto;scrollbar-width:thin">'+ [...pitches].reverse().map(pt=>{const col=pitchColor(pt.type),ab=pitchAbbr(pt.type);let res=pt.call;if(pt.isInPlay&&pt.exitVelo)res+=` · ${Math.round(pt.exitVelo)} EV`;return`<div class="pl-row"><span class="pl-num">${pt.num}</span><span class="pl-dot" style="background:${col}"></span><span class="pl-abbr">${ab}</span><span class="pl-velo">${pt.speed?Math.round(pt.speed):'-'}</span><span class="pl-call">${res}</span></div>`}).join('')+'</div>';
+  let grid='';for(let i=1;i<3;i++)grid+=`<line x1="${zx1+zw/3*i}" y1="${zy1}" x2="${zx1+zw/3*i}" y2="${zy2}" stroke="#303850" stroke-width="0.5"/><line x1="${zx1}" y1="${zy1+zh/3*i}" x2="${zx2}" y2="${zy1+zh/3*i}" stroke="#303850" stroke-width="0.5"/>`;
+  let dots='';pitches.forEach((pt,i)=>{if(pt.pX==null||pt.pZ==null)return;const cx=mx(pt.pX),cy=mz(pt.pZ),last=i===pitches.length-1,rad=last?6:4.5,col=callColor(pt.call);
+    dots+=`<circle cx="${cx}" cy="${cy}" r="${rad}" fill="${col}" opacity="${last?1:.65}" stroke="${last?'#fff':'none'}" stroke-width="${last?1.5:0}"/><text x="${cx}" y="${cy+.5}" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="${last?8:6.5}" font-family="var(--mono)" font-weight="600" style="pointer-events:none">${pt.num}</text>`});
+  const zone=`<svg width="${sW}" height="${sH}" viewBox="0 0 ${sW} ${sH}"><rect x="${zx1}" y="${zy1}" width="${zw}" height="${zh}" fill="none" stroke="#505878" stroke-width="1.2" rx="2"/>${grid}${dots}<text x="${P+W/2}" y="${sH-1}" text-anchor="middle" fill="#5c6478" font-size="8" font-family="var(--mono)">Catcher's view</text></svg>`;
+  let pLog='';if(pitches.length)pLog='<div style="margin-top:6px;max-height:88px;overflow-y:auto;scrollbar-width:thin">'+ [...pitches].reverse().map(pt=>{const col=pitchColor(pt.type),ab=pitchAbbr(pt.type);let res=pt.call;if(pt.isInPlay&&pt.exitVelo)res+=` · ${Math.round(pt.exitVelo)} EV`;return`<div class="pl-row"><span class="pl-num">${pt.num}</span><span class="pl-dot" style="background:${col}"></span><span class="pl-abbr">${ab}</span><span class="pl-velo">${pt.speed?Math.round(pt.speed):'-'}</span><span class="pl-call">${res}</span></div>`}).join('')+'</div>';
   // Stats bar
   const lp=f.lastPitch;
   let statsBar='';
