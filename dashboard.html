@@ -2029,6 +2029,7 @@ function hitEventColor(event,isMine){
 
 let sprayBipData={}; // {sprayId: bip[]}
 let sprayFilterCache={}; // {sprayId: filterHtml}
+let sprayVenueLabel={}; // {sprayId: homeAbbr}
 function showBipTip(sprayId,idx,evt){
   evt.stopPropagation();
   const wrap=document.getElementById('sw_'+sprayId);if(!wrap)return;
@@ -2120,28 +2121,31 @@ function buildImprovedSpray(bip,playerName,w,h,sprayId,homeAbbr){
   // Collect unique innings for filter
   const innings=[...new Set(allDots.map(b=>b.inning).filter(Boolean))].sort((a,b)=>a-b);
   let svg=`<svg width="${spW}" height="${spH}" viewBox="0 0 ${spW} ${spH}" style="cursor:pointer" id="svg_${sprayId}">`;
-  svg+=`<path d="M ${spCx},${spCy} L ${spCx-spW*.47},${spCy-fH*.87} A ${spW*.64} ${fH*.92} 0 0 1 ${spCx+spW*.47},${spCy-fH*.87} Z" fill="#1a2618" stroke="#2d4a25" stroke-width="0.8"/>`;
+  // ── Compute fence points first so grass fill matches stadium shape ──
+  const dims=STADIUM_DIMS[homeAbbr]||STADIUM_DIMS._DEFAULT;
+  const fPts=[];for(let a=-45;a<=45;a+=2){const d=_fenceInterp(a,dims);fPts.push({..._fenceToSVG(a,d,spCx,spCy,spW,fH),d,a})}
+  // Warning track inner edge (15ft inward from fence)
+  const wtPts=[];for(let a=-45;a<=45;a+=2){const d=_fenceInterp(a,dims)-15;wtPts.push(_fenceToSVG(a,d,spCx,spCy,spW,fH))}
+  // ── Outfield grass: pie slice from home plate following fence contour ──
+  const grassPath='M '+spCx+','+spCy+' L '+fPts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ')+' Z';
+  svg+=`<path d="${grassPath}" fill="#1a2618" stroke="#2d4a25" stroke-width="0.8"/>`;
+  // Infield diamond
   const dS=spW*.12;
   svg+=`<path d="M ${spCx},${spCy-dS*2.2} L ${spCx+dS},${spCy-dS*1.1} L ${spCx},${spCy} L ${spCx-dS},${spCy-dS*1.1} Z" fill="#2a2215" stroke="#3d3520" stroke-width="0.5"/>`;
   svg+=`<rect x="${spCx-3}" y="${spCy-3}" width="6" height="6" transform="rotate(45 ${spCx} ${spCy})" fill="#505878"/>`;
-  svg+=`<line x1="${spCx}" y1="${spCy}" x2="${spCx-spW*.47}" y2="${spCy-fH*.87}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
-  svg+=`<line x1="${spCx}" y1="${spCy}" x2="${spCx+spW*.47}" y2="${spCy-fH*.87}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
-  // Stadium-specific fence
-  const dims=STADIUM_DIMS[homeAbbr]||STADIUM_DIMS._DEFAULT;
-  const fPts=[];for(let a=-45;a<=45;a+=2){const d=_fenceInterp(a,dims);fPts.push({..._fenceToSVG(a,d,spCx,spCy,spW,fH),d,a})}
-  // Warning track (15ft inward from fence)
-  const wtPts=[];for(let a=-45;a<=45;a+=2){const d=_fenceInterp(a,dims)-15;wtPts.push(_fenceToSVG(a,d,spCx,spCy,spW,fH))}
+  // Foul lines
+  const lfPt=fPts[0],rfPt=fPts[fPts.length-1];
+  svg+=`<line x1="${spCx}" y1="${spCy}" x2="${lfPt.x.toFixed(1)}" y2="${lfPt.y.toFixed(1)}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
+  svg+=`<line x1="${spCx}" y1="${spCy}" x2="${rfPt.x.toFixed(1)}" y2="${rfPt.y.toFixed(1)}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
+  // ── Warning track fill (between fence and inner edge) ──
   const fPath='M '+fPts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ');
-  const wtPath='M '+wtPts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ');
-  // Warning track fill between fence and inner edge
   svg+=`<path d="${fPath} L ${wtPts[wtPts.length-1].x.toFixed(1)},${wtPts[wtPts.length-1].y.toFixed(1)} ${wtPts.slice().reverse().map(p=>`L ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')} Z" fill="#3d2c18" opacity="0.35"/>`;
   // Fence wall line
   svg+=`<path d="${fPath}" fill="none" stroke="#8b7b5e" stroke-width="2" stroke-linecap="round"/>`;
   // Distance labels at key positions
   const labelAngles=[[-45,dims[0]],[-22.5,dims[1]],[0,dims[2]],[22.5,dims[3]],[45,dims[4]]];
   labelAngles.forEach(([a,d])=>{const pt=_fenceToSVG(a,d+12,spCx,spCy,spW,fH);svg+=`<text x="${pt.x.toFixed(1)}" y="${pt.y.toFixed(1)}" text-anchor="middle" fill="#8b7b5e" font-size="7" font-family="var(--mono)" font-weight="600" opacity="0.8">${d}'</text>`});
-  // Stadium name
-  if(homeAbbr&&STADIUM_DIMS[homeAbbr]){const cfPt=_fenceToSVG(0,dims[2]+25,spCx,spCy,spW,fH);svg+=`<text x="${cfPt.x.toFixed(1)}" y="${cfPt.y.toFixed(1)}" text-anchor="middle" fill="#5c6478" font-size="8" font-family="var(--mono)" font-weight="700" opacity="0.6">${homeAbbr}</text>`}
+  // ── BIP dots ──
   allDots.forEach((b,i)=>{
     const nx=(b.hitX-125)/125,ny=(250-b.hitY)/250,sx=spCx+nx*spW*.45,sy=spCy-ny*fH*.9;
     const col=hitEventColor(b.event,b._mine);const r=b._mine?5.5:3.5;const op=b._mine?1:.45;
@@ -2150,6 +2154,8 @@ function buildImprovedSpray(bip,playerName,w,h,sprayId,homeAbbr){
     svg+=`<circle class="sp-dot" cx="${sx}" cy="${sy}" r="${r}" fill="${col}" opacity="${op}" ${stroke} data-mine="${b._mine?1:0}" data-hit="${b.isHit?1:0}" data-inn="${b.inning||0}" data-half="${half}" style="cursor:pointer" onclick="showBipTip('${sprayId}',${i},event)"/>`});
   if(!allDots.length)svg+=`<text x="${spCx}" y="${spCy-fH*.4}" text-anchor="middle" fill="#5c6478" font-size="10" font-family="var(--mono)">No balls in play</text>`;
   svg+=`</svg>`;
+  // Store venue label for external placement
+  sprayVenueLabel[sprayId]=homeAbbr&&STADIUM_DIMS[homeAbbr]?homeAbbr:'';
   // Filter toggles
   let filterHtml=`<div class="spray-filters" onclick="event.stopPropagation()">`;
   filterHtml+=`<button class="sf-btn" data-filter="hits" onclick="toggleSprayFilter('${sprayId}','hits',this)">Hits Only</button>`;
@@ -2497,7 +2503,8 @@ function buildStatcastLive(p,ls){
   html+=`<div class="sc-card"><div class="sc-card-inner">${zone}${zoneLeg}</div>${pLog}${statsBar}</div>`;
   // Card 2: Spray chart (interactive) with legend + filters
   const sprayFilterHtml=sprayFilterCache[sprayUID]||'';
-  html+=`<div class="sc-card"><div class="sc-card-inner">${spray}${sprayLeg}${sprayFilterHtml}</div></div>`;
+  const venueLabel=sprayVenueLabel[sprayUID]?`<div style="text-align:center;font-size:8px;font-weight:700;font-family:var(--mono);color:var(--muted);letter-spacing:.06em;padding:2px 0 0">@ ${sprayVenueLabel[sprayUID]}</div>`:'';
+  html+=`<div class="sc-card"><div class="sc-card-inner">${spray}${sprayLeg}${venueLabel}${sprayFilterHtml}</div></div>`;
   // Card 3: Full game log
   html+=`<div class="sc-card">${gameLog}</div>`;
   html+=`</div>`;
