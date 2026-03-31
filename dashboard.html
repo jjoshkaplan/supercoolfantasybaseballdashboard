@@ -2184,7 +2184,7 @@ function buildMiniZone(pitches,size){
 
 function buildABLog(pABs,isP,playerKey){
   let html=`<div style="border-top:1px solid var(--border);padding:8px 14px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono);margin-bottom:6px">${isP?'Batters Faced':'At-Bats'}</div>`;
-  pABs.forEach((ab,idx)=>{
+  [...pABs].reverse().forEach((ab,idx)=>{
     const abId=`${playerKey}_${idx}`;
     const isHit=ab.isHit;const isHR=ab.event==='Home Run';const isK=ab.event==='Strikeout';const isBB=['Walk','Intent Walk','Hit By Pitch'].includes(ab.event);
     let evCol='var(--dim)';if(isHR)evCol='var(--red)';else if(isHit)evCol='var(--green)';else if(isBB)evCol='var(--blue)';else if(isK)evCol='var(--muted)';
