@@ -563,6 +563,14 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .ww-pos-btn{padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;font-family:var(--mono);cursor:pointer;border:none;background:transparent;color:var(--dim);transition:all .15s;white-space:nowrap;letter-spacing:.02em}
 .ww-pos-btn:hover{color:var(--text)}
 .ww-pos-btn.active{background:var(--surface);color:var(--green);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.ww-search-wrap{position:relative;flex:1;min-width:140px;max-width:280px}
+.ww-search{width:100%;padding:7px 12px 7px 32px;border-radius:8px;font-size:12px;font-family:inherit;border:1px solid var(--border);background:var(--surface);color:var(--text);outline:none;transition:border-color .15s}
+.ww-search:focus{border-color:var(--green)}
+.ww-search::placeholder{color:var(--muted)}
+.ww-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.ww-search-icon svg{width:14px;height:14px}
+.ww-search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;padding:2px;display:none;font-size:16px;line-height:1}
+.ww-search-clear:hover{color:var(--text)}
 .ww-load-more{display:block;margin:16px auto;padding:10px 28px;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--dim);transition:all .15s}
 .ww-load-more:hover{color:var(--text);border-color:var(--dim)}
 
@@ -620,6 +628,8 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .ww-toolbar{flex-direction:column;align-items:stretch;gap:6px}
   .ww-type-toggle{justify-content:center}
   .ww-type-btn{flex:1;text-align:center;padding:8px 12px;min-height:36px;font-size:11px}
+  .ww-search-wrap{max-width:100%}
+  .ww-search{min-height:36px;font-size:13px}
   .ww-pos-bar{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap}
   .ww-pos-bar::-webkit-scrollbar{display:none}
   .ww-pos-btn{flex:0 0 auto;padding:8px 10px;min-height:36px;font-size:10px}
@@ -723,6 +733,11 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
           <button class="ww-type-btn active" data-wwtype="hitters" onclick="switchWaiverType('hitters')">Hitters</button>
           <button class="ww-type-btn" data-wwtype="pitchers" onclick="switchWaiverType('pitchers')">Pitchers</button>
         </div>
+        <div class="ww-search-wrap">
+          <span class="ww-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+          <input class="ww-search" id="wwSearch" type="text" placeholder="Search free agents…" oninput="onWaiverSearch(this.value)" autocomplete="off" spellcheck="false">
+          <button class="ww-search-clear" id="wwSearchClear" onclick="clearWaiverSearch()">&times;</button>
+        </div>
         <div class="ww-pos-bar" id="wwPosBar">
           <button class="ww-pos-btn active" data-wwpos="ALL" onclick="switchWaiverPos('ALL')">All</button>
           <button class="ww-pos-btn" data-wwpos="C" onclick="switchWaiverPos('C')">C</button>
@@ -770,6 +785,9 @@ let waiverPlayers=[],waiverPosFilter='ALL',waiverSort={key:'rank',dir:'asc'};
 let waiverLoading=false,waiverOffset=0;
 let expandedWaiver=null; // playerKey of expanded waiver player
 let waiverTypeFilter='hitters'; // 'hitters' or 'pitchers'
+let waiverSearchQuery=''; // current search text
+let waiverSearchTimer=null; // debounce timer
+let waiverSearchMode=false; // true when showing search results
 let wwComparePeriod='last14'; // L7, L14, L30, Season
 let wwCompareStats={}; // {playerKey → {period → stats}}
 let wwCompareLoading=false;
@@ -1006,7 +1024,7 @@ function getPlayerLiveStatus(playerName, teamAbbr, playerType){
 
 // ─── VIEWS ──────────────────────────────────────────────
 function switchView(v){document.querySelectorAll('.view-panel').forEach(p=>p.style.display='none');document.querySelectorAll('.nav-tab[data-view]').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.mob-tab[data-view]').forEach(i=>i.classList.remove('active'));document.getElementById(`view-${v}`).style.display='block';const sb=document.querySelector(`.nav-tab[data-view="${v}"]`);if(sb)sb.classList.add('active');const mb=document.querySelector(`.mob-tab[data-view="${v}"]`);if(mb)mb.classList.add('active');if(currentLeague)loadViewData(v)}
-function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};refData={};expandedPlayer=null;splitsCache={};todayPanelMode={};waiverPlayers=[];waiverOffset=0;expandedWaiver=null;waiverTypeFilter='hitters';wwCompareStats={};sparklineCache={};sparklineLoading.clear();standingsData=[];expandedStTeam=null;stTeamRosters={};stTeamPeriod='today';rosterContextLoaded=false;initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
+function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};refData={};expandedPlayer=null;splitsCache={};todayPanelMode={};waiverPlayers=[];waiverOffset=0;expandedWaiver=null;waiverTypeFilter='hitters';waiverSearchQuery='';waiverSearchMode=false;wwCompareStats={};sparklineCache={};sparklineLoading.clear();standingsData=[];expandedStTeam=null;stTeamRosters={};stTeamPeriod='today';rosterContextLoaded=false;initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
 function switchRosterTab(t){rosterTab=t;document.querySelectorAll('#rosterTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.getElementById('roster-hitters').style.display=t==='hitters'?'':'none';document.getElementById('roster-pitchers').style.display=t==='pitchers'?'':'none'}
 function switchPeriod(p){currentPeriod=p;expandedPlayer=null;todayPanelMode={};document.querySelectorAll('#periodBar .period-btn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));loadRoster()}
 function updatePeriodLabels(){const sy=parseInt(leagueSeason||2026);const m={season:String(sy),prevyear:String(sy-1)};document.querySelectorAll('#periodBar .period-btn').forEach(b=>{if(m[b.dataset.period])b.textContent=m[b.dataset.period]})}
@@ -2867,6 +2885,8 @@ function switchWaiverType(type){
   if(waiverTypeFilter===type)return;
   waiverTypeFilter=type;
   waiverPosFilter='ALL';waiverOffset=0;waiverPlayers=[];expandedWaiver=null;wwCompareStats={};
+  waiverSearchQuery='';waiverSearchMode=false;clearTimeout(waiverSearchTimer);
+  const inp=document.getElementById('wwSearch');if(inp){inp.value='';document.getElementById('wwSearchClear').style.display='none'}
   // Update type toggle buttons
   document.querySelectorAll('#wwTypeToggle .ww-type-btn').forEach(b=>b.classList.toggle('active',b.dataset.wwtype===type));
   // Rebuild position bar
@@ -2877,7 +2897,7 @@ function switchWaiverType(type){
   loadWaivers();
 }
 
-function switchWaiverPos(pos){waiverPosFilter=pos;waiverOffset=0;waiverPlayers=[];expandedWaiver=null;wwCompareStats={};document.querySelectorAll('#wwPosBar .ww-pos-btn').forEach(b=>b.classList.toggle('active',b.dataset.wwpos===pos));loadWaivers()}
+function switchWaiverPos(pos){waiverPosFilter=pos;waiverOffset=0;waiverPlayers=[];expandedWaiver=null;wwCompareStats={};document.querySelectorAll('#wwPosBar .ww-pos-btn').forEach(b=>b.classList.toggle('active',b.dataset.wwpos===pos));if(waiverSearchMode&&waiverSearchQuery)executeWaiverSearch(waiverSearchQuery);else loadWaivers()}
 
 async function loadWaivers(){
   if(!currentLeagueKey||waiverLoading)return;
@@ -2887,7 +2907,7 @@ async function loadWaivers(){
   await buildMLBPlayerMap();
   // When position is ALL, fetch more since we'll client-side filter by type
   const needsTypeFilter=waiverPosFilter==='ALL';
-  const fetchCount=needsTypeFilter?50:25;
+  const fetchCount=needsTypeFilter?100:50;
   const posParam=waiverPosFilter==='ALL'?'':`;position=${waiverPosFilter}`;
   const ep=`league/${currentLeagueKey}/players;status=FA;sort=AR;out=percent_owned${posParam};start=${waiverOffset};count=${fetchCount}`;
   const data=await yahooGet(ep);
@@ -2926,6 +2946,75 @@ async function loadWaivers(){
   document.getElementById('wwLoadMore').style.display=rawCount>=fetchCount?'':'none';
 }
 function loadMoreWaivers(){loadWaivers()}
+
+// ─── WAIVER SEARCH ──────────────────────────────────────
+function onWaiverSearch(val){
+  clearTimeout(waiverSearchTimer);
+  const q=val.trim();
+  document.getElementById('wwSearchClear').style.display=q?'block':'none';
+  if(!q){
+    if(waiverSearchMode){clearWaiverSearch()}
+    return;
+  }
+  waiverSearchTimer=setTimeout(()=>executeWaiverSearch(q),350);
+}
+
+function clearWaiverSearch(){
+  const inp=document.getElementById('wwSearch');
+  inp.value='';
+  document.getElementById('wwSearchClear').style.display='none';
+  if(waiverSearchMode){
+    waiverSearchMode=false;waiverSearchQuery='';
+    waiverPlayers=[];waiverOffset=0;expandedWaiver=null;wwCompareStats={};
+    loadWaivers();
+  }
+}
+
+async function executeWaiverSearch(query){
+  if(!currentLeagueKey||waiverLoading)return;
+  waiverLoading=true;waiverSearchMode=true;waiverSearchQuery=query;
+  expandedWaiver=null;wwCompareStats={};
+  const el=document.getElementById('waivers-content');
+  el.innerHTML='<div class="loading"><div class="spinner"></div>Searching…</div>';
+  document.getElementById('wwLoadMore').style.display='none';
+  await buildMLBPlayerMap();
+  const ep=`league/${currentLeagueKey}/players;search=${encodeURIComponent(query)};status=FA;out=percent_owned;start=0;count=50`;
+  const data=await yahooGet(ep);
+  waiverLoading=false;
+  // If query changed while we were fetching, discard
+  if(waiverSearchQuery!==query)return;
+  if(!data){el.innerHTML='<div class="empty">Search failed</div>';return}
+  let parsed=parseWaiverResponse(data,0);
+  // Client-side type filter
+  const wantPitcher=waiverTypeFilter==='pitchers';
+  parsed=parsed.filter(p=>wantPitcher?(p.type==='pitcher'):(p.type!=='pitcher'));
+  parsed.forEach((p,i)=>p.rank=i+1);
+  // Position filter
+  if(waiverPosFilter!=='ALL'){
+    parsed=parsed.filter(p=>{
+      const positions=(p.eligPos||p.pos.split(',')).map(s=>s.trim());
+      return positions.includes(waiverPosFilter);
+    });
+    parsed.forEach((p,i)=>p.rank=i+1);
+  }
+  if(!parsed.length){el.innerHTML=`<div class="empty">No ${waiverTypeFilter} found for "${query}"</div>`;document.getElementById('waiversSub').textContent=`0 results for "${query}"`;return}
+  for(const p of parsed){p.mlbId=resolveMLBId(p.name)}
+  // Fetch L14 stats
+  const season=parseInt(leagueSeason||2026);
+  const today=new Date();const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const end=fmt(today);const d14=new Date(today);d14.setDate(d14.getDate()-14);const start=fmt(d14);
+  const withId=parsed.filter(p=>p.mlbId);
+  if(withId.length){
+    const results=await Promise.all(withId.map(p=>
+      fetchOnePlayerStats(p.mlbId,p.type,season,{start,end}).then(stats=>({playerKey:p.playerKey,stats}))
+    ));
+    for(const r of results){if(r.stats){const p=parsed.find(x=>x.playerKey===r.playerKey);if(p)p.stats=r.stats}}
+  }
+  waiverPlayers=parsed;
+  waiverOffset=0;
+  renderWaivers();
+  document.getElementById('waiversSub').textContent=`${parsed.length} results for "${query}"`;
+}
 
 function parseWaiverResponse(data,startOffset){
   const players=[];
