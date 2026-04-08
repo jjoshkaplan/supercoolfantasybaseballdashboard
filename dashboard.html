@@ -2298,11 +2298,12 @@ function buildStatcast(p){
       if(ls.feed){
         html+=buildStatcastLive(p,ls);
       }else if(ls.status==='preview'){
+        if(p.mlbId)html+=buildSplitsPanel(p);
         html+=`<div class="sc-panel"><div class="sc-no-game">Game has not started yet</div></div>`;
       }else if(!hasToday){
         html+=`<div class="sc-panel"><div class="sc-no-game">No game today</div></div>`;
       }else{
-        html+=`<div class="sc-panel"><div class="sc-no-game">No live data available</div></div>`;
+        if(p.mlbId)html+=buildSplitsPanel(p);
       }
     }
     return html||`<div class="sc-panel"><div class="sc-no-game">No data available</div></div>`;
