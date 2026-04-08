@@ -3030,7 +3030,7 @@ async function loadWaivers(){
   await buildMLBPlayerMap();
   // When position is ALL, fetch more since we'll client-side filter by type
   const needsTypeFilter=waiverPosFilter==='ALL';
-  const fetchCount=needsTypeFilter?75:50;
+  const fetchCount=needsTypeFilter?75:25;
   const posParam=waiverPosFilter==='ALL'?'':`;position=${waiverPosFilter}`;
   const ep=`league/${currentLeagueKey}/players;status=FA;sort=AR;out=percent_owned${posParam};start=${waiverOffset};count=${fetchCount}`;
   const data=await yahooGet(ep);
