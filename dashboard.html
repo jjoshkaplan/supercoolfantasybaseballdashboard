@@ -572,9 +572,11 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .ww-search::placeholder{color:var(--muted)}
 .ww-search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1;display:none}
 .ww-search-clear:hover{color:var(--text)}
-.ww-status-badge{font-size:8px;font-weight:700;font-family:var(--mono);padding:1px 5px;border-radius:3px;letter-spacing:.04em;margin-left:5px;white-space:nowrap}
+.ww-status-badge{font-size:8px;font-weight:700;font-family:var(--mono);padding:1px 5px;border-radius:3px;letter-spacing:.04em;margin-left:5px;white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle;line-height:1.4}
 .ww-status-fa{background:var(--green-dim);color:var(--green)}
 .ww-status-rostered{background:var(--surface-3);color:var(--muted)}
+.ww-status-waivers{background:rgba(240,160,48,.12);color:#f0a030}
+.ww-status-mine{background:rgba(91,141,239,.12);color:#5b8def}
 
 /* ─── WAIVER EXPAND COMPARISON ─── */
 .ww-expand-panel{border:1px solid var(--border);border-radius:0 0 var(--radius) var(--radius);overflow:hidden;margin:0 8px 8px}
@@ -2975,20 +2977,18 @@ async function searchWaiverPlayers(term){
   el.innerHTML='<div class="loading"><div class="spinner"></div>Searching players...</div>';
   await buildMLBPlayerMap();
   // Yahoo search endpoint — searches across all players (FA + rostered)
-  const ep=`league/${currentLeagueKey}/players;search=${encodeURIComponent(term)};out=percent_owned;count=50`;
+  const ep=`league/${currentLeagueKey}/players;search=${encodeURIComponent(term)};out=percent_owned,ownership;count=50`;
   const data=await yahooGet(ep);
   waiverLoading=false;
   if(!data){el.innerHTML='<div class="empty">Search failed</div>';return}
   let parsed=parseWaiverResponse(data,0);
-  // Parse ownership status from Yahoo data
-  for(const p of parsed)p.status=p.pctOwned>=100?'rostered':(p.pctOwned>0?'partial':'fa');
-  // Detect roster status: check if player is on any team using ownership_type from Yahoo
-  // We infer from percent_owned — 100% owned means definitely rostered
-  // Also check if player is on our roster
+  // Assign ownership status from Yahoo data
   for(const p of parsed){
     const onMyTeam=rosterData.some(r=>r.playerKey===p.playerKey);
-    p.onMyTeam=onMyTeam;
-    if(onMyTeam)p.status='mine';
+    if(onMyTeam){p.status='mine';p.ownerLabel='MINE'}
+    else if(p.yahooStatus==='T'||p.ownerTeamName){p.status='rostered';p.ownerLabel=p.ownerTeamName||'Rostered'}
+    else if(p.yahooStatus==='W'){p.status='waivers';p.ownerLabel='Waivers'}
+    else{p.status='fa';p.ownerLabel='FA'}
   }
   // Client-side filter by hitter/pitcher type
   const wantPitcher=waiverTypeFilter==='pitchers';
@@ -3080,7 +3080,7 @@ function parseWaiverResponse(data,startOffset){
       const pArr=pd[String(i)]?.player;if(!pArr)continue;
       const info=Array.isArray(pArr[0])?pArr[0]:pArr;
       let name='',team='',pos='',hs='',playerKey='',posType='',eligPos=[];
-      let pctOwned=0,pctDelta=0;
+      let pctOwned=0,pctDelta=0,yahooStatus='',ownerTeamName='';
       for(const item of info){if(!item||typeof item!=='object')continue;
         if(item.player_key)playerKey=item.player_key;
         if(item.name)name=item.name.full||'';
@@ -3088,6 +3088,7 @@ function parseWaiverResponse(data,startOffset){
         if(item.display_position)pos=item.display_position;
         if(item.headshot)hs=item.headshot.url||'';
         if(item.position_type)posType=item.position_type;
+        if(item.status)yahooStatus=item.status;
         if(item.eligible_positions&&Array.isArray(item.eligible_positions))for(const ep of item.eligible_positions){const p=ep?.position||(typeof ep==='string'?ep:null);if(p)eligPos.push(p)}
       }
       // Extract percent_owned from sub-resource (may be in pArr[1] or deeper)
@@ -3099,12 +3100,19 @@ function parseWaiverResponse(data,startOffset){
           // Yahoo returns array of separate objects: [{coverage_type,week},{value:5},{delta:"0"}]
           if(Array.isArray(po)){for(const item of po){if(item&&typeof item==='object'){if(item.value!==undefined)pctOwned=parseFloat(item.value)||0;if(item.delta!==undefined)pctDelta=parseFloat(item.delta)||0}}}
           else if(typeof po==='object'){if(po.value!==undefined)pctOwned=parseFloat(po.value)||0;if(po.delta!==undefined)pctDelta=parseFloat(po.delta)||0}
-          break;
+        }
+        // Extract ownership info (owner team name)
+        if(el.ownership){
+          const ow=el.ownership;
+          if(ow.owner_team_name)ownerTeamName=ow.owner_team_name;
+          if(ow.ownership_type==='freeagents')yahooStatus='FA';
+          else if(ow.ownership_type==='waivers')yahooStatus='W';
+          else if(ow.ownership_type==='team')yahooStatus='T';
         }
       }
       let type='hitter';if(posType==='P'||PITCHER_POSITIONS.includes(pos.split(',')[0]))type='pitcher';
       const rank=(startOffset||0)+i+1;
-      players.push({playerKey,name,team,pos,hs,type,posType,eligPos,stats:{},mlbId:'',rank,pctOwned,pctDelta})
+      players.push({playerKey,name,team,pos,hs,type,posType,eligPos,stats:{},mlbId:'',rank,pctOwned,pctDelta,yahooStatus,ownerTeamName})
     }
   }catch(e){console.error('[Waivers] Parse error:',e)}
   return players;
@@ -3257,8 +3265,7 @@ function renderWaivers(){
     // Rank
     html+=`<td class="num" style="color:var(--dim)">${p.rank}</td>`;
     // Player
-    const statusBadge=wwSearchMode?(p.status==='mine'?'<span class="ww-status-badge ww-status-rostered">MINE</span>':p.status==='rostered'?'<span class="ww-status-badge ww-status-rostered">RSTD</span>':'<span class="ww-status-badge ww-status-fa">FA</span>'):'';
-    html+=`<td><div class="player-cell">${p.hs?`<img class="player-hs" src="${p.hs}" alt="" onerror="this.style.display='none'">`:''}
+    const statusBadge=wwSearchMode?(p.status==='mine'?'<span class="ww-status-badge ww-status-mine">MINE</span>':p.status==='rostered'?`<span class="ww-status-badge ww-status-rostered">${p.ownerLabel||'Taken'}</span>`:p.status==='waivers'?'<span class="ww-status-badge ww-status-waivers">WVR</span>':'<span class="ww-status-badge ww-status-fa">FA</span>'):'';    html+=`<td><div class="player-cell">${p.hs?`<img class="player-hs" src="${p.hs}" alt="" onerror="this.style.display='none'">`:''}
       <div class="player-info"><div class="name">${p.name}${statusBadge}</div><div class="meta">${p.team} · ${p.pos}</div></div></div></td>`;
     // Game column
     const game=findGameForTeam(p.team);
