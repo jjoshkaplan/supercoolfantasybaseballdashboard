@@ -236,7 +236,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .ab-row .ab-icon{width:16px;text-align:center;font-size:12px;flex-shrink:0}
 .ab-row .ab-event{font-weight:700;min-width:70px;flex-shrink:0}
 .ab-row .ab-vs{color:var(--dim);font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ab-row .ab-meta{color:var(--muted);font-size:10px;flex-shrink:0}
+.ab-row .ab-meta{color:var(--muted);font-size:10px;white-space:normal;word-break:break-word}
 .ab-row .ab-chevron{width:12px;color:var(--muted);font-size:10px;flex-shrink:0;text-align:center;transition:transform .2s}
 .ab-row.open .ab-chevron{transform:rotate(90deg)}
 .ab-detail{display:none;padding:8px 0 12px;border-bottom:1px solid var(--border)}
@@ -244,7 +244,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .ab-detail-body{display:flex;gap:10px;align-items:flex-start}
 .ab-detail-zone{flex-shrink:0}
 .ab-detail-log{flex:1;min-width:0}
-.ab-detail-desc{font-size:10px;color:var(--dim);padding:4px 0 6px;line-height:1.4;font-style:italic}
+.ab-detail-desc{font-size:10px;color:var(--dim);padding:4px 0 6px;line-height:1.4;font-style:italic;white-space:normal;word-break:break-word}
 
 /* ─── SAVANT ANALYTICS PANEL ─── */
 .sav-panel{border:1px solid var(--border);border-radius:0 0 var(--radius) var(--radius);overflow:hidden;margin:0 8px 8px}
@@ -464,7 +464,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .ab-row .ab-icon{width:14px;font-size:11px}
   .ab-row .ab-event{min-width:56px;font-size:10px}
   .ab-row .ab-vs{font-size:9px}
-  .ab-row .ab-meta{font-size:9px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ab-row .ab-meta{font-size:9px;white-space:normal;word-break:break-word}
   .ab-detail{padding:6px 0 10px}
   .ab-detail-body{flex-direction:column;gap:8px}
   .ab-detail-zone{align-self:center}
@@ -472,7 +472,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .ab-detail-log{width:100%}
   .ab-detail-log .pl-row{font-size:10px}
   .ab-detail-log .pl-call{font-size:9px}
-  .ab-detail-desc{font-size:9px;padding:2px 0 4px}
+  .ab-detail-desc{font-size:9px;padding:2px 0 4px;white-space:normal;word-break:break-word}
   /* Savant */
   .sav-panel{margin:0 0 4px;border-radius:0;border-left:none;border-right:none}
   .sav-body{padding:10px 8px}
