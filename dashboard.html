@@ -2905,45 +2905,54 @@ async function loadWaivers(){
   const el=document.getElementById('waivers-content');
   if(!waiverOffset)el.innerHTML='<div class="loading"><div class="spinner"></div>Loading free agents...</div>';
   await buildMLBPlayerMap();
-  // When position is ALL, fetch more since we'll client-side filter by type
   const needsTypeFilter=waiverPosFilter==='ALL';
-  const fetchCount=needsTypeFilter?100:50;
+  const targetCount=50; // how many filtered players we want per load
+  const batchSize=needsTypeFilter?100:50;
   const posParam=waiverPosFilter==='ALL'?'':`;position=${waiverPosFilter}`;
-  const ep=`league/${currentLeagueKey}/players;status=FA;sort=AR;out=percent_owned${posParam};start=${waiverOffset};count=${fetchCount}`;
-  const data=await yahooGet(ep);
-  waiverLoading=false;
-  if(!data){el.innerHTML='<div class="empty">Could not load free agents</div>';return}
-  console.log('[Waivers] Raw response sample:',JSON.stringify(data).slice(0,2000));
-  let parsed=parseWaiverResponse(data,waiverOffset);
-  const rawCount=parsed.length;
-  // Client-side filter by hitter/pitcher type when showing "All" positions
-  if(needsTypeFilter){
-    const wantPitcher=waiverTypeFilter==='pitchers';
-    parsed=parsed.filter(p=>wantPitcher?(p.type==='pitcher'):(p.type!=='pitcher'));
-    // Re-number ranks sequentially within filtered results
-    const baseRank=waiverPlayers.length;
-    parsed.forEach((p,i)=>p.rank=baseRank+i+1);
+  let allParsed=[];
+  let localOffset=waiverOffset;
+  let lastRawCount=0;
+  let totalRaw=0;
+  // Fetch in batches until we have enough filtered players (or Yahoo runs out)
+  while(allParsed.length<targetCount){
+    const ep=`league/${currentLeagueKey}/players;status=FA;sort=AR;out=percent_owned${posParam};start=${localOffset};count=${batchSize}`;
+    const data=await yahooGet(ep);
+    if(!data){if(!allParsed.length&&!waiverOffset){el.innerHTML='<div class="empty">Could not load free agents</div>';waiverLoading=false;return}break}
+    let batch=parseWaiverResponse(data,localOffset);
+    lastRawCount=batch.length;
+    totalRaw+=lastRawCount;
+    localOffset+=lastRawCount;
+    if(needsTypeFilter){
+      const wantPitcher=waiverTypeFilter==='pitchers';
+      batch=batch.filter(p=>wantPitcher?(p.type==='pitcher'):(p.type!=='pitcher'));
+    }
+    allParsed.push(...batch);
+    if(lastRawCount<batchSize)break; // no more players from Yahoo
   }
-  if(!parsed.length&&!waiverOffset&&!rawCount){el.innerHTML='<div class="empty">No free agents found</div>';return}
-  if(!parsed.length&&!waiverOffset&&rawCount){el.innerHTML='<div class="empty">No '+waiverTypeFilter+' found in results</div>';return}
-  for(const p of parsed){p.mlbId=resolveMLBId(p.name)}
+  // Re-number ranks sequentially
+  const baseRank=waiverPlayers.length;
+  allParsed.forEach((p,i)=>p.rank=baseRank+i+1);
+  waiverLoading=false;
+  if(!allParsed.length&&!waiverOffset&&!totalRaw){el.innerHTML='<div class="empty">No free agents found</div>';return}
+  if(!allParsed.length&&!waiverOffset&&totalRaw){el.innerHTML='<div class="empty">No '+waiverTypeFilter+' found in results</div>';return}
+  for(const p of allParsed){p.mlbId=resolveMLBId(p.name)}
   // Fetch L14 stats for these players
   const season=parseInt(leagueSeason||2026);
   const today=new Date();const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const end=fmt(today);const d14=new Date(today);d14.setDate(d14.getDate()-14);const start=fmt(d14);
-  const withId=parsed.filter(p=>p.mlbId);
+  const withId=allParsed.filter(p=>p.mlbId);
   if(withId.length){
     const results=await Promise.all(withId.map(p=>
       fetchOnePlayerStats(p.mlbId,p.type,season,{start,end}).then(stats=>({playerKey:p.playerKey,stats}))
     ));
-    for(const r of results){if(r.stats){const p=parsed.find(x=>x.playerKey===r.playerKey);if(p)p.stats=r.stats}}
+    for(const r of results){if(r.stats){const p=allParsed.find(x=>x.playerKey===r.playerKey);if(p)p.stats=r.stats}}
   }
-  waiverPlayers=waiverOffset?[...waiverPlayers,...parsed]:parsed;
-  waiverOffset+=rawCount; // Advance offset by raw (unfiltered) count for Yahoo pagination
+  waiverPlayers=waiverOffset?[...waiverPlayers,...allParsed]:allParsed;
+  waiverOffset=localOffset; // Advance offset by total raw fetched
   renderWaivers();
   const posLabel=waiverPosFilter==='ALL'?('All '+waiverTypeFilter):waiverPosFilter;
   document.getElementById('waiversSub').textContent=`${waiverPlayers.length} free agents · ${posLabel} · Ranked by Yahoo AR`;
-  document.getElementById('wwLoadMore').style.display=rawCount>=fetchCount?'':'none';
+  document.getElementById('wwLoadMore').style.display=lastRawCount>=batchSize?'':'none';
 }
 function loadMoreWaivers(){loadWaivers()}
 
