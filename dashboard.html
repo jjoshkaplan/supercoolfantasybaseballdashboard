@@ -208,8 +208,9 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 /* Desktop: side-by-side, hide swipe controls */
 @media(min-width:769px){
   .sc-snap{overflow-x:visible;scroll-snap-type:none}
-  .sc-card{flex:0 0 33.33%;border-right:1px solid var(--border);max-height:375px;overflow-y:auto}
+  .sc-card{flex:0 0 33.33%;border-right:1px solid var(--border);max-height:480px;overflow-y:auto}
   .sc-card:last-child{border-right:none}
+  .sc-card svg{max-width:100%;height:auto}
   .sc-tabs{display:none}
   .sc-dots{display:none}
 }
@@ -416,10 +417,10 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .pos-select{min-width:24px;padding:3px 1px;min-height:28px;font-size:9px!important;border-radius:4px}
   .player-cell{gap:0}#view-roster .player-hs{display:none}
   .player-info .name{font-size:11px}.player-info .meta{font-size:8px}
-  tbody td.num{font-size:9px;padding:3px 0px!important;min-width:0;white-space:nowrap;text-align:center;width:32px}
+  tbody td.num{font-size:9px;padding:3px 0px!important;min-width:0;white-space:nowrap;text-align:center;width:30px}
   .trend-arrow{font-size:7px}
   tbody td{padding:4px 1px}thead th{padding:5px 0px;font-size:8px;letter-spacing:0}
-  thead th.num{padding:4px 0px;font-size:7px;text-align:center;width:32px}
+  thead th.num{padding:4px 0px;font-size:7px;text-align:center;width:30px}
   #view-roster table td.num:last-child,#view-roster table th.num:last-child{padding-right:6px!important}
   .col-game{padding-left:4px!important}th.col-game{text-align:center}
   .sparkline{display:none}
@@ -563,14 +564,6 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .ww-pos-btn{padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;font-family:var(--mono);cursor:pointer;border:none;background:transparent;color:var(--dim);transition:all .15s;white-space:nowrap;letter-spacing:.02em}
 .ww-pos-btn:hover{color:var(--text)}
 .ww-pos-btn.active{background:var(--surface);color:var(--green);box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.ww-search-wrap{position:relative;flex:1;min-width:140px;max-width:280px}
-.ww-search{width:100%;padding:7px 12px 7px 32px;border-radius:8px;font-size:12px;font-family:inherit;border:1px solid var(--border);background:var(--surface);color:var(--text);outline:none;transition:border-color .15s}
-.ww-search:focus{border-color:var(--green)}
-.ww-search::placeholder{color:var(--muted)}
-.ww-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
-.ww-search-icon svg{width:14px;height:14px}
-.ww-search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;padding:2px;display:none;font-size:16px;line-height:1}
-.ww-search-clear:hover{color:var(--text)}
 .ww-load-more{display:block;margin:16px auto;padding:10px 28px;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--dim);transition:all .15s}
 .ww-load-more:hover{color:var(--text);border-color:var(--dim)}
 
@@ -628,8 +621,6 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .ww-toolbar{flex-direction:column;align-items:stretch;gap:6px}
   .ww-type-toggle{justify-content:center}
   .ww-type-btn{flex:1;text-align:center;padding:8px 12px;min-height:36px;font-size:11px}
-  .ww-search-wrap{max-width:100%}
-  .ww-search{min-height:36px;font-size:13px}
   .ww-pos-bar{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap}
   .ww-pos-bar::-webkit-scrollbar{display:none}
   .ww-pos-btn{flex:0 0 auto;padding:8px 10px;min-height:36px;font-size:10px}
@@ -733,11 +724,6 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
           <button class="ww-type-btn active" data-wwtype="hitters" onclick="switchWaiverType('hitters')">Hitters</button>
           <button class="ww-type-btn" data-wwtype="pitchers" onclick="switchWaiverType('pitchers')">Pitchers</button>
         </div>
-        <div class="ww-search-wrap">
-          <span class="ww-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-          <input class="ww-search" id="wwSearch" type="text" placeholder="Search free agents…" oninput="onWaiverSearch(this.value)" autocomplete="off" spellcheck="false">
-          <button class="ww-search-clear" id="wwSearchClear" onclick="clearWaiverSearch()">&times;</button>
-        </div>
         <div class="ww-pos-bar" id="wwPosBar">
           <button class="ww-pos-btn active" data-wwpos="ALL" onclick="switchWaiverPos('ALL')">All</button>
           <button class="ww-pos-btn" data-wwpos="C" onclick="switchWaiverPos('C')">C</button>
@@ -785,9 +771,6 @@ let waiverPlayers=[],waiverPosFilter='ALL',waiverSort={key:'rank',dir:'asc'};
 let waiverLoading=false,waiverOffset=0;
 let expandedWaiver=null; // playerKey of expanded waiver player
 let waiverTypeFilter='hitters'; // 'hitters' or 'pitchers'
-let waiverSearchQuery=''; // current search text
-let waiverSearchTimer=null; // debounce timer
-let waiverSearchMode=false; // true when showing search results
 let wwComparePeriod='last14'; // L7, L14, L30, Season
 let wwCompareStats={}; // {playerKey → {period → stats}}
 let wwCompareLoading=false;
@@ -1024,7 +1007,7 @@ function getPlayerLiveStatus(playerName, teamAbbr, playerType){
 
 // ─── VIEWS ──────────────────────────────────────────────
 function switchView(v){document.querySelectorAll('.view-panel').forEach(p=>p.style.display='none');document.querySelectorAll('.nav-tab[data-view]').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.mob-tab[data-view]').forEach(i=>i.classList.remove('active'));document.getElementById(`view-${v}`).style.display='block';const sb=document.querySelector(`.nav-tab[data-view="${v}"]`);if(sb)sb.classList.add('active');const mb=document.querySelector(`.mob-tab[data-view="${v}"]`);if(mb)mb.classList.add('active');if(currentLeague)loadViewData(v)}
-function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};refData={};expandedPlayer=null;splitsCache={};todayPanelMode={};waiverPlayers=[];waiverOffset=0;expandedWaiver=null;waiverTypeFilter='hitters';waiverSearchQuery='';waiverSearchMode=false;wwCompareStats={};sparklineCache={};sparklineLoading.clear();standingsData=[];expandedStTeam=null;stTeamRosters={};stTeamPeriod='today';rosterContextLoaded=false;initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
+function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};refData={};expandedPlayer=null;splitsCache={};todayPanelMode={};waiverPlayers=[];waiverOffset=0;expandedWaiver=null;waiverTypeFilter='hitters';wwCompareStats={};sparklineCache={};sparklineLoading.clear();standingsData=[];expandedStTeam=null;stTeamRosters={};stTeamPeriod='today';rosterContextLoaded=false;initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
 function switchRosterTab(t){rosterTab=t;document.querySelectorAll('#rosterTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.getElementById('roster-hitters').style.display=t==='hitters'?'':'none';document.getElementById('roster-pitchers').style.display=t==='pitchers'?'':'none'}
 function switchPeriod(p){currentPeriod=p;expandedPlayer=null;todayPanelMode={};document.querySelectorAll('#periodBar .period-btn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));loadRoster()}
 function updatePeriodLabels(){const sy=parseInt(leagueSeason||2026);const m={season:String(sy),prevyear:String(sy-1)};document.querySelectorAll('#periodBar .period-btn').forEach(b=>{if(m[b.dataset.period])b.textContent=m[b.dataset.period]})}
@@ -2047,6 +2030,7 @@ function hitEventColor(event,isMine){
 
 let sprayBipData={}; // {sprayId: bip[]}
 let sprayFilterCache={}; // {sprayId: filterHtml}
+let sprayVenueLabel={}; // {sprayId: homeAbbr}
 function showBipTip(sprayId,idx,evt){
   evt.stopPropagation();
   const wrap=document.getElementById('sw_'+sprayId);if(!wrap)return;
@@ -2097,8 +2081,36 @@ function applySprayFilters(sprayId){
     if(f.half!=='all'&&dot.dataset.half!==f.half)show=false;
     dot.style.display=show?'':'none'})}
 
-function buildImprovedSpray(bip,playerName,w,h,sprayId){
-  const spW=w||320,spH=h||280,topPad=40,spCx=spW/2,spCy=spH-12;
+// ── Stadium fence dimensions: [LF_line, LF_alley, CF, RF_alley, RF_line] ──
+const STADIUM_DIMS={
+  ARI:[330,374,407,374,334],ATL:[335,380,400,375,325],BAL:[333,364,400,373,318],
+  BOS:[310,379,389,380,302],CHC:[355,368,400,368,353],CWS:[330,377,400,372,335],
+  CIN:[328,370,404,370,325],CLE:[325,370,400,375,325],COL:[347,390,415,375,350],
+  DET:[345,370,420,365,330],HOU:[315,362,409,373,326],KC:[330,387,410,387,330],
+  LAA:[330,370,396,370,330],LAD:[330,375,395,370,330],MIA:[344,386,407,386,335],
+  MIL:[344,371,400,374,345],MIN:[339,377,404,367,328],NYM:[335,379,408,375,330],
+  NYY:[318,399,408,385,314],OAK:[330,367,400,367,330],PHI:[329,374,401,369,330],
+  PIT:[325,383,399,375,320],SD:[336,390,396,382,322],SF:[339,382,399,365,309],
+  SEA:[331,378,401,381,326],STL:[336,375,400,375,335],TB:[315,370,404,370,322],
+  TEX:[329,372,407,374,326],TOR:[328,375,400,375,328],WSH:[336,377,402,370,335],
+  _DEFAULT:[330,370,400,370,330]
+};
+function _fenceInterp(angle,dims){
+  // Cosine-interpolate fence distance at any angle (-45°=LF line → +45°=RF line)
+  const as=[-45,-22.5,0,22.5,45];
+  if(angle<=as[0])return dims[0];if(angle>=as[4])return dims[4];
+  for(let i=0;i<4;i++){if(angle<=as[i+1]){
+    const t=(angle-as[i])/(as[i+1]-as[i]),tc=(1-Math.cos(t*Math.PI))/2;
+    return dims[i]*(1-tc)+dims[i+1]*tc}}
+  return dims[2]}
+function _fenceToSVG(angleDeg,distFt,spCx,spCy,spW,fH){
+  const rad=angleDeg*Math.PI/180,scale=2.51;
+  const mlbX=125+(distFt/scale)*Math.sin(rad),mlbY=199-(distFt/scale)*Math.cos(rad);
+  const nx=(mlbX-125)/125,ny=(250-mlbY)/250;
+  return{x:spCx+nx*spW*.45,y:spCy-ny*fH*.9}}
+
+function buildImprovedSpray(bip,playerName,w,h,sprayId,homeAbbr){
+  const spW=w||320,spH=h||280,topPad=20,spCx=spW/2,spCy=spH-12;
   const fH=spH-topPad-12;
   const mine=n=>nameMatch(playerName,n);
   // Store bip data for tooltip lookups
@@ -2110,12 +2122,31 @@ function buildImprovedSpray(bip,playerName,w,h,sprayId){
   // Collect unique innings for filter
   const innings=[...new Set(allDots.map(b=>b.inning).filter(Boolean))].sort((a,b)=>a-b);
   let svg=`<svg width="${spW}" height="${spH}" viewBox="0 0 ${spW} ${spH}" style="cursor:pointer" id="svg_${sprayId}">`;
-  svg+=`<path d="M ${spCx},${spCy} L ${spCx-spW*.47},${spCy-fH*.87} A ${spW*.64} ${fH*.92} 0 0 1 ${spCx+spW*.47},${spCy-fH*.87} Z" fill="#1a2618" stroke="#2d4a25" stroke-width="0.8"/>`;
+  // ── Compute fence points first so grass fill matches stadium shape ──
+  const dims=STADIUM_DIMS[homeAbbr]||STADIUM_DIMS._DEFAULT;
+  const fPts=[];for(let a=-45;a<=45;a+=2){const d=_fenceInterp(a,dims);fPts.push({..._fenceToSVG(a,d,spCx,spCy,spW,fH),d,a})}
+  // Warning track inner edge (15ft inward from fence)
+  const wtPts=[];for(let a=-45;a<=45;a+=2){const d=_fenceInterp(a,dims)-15;wtPts.push(_fenceToSVG(a,d,spCx,spCy,spW,fH))}
+  // ── Outfield grass: pie slice from home plate following fence contour ──
+  const grassPath='M '+spCx+','+spCy+' L '+fPts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ')+' Z';
+  svg+=`<path d="${grassPath}" fill="#1a2618" stroke="#2d4a25" stroke-width="0.8"/>`;
+  // Infield diamond
   const dS=spW*.12;
   svg+=`<path d="M ${spCx},${spCy-dS*2.2} L ${spCx+dS},${spCy-dS*1.1} L ${spCx},${spCy} L ${spCx-dS},${spCy-dS*1.1} Z" fill="#2a2215" stroke="#3d3520" stroke-width="0.5"/>`;
   svg+=`<rect x="${spCx-3}" y="${spCy-3}" width="6" height="6" transform="rotate(45 ${spCx} ${spCy})" fill="#505878"/>`;
-  svg+=`<line x1="${spCx}" y1="${spCy}" x2="${spCx-spW*.47}" y2="${spCy-fH*.87}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
-  svg+=`<line x1="${spCx}" y1="${spCy}" x2="${spCx+spW*.47}" y2="${spCy-fH*.87}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
+  // Foul lines
+  const lfPt=fPts[0],rfPt=fPts[fPts.length-1];
+  svg+=`<line x1="${spCx}" y1="${spCy}" x2="${lfPt.x.toFixed(1)}" y2="${lfPt.y.toFixed(1)}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
+  svg+=`<line x1="${spCx}" y1="${spCy}" x2="${rfPt.x.toFixed(1)}" y2="${rfPt.y.toFixed(1)}" stroke="#3d3520" stroke-width="0.5" stroke-dasharray="3,3"/>`;
+  // ── Warning track fill (between fence and inner edge) ──
+  const fPath='M '+fPts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ');
+  svg+=`<path d="${fPath} L ${wtPts[wtPts.length-1].x.toFixed(1)},${wtPts[wtPts.length-1].y.toFixed(1)} ${wtPts.slice().reverse().map(p=>`L ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')} Z" fill="#3d2c18" opacity="0.35"/>`;
+  // Fence wall line
+  svg+=`<path d="${fPath}" fill="none" stroke="#8b7b5e" stroke-width="2" stroke-linecap="round"/>`;
+  // Distance labels at key positions
+  const labelAngles=[[-45,dims[0]],[-22.5,dims[1]],[0,dims[2]],[22.5,dims[3]],[45,dims[4]]];
+  labelAngles.forEach(([a,d])=>{const pt=_fenceToSVG(a,d+12,spCx,spCy,spW,fH);svg+=`<text x="${pt.x.toFixed(1)}" y="${pt.y.toFixed(1)}" text-anchor="middle" fill="#8b7b5e" font-size="7" font-family="var(--mono)" font-weight="600" opacity="0.8">${d}'</text>`});
+  // ── BIP dots ──
   allDots.forEach((b,i)=>{
     const nx=(b.hitX-125)/125,ny=(250-b.hitY)/250,sx=spCx+nx*spW*.45,sy=spCy-ny*fH*.9;
     const col=hitEventColor(b.event,b._mine);const r=b._mine?5.5:3.5;const op=b._mine?1:.45;
@@ -2124,6 +2155,8 @@ function buildImprovedSpray(bip,playerName,w,h,sprayId){
     svg+=`<circle class="sp-dot" cx="${sx}" cy="${sy}" r="${r}" fill="${col}" opacity="${op}" ${stroke} data-mine="${b._mine?1:0}" data-hit="${b.isHit?1:0}" data-inn="${b.inning||0}" data-half="${half}" style="cursor:pointer" onclick="showBipTip('${sprayId}',${i},event)"/>`});
   if(!allDots.length)svg+=`<text x="${spCx}" y="${spCy-fH*.4}" text-anchor="middle" fill="#5c6478" font-size="10" font-family="var(--mono)">No balls in play</text>`;
   svg+=`</svg>`;
+  // Store venue label for external placement
+  sprayVenueLabel[sprayId]=homeAbbr&&STADIUM_DIMS[homeAbbr]?homeAbbr:'';
   // Filter toggles
   let filterHtml=`<div class="spray-filters" onclick="event.stopPropagation()">`;
   filterHtml+=`<button class="sf-btn" data-filter="hits" onclick="toggleSprayFilter('${sprayId}','hits',this)">Hits Only</button>`;
@@ -2151,7 +2184,7 @@ function buildMiniZone(pitches,size){
 
 function buildABLog(pABs,isP,playerKey){
   let html=`<div style="border-top:1px solid var(--border);padding:8px 14px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:var(--mono);margin-bottom:6px">${isP?'Batters Faced':'At-Bats'}</div>`;
-  pABs.forEach((ab,idx)=>{
+  [...pABs].reverse().forEach((ab,idx)=>{
     const abId=`${playerKey}_${idx}`;
     const isHit=ab.isHit;const isHR=ab.event==='Home Run';const isK=ab.event==='Strikeout';const isBB=['Walk','Intent Walk','Hit By Pitch'].includes(ab.event);
     let evCol='var(--dim)';if(isHR)evCol='var(--red)';else if(isHit)evCol='var(--green)';else if(isBB)evCol='var(--blue)';else if(isK)evCol='var(--muted)';
@@ -2477,7 +2510,7 @@ function buildStatcastLive(p,ls){
   let dots='';pitches.forEach((pt,i)=>{if(pt.pX==null||pt.pZ==null)return;const cx=mx(pt.pX),cy=mz(pt.pZ),last=i===pitches.length-1,rad=last?6:4.5,col=callColor(pt.call);
     dots+=`<circle cx="${cx}" cy="${cy}" r="${rad}" fill="${col}" opacity="${last?1:.65}" stroke="${last?'#fff':'none'}" stroke-width="${last?1.5:0}"/><text x="${cx}" y="${cy+.5}" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="${last?8:6.5}" font-family="var(--mono)" font-weight="600" style="pointer-events:none">${pt.num}</text>`});
   const zone=`<svg width="${sW}" height="${sH}" viewBox="0 0 ${sW} ${sH}"><rect x="${zx1}" y="${zy1}" width="${zw}" height="${zh}" fill="none" stroke="#505878" stroke-width="1.2" rx="2"/>${grid}${dots}<text x="${P+W/2}" y="${sH-1}" text-anchor="middle" fill="#5c6478" font-size="8" font-family="var(--mono)">Catcher's view</text></svg>`;
-  let pLog='';if(pitches.length)pLog='<div style="margin-top:6px;max-height:88px;overflow-y:auto;scrollbar-width:thin">'+pitches.map(pt=>{const col=pitchColor(pt.type),ab=pitchAbbr(pt.type);let res=pt.call;if(pt.isInPlay&&pt.exitVelo)res+=` · ${Math.round(pt.exitVelo)} EV`;return`<div class="pl-row"><span class="pl-num">${pt.num}</span><span class="pl-dot" style="background:${col}"></span><span class="pl-abbr">${ab}</span><span class="pl-velo">${pt.speed?Math.round(pt.speed):'-'}</span><span class="pl-call">${res}</span></div>`}).join('')+'</div>';
+  let pLog='';if(pitches.length)pLog='<div style="margin-top:6px">'+ [...pitches].reverse().map(pt=>{const col=pitchColor(pt.type),ab=pitchAbbr(pt.type);let res=pt.call;if(pt.isInPlay&&pt.exitVelo)res+=` · ${Math.round(pt.exitVelo)} EV`;return`<div class="pl-row"><span class="pl-num">${pt.num}</span><span class="pl-dot" style="background:${col}"></span><span class="pl-abbr">${ab}</span><span class="pl-velo">${pt.speed?Math.round(pt.speed):'-'}</span><span class="pl-call">${res}</span></div>`}).join('')+'</div>';
   // Stats bar
   const lp=f.lastPitch;
   let statsBar='';
@@ -2485,7 +2518,7 @@ function buildStatcastLive(p,ls){
     statsBar=`<div class="sc-stats" style="margin-top:8px;border-radius:6px;overflow:hidden"><div class="sc-stat"><div class="sc-sv ${vc}">${lp.speed?Math.round(lp.speed):'—'}</div><div class="sc-sl">Velo</div></div><div class="sc-stat"><div class="sc-sv">${lp.spin?Math.round(lp.spin).toLocaleString():'—'}</div><div class="sc-sl">Spin</div></div><div class="sc-stat"><div class="sc-sv ${ec}">${lp.exitVelo?Math.round(lp.exitVelo):'—'}</div><div class="sc-sl">Exit V</div></div><div class="sc-stat"><div class="sc-sv">${lp.launchAngle!=null?Math.round(lp.launchAngle)+'°':'—'}</div><div class="sc-sl">LA</div></div><div class="sc-stat"><div class="sc-sv">${lp.distance?Math.round(lp.distance)+"'":'—'}</div><div class="sc-sl">Dist</div></div></div>`}
   // Improved spray chart — interactive dots
   const sprayUID=`sp_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
-  const spray=buildImprovedSpray(bip,p.name,320,280,sprayUID);
+  const spray=buildImprovedSpray(bip,p.name,400,360,sprayUID,hm);
   // Spray legend
   const sprayLeg=`<div class="sc-legend" style="border-top:none;padding:4px 0 0;justify-content:center"><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#f0a030"></span>HR</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#a855f7"></span>3B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#3b82f6"></span>2B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#2dd4a0"></span>1B</span><span class="sc-leg-item"><span class="sc-leg-dot" style="background:#f06449"></span>Out</span></div>`;
   // Zone legend
@@ -2496,10 +2529,11 @@ function buildStatcastLive(p,ls){
   html+=`<div class="sc-tabs" onclick="event.stopPropagation()"><div class="sc-tab active" onclick="switchScCard('${snapId}',0,event)"><span class="sc-tab-icon">◎</span>Zone</div><div class="sc-tab" onclick="switchScCard('${snapId}',1,event)"><span class="sc-tab-icon">◉</span>Spray</div><div class="sc-tab" onclick="switchScCard('${snapId}',2,event)"><span class="sc-tab-icon">☰</span>Game Log</div></div>`;
   html+=`<div class="sc-snap" id="${snapId}">`;
   // Card 1: Strike zone
-  html+=`<div class="sc-card"><div class="sc-card-inner">${zone}${zoneLeg}</div>${pLog}${statsBar}</div>`;
+  html+=`<div class="sc-card" style="display:flex;flex-direction:column"><div class="sc-card-inner">${zone}${zoneLeg}</div>${statsBar}<div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin">${pLog}</div></div>`;
   // Card 2: Spray chart (interactive) with legend + filters
   const sprayFilterHtml=sprayFilterCache[sprayUID]||'';
-  html+=`<div class="sc-card"><div class="sc-card-inner">${spray}${sprayLeg}${sprayFilterHtml}</div></div>`;
+  const venueLabel=sprayVenueLabel[sprayUID]?`<div style="text-align:center;font-size:8px;font-weight:700;font-family:var(--mono);color:var(--muted);letter-spacing:.06em;padding:2px 0 0">@ ${sprayVenueLabel[sprayUID]}</div>`:'';
+  html+=`<div class="sc-card"><div class="sc-card-inner">${spray}${sprayLeg}${venueLabel}${sprayFilterHtml}</div></div>`;
   // Card 3: Full game log
   html+=`<div class="sc-card">${gameLog}</div>`;
   html+=`</div>`;
@@ -2885,8 +2919,6 @@ function switchWaiverType(type){
   if(waiverTypeFilter===type)return;
   waiverTypeFilter=type;
   waiverPosFilter='ALL';waiverOffset=0;waiverPlayers=[];expandedWaiver=null;wwCompareStats={};
-  waiverSearchQuery='';waiverSearchMode=false;clearTimeout(waiverSearchTimer);
-  const inp=document.getElementById('wwSearch');if(inp){inp.value='';document.getElementById('wwSearchClear').style.display='none'}
   // Update type toggle buttons
   document.querySelectorAll('#wwTypeToggle .ww-type-btn').forEach(b=>b.classList.toggle('active',b.dataset.wwtype===type));
   // Rebuild position bar
@@ -2897,7 +2929,7 @@ function switchWaiverType(type){
   loadWaivers();
 }
 
-function switchWaiverPos(pos){waiverPosFilter=pos;waiverOffset=0;waiverPlayers=[];expandedWaiver=null;wwCompareStats={};document.querySelectorAll('#wwPosBar .ww-pos-btn').forEach(b=>b.classList.toggle('active',b.dataset.wwpos===pos));if(waiverSearchMode&&waiverSearchQuery)executeWaiverSearch(waiverSearchQuery);else loadWaivers()}
+function switchWaiverPos(pos){waiverPosFilter=pos;waiverOffset=0;waiverPlayers=[];expandedWaiver=null;wwCompareStats={};document.querySelectorAll('#wwPosBar .ww-pos-btn').forEach(b=>b.classList.toggle('active',b.dataset.wwpos===pos));loadWaivers()}
 
 async function loadWaivers(){
   if(!currentLeagueKey||waiverLoading)return;
@@ -2905,110 +2937,29 @@ async function loadWaivers(){
   const el=document.getElementById('waivers-content');
   if(!waiverOffset)el.innerHTML='<div class="loading"><div class="spinner"></div>Loading free agents...</div>';
   await buildMLBPlayerMap();
+  // When position is ALL, fetch more since we'll client-side filter by type
   const needsTypeFilter=waiverPosFilter==='ALL';
-  const targetCount=50; // how many filtered players we want per load
-  const batchSize=needsTypeFilter?100:50;
+  const fetchCount=needsTypeFilter?50:25;
   const posParam=waiverPosFilter==='ALL'?'':`;position=${waiverPosFilter}`;
-  let allParsed=[];
-  let localOffset=waiverOffset;
-  let lastRawCount=0;
-  let totalRaw=0;
-  // Fetch in batches until we have enough filtered players (or Yahoo runs out)
-  while(allParsed.length<targetCount){
-    const ep=`league/${currentLeagueKey}/players;status=FA;sort=AR;out=percent_owned${posParam};start=${localOffset};count=${batchSize}`;
-    const data=await yahooGet(ep);
-    if(!data){if(!allParsed.length&&!waiverOffset){el.innerHTML='<div class="empty">Could not load free agents</div>';waiverLoading=false;return}break}
-    let batch=parseWaiverResponse(data,localOffset);
-    lastRawCount=batch.length;
-    totalRaw+=lastRawCount;
-    localOffset+=lastRawCount;
-    if(needsTypeFilter){
-      const wantPitcher=waiverTypeFilter==='pitchers';
-      batch=batch.filter(p=>wantPitcher?(p.type==='pitcher'):(p.type!=='pitcher'));
-    }
-    allParsed.push(...batch);
-    if(lastRawCount<batchSize)break; // no more players from Yahoo
-  }
-  // Re-number ranks sequentially
-  const baseRank=waiverPlayers.length;
-  allParsed.forEach((p,i)=>p.rank=baseRank+i+1);
-  waiverLoading=false;
-  if(!allParsed.length&&!waiverOffset&&!totalRaw){el.innerHTML='<div class="empty">No free agents found</div>';return}
-  if(!allParsed.length&&!waiverOffset&&totalRaw){el.innerHTML='<div class="empty">No '+waiverTypeFilter+' found in results</div>';return}
-  for(const p of allParsed){p.mlbId=resolveMLBId(p.name)}
-  // Fetch L14 stats for these players
-  const season=parseInt(leagueSeason||2026);
-  const today=new Date();const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  const end=fmt(today);const d14=new Date(today);d14.setDate(d14.getDate()-14);const start=fmt(d14);
-  const withId=allParsed.filter(p=>p.mlbId);
-  if(withId.length){
-    const results=await Promise.all(withId.map(p=>
-      fetchOnePlayerStats(p.mlbId,p.type,season,{start,end}).then(stats=>({playerKey:p.playerKey,stats}))
-    ));
-    for(const r of results){if(r.stats){const p=allParsed.find(x=>x.playerKey===r.playerKey);if(p)p.stats=r.stats}}
-  }
-  waiverPlayers=waiverOffset?[...waiverPlayers,...allParsed]:allParsed;
-  waiverOffset=localOffset; // Advance offset by total raw fetched
-  renderWaivers();
-  const posLabel=waiverPosFilter==='ALL'?('All '+waiverTypeFilter):waiverPosFilter;
-  document.getElementById('waiversSub').textContent=`${waiverPlayers.length} free agents · ${posLabel} · Ranked by Yahoo AR`;
-  document.getElementById('wwLoadMore').style.display=lastRawCount>=batchSize?'':'none';
-}
-function loadMoreWaivers(){loadWaivers()}
-
-// ─── WAIVER SEARCH ──────────────────────────────────────
-function onWaiverSearch(val){
-  clearTimeout(waiverSearchTimer);
-  const q=val.trim();
-  document.getElementById('wwSearchClear').style.display=q?'block':'none';
-  if(!q){
-    if(waiverSearchMode){clearWaiverSearch()}
-    return;
-  }
-  waiverSearchTimer=setTimeout(()=>executeWaiverSearch(q),350);
-}
-
-function clearWaiverSearch(){
-  const inp=document.getElementById('wwSearch');
-  inp.value='';
-  document.getElementById('wwSearchClear').style.display='none';
-  if(waiverSearchMode){
-    waiverSearchMode=false;waiverSearchQuery='';
-    waiverPlayers=[];waiverOffset=0;expandedWaiver=null;wwCompareStats={};
-    loadWaivers();
-  }
-}
-
-async function executeWaiverSearch(query){
-  if(!currentLeagueKey||waiverLoading)return;
-  waiverLoading=true;waiverSearchMode=true;waiverSearchQuery=query;
-  expandedWaiver=null;wwCompareStats={};
-  const el=document.getElementById('waivers-content');
-  el.innerHTML='<div class="loading"><div class="spinner"></div>Searching…</div>';
-  document.getElementById('wwLoadMore').style.display='none';
-  await buildMLBPlayerMap();
-  const ep=`league/${currentLeagueKey}/players;search=${encodeURIComponent(query)};status=FA;out=percent_owned;start=0;count=50`;
+  const ep=`league/${currentLeagueKey}/players;status=FA;sort=AR;out=percent_owned${posParam};start=${waiverOffset};count=${fetchCount}`;
   const data=await yahooGet(ep);
   waiverLoading=false;
-  // If query changed while we were fetching, discard
-  if(waiverSearchQuery!==query)return;
-  if(!data){el.innerHTML='<div class="empty">Search failed</div>';return}
-  let parsed=parseWaiverResponse(data,0);
-  // Client-side type filter
-  const wantPitcher=waiverTypeFilter==='pitchers';
-  parsed=parsed.filter(p=>wantPitcher?(p.type==='pitcher'):(p.type!=='pitcher'));
-  parsed.forEach((p,i)=>p.rank=i+1);
-  // Position filter
-  if(waiverPosFilter!=='ALL'){
-    parsed=parsed.filter(p=>{
-      const positions=(p.eligPos||p.pos.split(',')).map(s=>s.trim());
-      return positions.includes(waiverPosFilter);
-    });
-    parsed.forEach((p,i)=>p.rank=i+1);
+  if(!data){el.innerHTML='<div class="empty">Could not load free agents</div>';return}
+  console.log('[Waivers] Raw response sample:',JSON.stringify(data).slice(0,2000));
+  let parsed=parseWaiverResponse(data,waiverOffset);
+  const rawCount=parsed.length;
+  // Client-side filter by hitter/pitcher type when showing "All" positions
+  if(needsTypeFilter){
+    const wantPitcher=waiverTypeFilter==='pitchers';
+    parsed=parsed.filter(p=>wantPitcher?(p.type==='pitcher'):(p.type!=='pitcher'));
+    // Re-number ranks sequentially within filtered results
+    const baseRank=waiverPlayers.length;
+    parsed.forEach((p,i)=>p.rank=baseRank+i+1);
   }
-  if(!parsed.length){el.innerHTML=`<div class="empty">No ${waiverTypeFilter} found for "${query}"</div>`;document.getElementById('waiversSub').textContent=`0 results for "${query}"`;return}
+  if(!parsed.length&&!waiverOffset&&!rawCount){el.innerHTML='<div class="empty">No free agents found</div>';return}
+  if(!parsed.length&&!waiverOffset&&rawCount){el.innerHTML='<div class="empty">No '+waiverTypeFilter+' found in results</div>';return}
   for(const p of parsed){p.mlbId=resolveMLBId(p.name)}
-  // Fetch L14 stats
+  // Fetch L14 stats for these players
   const season=parseInt(leagueSeason||2026);
   const today=new Date();const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const end=fmt(today);const d14=new Date(today);d14.setDate(d14.getDate()-14);const start=fmt(d14);
@@ -3019,11 +2970,14 @@ async function executeWaiverSearch(query){
     ));
     for(const r of results){if(r.stats){const p=parsed.find(x=>x.playerKey===r.playerKey);if(p)p.stats=r.stats}}
   }
-  waiverPlayers=parsed;
-  waiverOffset=0;
+  waiverPlayers=waiverOffset?[...waiverPlayers,...parsed]:parsed;
+  waiverOffset+=rawCount; // Advance offset by raw (unfiltered) count for Yahoo pagination
   renderWaivers();
-  document.getElementById('waiversSub').textContent=`${parsed.length} results for "${query}"`;
+  const posLabel=waiverPosFilter==='ALL'?('All '+waiverTypeFilter):waiverPosFilter;
+  document.getElementById('waiversSub').textContent=`${waiverPlayers.length} free agents · ${posLabel} · Ranked by Yahoo AR`;
+  document.getElementById('wwLoadMore').style.display=rawCount>=fetchCount?'':'none';
 }
+function loadMoreWaivers(){loadWaivers()}
 
 function parseWaiverResponse(data,startOffset){
   const players=[];
