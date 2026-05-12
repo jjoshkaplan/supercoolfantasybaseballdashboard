@@ -78,6 +78,7 @@ button:focus-visible,a:focus-visible,[role="button"]:focus-visible,select:focus-
 
 /* Header right — league selector + controls */
 .header-right{display:flex;align-items:center;gap:12px;margin-left:auto;flex-shrink:0}
+.header-scroll-slot{display:none}
 .league-select{background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:6px 28px 6px 10px;border-radius:7px;font-family:inherit;font-size:13px!important;font-weight:500;cursor:pointer;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236b7a94' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
 .league-select:focus{outline:none;border-color:var(--green)}
 .poll-ind{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);font-family:var(--mono)}
@@ -396,13 +397,27 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 /* ─── MOBILE ─── */
 @media(max-width:768px){
   .header{padding:0 12px;padding-top:env(safe-area-inset-top);padding-left:calc(12px + env(safe-area-inset-left));padding-right:calc(12px + env(safe-area-inset-right));height:calc(48px + env(safe-area-inset-top));gap:10px}
-  .header-brand h1{font-size:14px}
+  .header-brand h1{font-size:14px;transition:max-width .25s ease,opacity .2s ease,margin .25s ease;max-width:200px;overflow:hidden;white-space:nowrap}
   .header-brand h1 span{display:none}
   .header-nav{display:none}
   .header-right .btn-sm{display:none}
   .header-right .hdr-sep{display:none}
   .header-right{gap:8px;margin-left:auto}
-  .league-select{max-width:140px;padding:6px 24px 6px 8px;font-size:12px!important}
+  .league-select{max-width:120px;padding:6px 22px 6px 8px;font-size:12px!important;transition:max-width .25s ease,opacity .2s ease,padding .25s ease,margin .25s ease,border-color .25s ease}
+
+  /* ─── HEADER SCROLL SLOT (mobile only) ─── */
+  .header-scroll-slot{display:flex;align-items:center;gap:8px;flex:1;min-width:0;margin-left:0;max-width:0;opacity:0;overflow:hidden;pointer-events:none;transition:max-width .3s ease,opacity .25s ease,margin .25s ease}
+  .header.scrolled .header-scroll-slot{max-width:100vw;opacity:1;margin-left:6px;pointer-events:auto}
+  .header.scrolled .header-brand h1{max-width:0;opacity:0;margin-left:-10px}
+  .header.scrolled .league-select{max-width:0;opacity:0;padding-left:0;padding-right:0;margin-left:-8px;border-color:transparent}
+  .header.scrolled #pollStatus{display:none}
+  .hdr-mu{display:flex;flex-direction:column;justify-content:center;line-height:1.1;min-width:0;overflow:hidden}
+  .hdr-mu-opp{font-size:9px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+  .hdr-mu-score{font-size:13px;font-weight:800;font-family:var(--mono);letter-spacing:-.01em}
+  .hdr-hp-toggle{display:flex;background:var(--surface-2);border-radius:6px;padding:2px;gap:2px;flex-shrink:0;margin-left:auto}
+  .hdr-hp-btn{background:transparent;border:none;color:var(--dim);font-family:inherit;font-size:11px;font-weight:700;padding:5px 10px;min-height:30px;border-radius:4px;cursor:pointer;letter-spacing:.02em;transition:background .15s,color .15s}
+  .hdr-hp-btn:active{transform:scale(.97)}
+  .hdr-hp-btn.active{background:var(--surface);color:var(--green);box-shadow:0 1px 2px rgba(0,0,0,.2)}
   .main{width:100%;padding:12px 4px;padding-bottom:calc(45px + env(safe-area-inset-bottom));padding-left:calc(4px + env(safe-area-inset-left));padding-right:calc(4px + env(safe-area-inset-right));overflow-x:hidden;max-width:100vw}
   .view-panel{overflow-x:hidden;max-width:100%}
   #mu-scores,#mu-rankings{overflow-x:hidden;max-width:100vw;margin:0 -4px;width:calc(100% + 8px)}
@@ -715,6 +730,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
     <div class="nav-tab" data-view="matchups" onclick="switchView('matchups')">Matchups</div>
     <div class="nav-tab" data-view="waivers" onclick="switchView('waivers')">Waivers</div>
   </nav>
+  <div class="header-scroll-slot" id="headerScrollSlot" aria-hidden="true"></div>
   <div class="header-right">
     <select class="league-select" id="leagueSelect" onchange="switchLeague(this.value)"><option value="">Loading...</option></select>
     <div class="hdr-sep"></div>
@@ -814,6 +830,11 @@ let mlbPlayerMap=null; // {normalizedName → personId}
 let mlbPlayerMeta=null; // {personId → {pitchHand, batSide}}
 let splitsCache={}; // {mlbId_group → splits data}
 let splitsWindow={}; // {playerKey → 'l7'|'l14'|'l30'} — selected recent split window
+
+// Header scroll-reveal state (mobile only)
+let currentMatchupSnap=null; // {opp,w,l,ti,color}
+let rosterHeaderObserver=null;
+let headerScrolled=false;
 
 // Waiver Wire state
 let waiverPlayers=[],waiverPosFilter='ALL',waiverSort={key:'rank',dir:'asc'};
@@ -1070,9 +1091,73 @@ function getPlayerLiveStatus(playerName, teamAbbr, playerType){
 }
 
 // ─── VIEWS ──────────────────────────────────────────────
-function switchView(v){document.querySelectorAll('.view-panel').forEach(p=>p.style.display='none');document.querySelectorAll('.nav-tab[data-view]').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.mob-tab[data-view]').forEach(i=>i.classList.remove('active'));document.getElementById(`view-${v}`).style.display='block';const sb=document.querySelector(`.nav-tab[data-view="${v}"]`);if(sb)sb.classList.add('active');const mb=document.querySelector(`.mob-tab[data-view="${v}"]`);if(mb)mb.classList.add('active');if(currentLeague)loadViewData(v)}
+function switchView(v){document.querySelectorAll('.view-panel').forEach(p=>p.style.display='none');document.querySelectorAll('.nav-tab[data-view]').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.mob-tab[data-view]').forEach(i=>i.classList.remove('active'));document.getElementById(`view-${v}`).style.display='block';const sb=document.querySelector(`.nav-tab[data-view="${v}"]`);if(sb)sb.classList.add('active');const mb=document.querySelector(`.mob-tab[data-view="${v}"]`);if(mb)mb.classList.add('active');if(currentLeague)loadViewData(v);updateHeaderScrollState()}
 function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};refData={};expandedPlayer=null;splitsCache={};splitsWindow={};todayPanelMode={};waiverPlayers=[];waiverOffset=0;expandedWaiver=null;waiverTypeFilter='hitters';wwSearchTerm='';wwSearchMode=false;wwCompareStats={};sparklineCache={};sparklineLoading.clear();standingsData=[];expandedStTeam=null;stTeamRosters={};stTeamPeriod='today';rosterContextLoaded=false;initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
-function switchRosterTab(t){rosterTab=t;document.querySelectorAll('#rosterTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.getElementById('roster-hitters').style.display=t==='hitters'?'':'none';document.getElementById('roster-pitchers').style.display=t==='pitchers'?'':'none'}
+function switchRosterTab(t){rosterTab=t;document.querySelectorAll('#rosterTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.querySelectorAll('.hdr-hp-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.getElementById('roster-hitters').style.display=t==='hitters'?'':'none';document.getElementById('roster-pitchers').style.display=t==='pitchers'?'':'none'}
+
+// ─── HEADER SCROLL-REVEAL (mobile) ─────────────────
+function renderHeaderScrollSlot(){
+  const slot=document.getElementById('headerScrollSlot');if(!slot)return;
+  const onRoster=!!document.querySelector('.nav-tab[data-view="roster"].active');
+  if(!onRoster){slot.innerHTML='';return}
+  let html='';
+  if(currentMatchupSnap){
+    const m=currentMatchupSnap;
+    html+=`<div class="hdr-mu"><div class="hdr-mu-opp">vs ${m.opp}</div><div class="hdr-mu-score" style="color:${m.color}">${m.w}-${m.l}-${m.ti}</div></div>`}
+  html+=`<div class="hdr-hp-toggle" role="tablist" aria-label="Switch hitters and pitchers">`;
+  html+=`<button class="hdr-hp-btn ${rosterTab==='hitters'?'active':''}" data-tab="hitters" onclick="switchRosterTab('hitters')" role="tab" aria-selected="${rosterTab==='hitters'}">Hit</button>`;
+  html+=`<button class="hdr-hp-btn ${rosterTab==='pitchers'?'active':''}" data-tab="pitchers" onclick="switchRosterTab('pitchers')" role="tab" aria-selected="${rosterTab==='pitchers'}">Pit</button>`;
+  html+=`</div>`;
+  slot.innerHTML=html;
+}
+
+function setHeaderScrolled(on){
+  if(headerScrolled===on)return;
+  headerScrolled=on;
+  const hdr=document.querySelector('.header');if(hdr)hdr.classList.toggle('scrolled',on);
+  if(on)renderHeaderScrollSlot();
+}
+
+function updateHeaderScrollState(){
+  // Disconnect any existing observer; reattach only if on Roster view and on mobile
+  if(rosterHeaderObserver){rosterHeaderObserver.disconnect();rosterHeaderObserver=null}
+  setHeaderScrolled(false);
+  const onRoster=!!document.querySelector('.nav-tab[data-view="roster"].active');
+  if(!onRoster)return;
+  if(window.matchMedia&&!window.matchMedia('(max-width:768px)').matches)return;
+  const target=document.querySelector('.roster-header');if(!target)return;
+  // Observer fires when .roster-header crosses the top of the viewport (below the header)
+  const headerH=document.querySelector('.header')?.getBoundingClientRect().height||48;
+  rosterHeaderObserver=new IntersectionObserver(entries=>{
+    for(const e of entries){
+      // When the roster header is scrolled out of view above the fold, reveal scrolled state
+      setHeaderScrolled(!e.isIntersecting&&e.boundingClientRect.top<0)}
+  },{rootMargin:`-${Math.round(headerH)}px 0px 0px 0px`,threshold:0});
+  rosterHeaderObserver.observe(target);
+  renderHeaderScrollSlot();
+}
+
+// ─── SWIPE BETWEEN HITTERS/PITCHERS (mobile) ───────
+function attachRosterSwipe(){
+  const card=document.querySelector('#view-roster .card');if(!card||card._swipeAttached)return;
+  card._swipeAttached=true;
+  let sx=0,sy=0,tracking=false;
+  card.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1)return;
+    // Skip if touch starts on an element that wants to handle swipe itself
+    const t=e.target;
+    if(t.closest('.sc-row,select,input,textarea,button,a,.sf-btn,.splits-win-btn,.today-toggle-btn,.pos-select'))return;
+    sx=e.touches[0].clientX;sy=e.touches[0].clientY;tracking=true},{passive:true});
+  card.addEventListener('touchend',e=>{
+    if(!tracking)return;tracking=false;
+    const ch=e.changedTouches[0];if(!ch)return;
+    const dx=ch.clientX-sx,dy=ch.clientY-sy;
+    // Horizontal swipe: >60px and at least 2x more horizontal than vertical
+    if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*2)return;
+    if(dx<0&&rosterTab==='hitters')switchRosterTab('pitchers');
+    else if(dx>0&&rosterTab==='pitchers')switchRosterTab('hitters')},{passive:true});
+  card.addEventListener('touchcancel',()=>{tracking=false},{passive:true});
+}
 function switchPeriod(p){currentPeriod=p;expandedPlayer=null;todayPanelMode={};splitsWindow={};document.querySelectorAll('#periodBar .period-btn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));loadRoster()}
 function updatePeriodLabels(){const sy=parseInt(leagueSeason||2026);const m={season:String(sy),prevyear:String(sy-1)};document.querySelectorAll('#periodBar .period-btn').forEach(b=>{if(m[b.dataset.period])b.textContent=m[b.dataset.period]})}
 function loadViewData(v){if(!currentLeague)return;({roster:loadRoster,standings:loadStandings,matchups:loadMatchups,waivers:loadWaivers}[v]||function(){})()}
@@ -1597,7 +1682,10 @@ function renderRoster(){
   const h=rosterData.filter(p=>p.type==='hitter').sort((a,b)=>(POS_ORDER_H.indexOf(a.selPos)===-1?99:POS_ORDER_H.indexOf(a.selPos))-(POS_ORDER_H.indexOf(b.selPos)===-1?99:POS_ORDER_H.indexOf(b.selPos)));
   const p=rosterData.filter(p=>p.type==='pitcher').sort((a,b)=>(POS_ORDER_P.indexOf(a.selPos)===-1?99:POS_ORDER_P.indexOf(a.selPos))-(POS_ORDER_P.indexOf(b.selPos)===-1?99:POS_ORDER_P.indexOf(b.selPos)));
   document.getElementById('roster-hitters').innerHTML=buildTable(h,HITTER_STATS);
-  document.getElementById('roster-pitchers').innerHTML=buildTable(p,PITCHER_STATS)}
+  document.getElementById('roster-pitchers').innerHTML=buildTable(p,PITCHER_STATS);
+  updateHeaderScrollState();
+  attachRosterSwipe();
+}
 
 // ─── ROSTER HEADER CONTEXT (standings rank + matchup snapshot) ──
 let rosterContextLoaded=false;
@@ -1641,6 +1729,8 @@ async function loadRosterContext(){
         const wCol=w>l?'var(--green)':w<l?'var(--red)':'var(--dim)';
         const el=document.getElementById('rosterMatchup');
         el.innerHTML=`<div class="mu-snap"><span class="mu-snap-opp">vs ${oppTeam.name}</span><span class="mu-snap-score" style="color:${wCol}">${w}-${l}-${ti}</span></div>`;
+        currentMatchupSnap={opp:oppTeam.name,w,l,ti,color:wCol};
+        renderHeaderScrollSlot();
         break}
     }catch(e){console.error('[RosterCtx] matchup parse error:',e)}}
   }catch(e){console.error('[RosterCtx] fetch error:',e)}
@@ -3648,6 +3738,9 @@ function toggleTheme(){const n=document.documentElement.getAttribute('data-theme
 
 // ─── INIT ───────────────────────────────────────────────
 initTheme();checkAuth();
+// Re-evaluate header scroll observer on viewport changes (rotation, window resize)
+let _hdrResizeT=null;
+window.addEventListener('resize',()=>{clearTimeout(_hdrResizeT);_hdrResizeT=setTimeout(updateHeaderScrollState,150)});
 </script>
 </body>
 </html>
