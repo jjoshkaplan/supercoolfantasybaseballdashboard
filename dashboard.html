@@ -315,6 +315,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .splits-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:var(--mono);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
 .splits-section-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
 .splits-section-title-row .splits-section-title{margin-bottom:0;padding-bottom:0;border-bottom:none}
+.splits-fallback-note{font-size:9px;font-weight:600;color:var(--muted);font-family:var(--mono);letter-spacing:.04em;margin-left:8px;padding:1px 5px;border-radius:3px;background:var(--surface-2);text-transform:uppercase;cursor:help;vertical-align:middle}
 .splits-window-toggle{display:flex;gap:2px;background:var(--surface-2);border-radius:5px;padding:2px;flex-shrink:0}
 .splits-win-btn{background:transparent;border:none;color:var(--dim);font-family:var(--mono);font-size:10px;font-weight:700;padding:4px 10px;min-height:24px;border-radius:3px;cursor:pointer;letter-spacing:.04em;transition:background .15s,color .15s}
 .splits-win-btn:hover{color:var(--text)}
@@ -1529,14 +1530,15 @@ async function fetchPlayerSplits(mlbId,playerType){
   const end=fmt(today);const d30=new Date(today);d30.setDate(d30.getDate()-30);const start=fmt(d30);
   const handCodes=playerType==='pitcher'?'bl,br':'vl,vr';
   const base=`${MLB}/v1/people/${mlbId}/stats`;
-  // Parallel fetch: prev-season splits + L30 HA + L30 gameLog. Note: statSplits with
-  // date params is intentionally NOT requested here for L30 hand splits — that endpoint
-  // silently returns full-season data. We derive L30 hand splits from the gameLog below.
-  const[r1,r2,r3,r5]=await Promise.all([
+  // Parallel fetch: prev-season splits + L30 HA + L30 gameLog + current-season YTD hand
+  // splits (no date params — used as fallback when gameLog can't produce windowed hand
+  // splits, e.g. for pitchers or for hitters in very-early-season empty windows).
+  const[r1,r2,r3,r5,rYTD]=await Promise.all([
     safeFetchJSON(`${base}?stats=homeAndAway&group=${group}&season=${prevSeason}&gameType=R`),
     safeFetchJSON(`${base}?stats=statSplits&group=${group}&season=${prevSeason}&gameType=R&sitCodes=${handCodes}`),
     safeFetchJSON(`${base}?stats=homeAndAway&group=${group}&season=${season}&gameType=R&startDate=${start}&endDate=${end}`),
-    safeFetchJSON(`${base}?stats=gameLog&group=${group}&season=${season}&gameType=R&startDate=${start}&endDate=${end}`)
+    safeFetchJSON(`${base}?stats=gameLog&group=${group}&season=${season}&gameType=R&startDate=${start}&endDate=${end}`),
+    safeFetchJSON(`${base}?stats=statSplits&group=${group}&season=${season}&gameType=R&sitCodes=${handCodes}`)
   ]);
   // Also try L30 with prevSeason if current season hasn't started
   let r5b=null;
@@ -1548,18 +1550,18 @@ async function fetchPlayerSplits(mlbId,playerType){
     r3b=await safeFetchJSON(`${base}?stats=homeAndAway&group=${group}&season=${prevSeason}&gameType=R&startDate=${start}&endDate=${end}`)}
   const gameLog=r5||r5b;
   // Hand splits for L30: aggregate from gameLog (statSplits ignores date params).
-  // For pitchers this returns null; we don't fall back to statSplits since it'd
-  // mislabel season data as recent. r4/r4b ignored for the L30 hand row.
+  // For pitchers this returns null. For empty windows (no games played), also null.
   const l30HandFromLog=await aggregateHandSplitsFromGameLog(playerType,gameLog);
   const result={
     seasonHA:parseSplitsHomeAway(r1),
     seasonHand:parseSplitsHand(r2,playerType),
     l30HA:parseSplitsHomeAway(r3)||parseSplitsHomeAway(r3b)||aggregateGameLog(gameLog,group),
     l30Hand:l30HandFromLog,
+    ytdHand:parseSplitsHand(rYTD,playerType), // current season-to-date hand splits, used as fallback
     l30Fetched:true
   };
   splitsCache[key]=result;
-  console.log(`[Splits] ${mlbId}: seasonHA=${result.seasonHA?'✓':'✗'} seasonHand=${result.seasonHand?'✓':'✗'} l30HA=${result.l30HA?'✓':'✗'} l30Hand=${result.l30Hand?'✓':'✗'}`);
+  console.log(`[Splits] ${mlbId}: seasonHA=${result.seasonHA?'✓':'✗'} seasonHand=${result.seasonHand?'✓':'✗'} l30HA=${result.l30HA?'✓':'✗'} l30Hand=${result.l30Hand?'✓':'✗'} ytdHand=${result.ytdHand?'✓':'✗'}`);
   return result;
 }
 
@@ -2280,15 +2282,20 @@ function buildSplitsPanel(p){
   // Kick off fetch for selected window if not yet loaded
   if(!cached[`${winKey}Fetched`]){
     fetchRecentSplits(p.mlbId,p.type,winDays).then(()=>{if(expandedPlayer===p.playerKey)renderRoster()})}
-  const recentData={hand:cached[`${winKey}Hand`],homeAway:cached[`${winKey}HA`]};
-  const hasRecent=cached[`${winKey}Hand`]||cached[`${winKey}HA`];
+  // Hand splits fall back to season-to-date when windowed data isn't available
+  // (pitchers, or hitters with empty window). HA stays window-specific.
+  const handForWindow=cached[`${winKey}Hand`];
+  const handIsYTD=!handForWindow&&!!cached.ytdHand;
+  const recentData={hand:handForWindow||cached.ytdHand||null,homeAway:cached[`${winKey}HA`]};
+  const hasRecent=recentData.hand||recentData.homeAway;
   const recentLoaded=cached[`${winKey}Fetched`];
   let winToggle='<div class="splits-window-toggle">';
   for(const d of [7,14,30]){
     const active=winDays===d?' active':'';
     winToggle+=`<button class="splits-win-btn${active}" onclick="setSplitsWindow('${p.playerKey}',${d},event)">L${d}</button>`}
   winToggle+='</div>';
-  html+=`<div class="splits-section"><div class="splits-section-title-row"><div class="splits-section-title">Last ${winDays} Days</div>${winToggle}</div>`;
+  const ytdNote=handIsYTD?'<span class="splits-fallback-note" title="LHP/RHP splits shown season-to-date — recent-window hand splits are not available from the MLB API for this player">hand: YTD</span>':'';
+  html+=`<div class="splits-section"><div class="splits-section-title-row"><div class="splits-section-title">Last ${winDays} Days ${ytdNote}</div>${winToggle}</div>`;
   if(!recentLoaded){
     html+='<div class="splits-no-data">Loading splits...</div>'}
   else if(hasRecent){
