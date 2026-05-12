@@ -42,6 +42,27 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 a{color:inherit;text-decoration:none}
 select,input,textarea{font-size:16px!important}
 
+/* ─── A11Y & POLISH PASS ─── */
+/* Tabular numerals everywhere mono is used — prevents stat columns from jiggling on sort/update */
+.num,.stat-val,table td.num,table th.num,.gc-score .runs,.sc-sv,.sc-sl,.splits-tbl td,.splits-tbl th{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+[style*="var(--mono)"],.mono{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+/* Visible focus rings for keyboard users (mouse users unaffected via :focus-visible) */
+button:focus-visible,a:focus-visible,[role="button"]:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:var(--radius)}
+.nav-tab:focus-visible{outline:2px solid var(--green);outline-offset:-2px;border-radius:6px}
+.tab-btn:focus-visible,.period-btn:focus-visible,.splits-win-btn:focus-visible,.today-toggle-btn:focus-visible,.ww-pos-btn:focus-visible,.ww-type-btn:focus-visible{outline:2px solid var(--green);outline-offset:1px}
+:focus:not(:focus-visible){outline:none}
+
+/* Tap feedback — subtle scale within the 100ms tap-feedback window. Skipped on reduced-motion below. */
+.tab-btn,.period-btn,.btn-sm,.btn-save,.splits-win-btn,.today-toggle-btn,.ww-pos-btn,.ww-type-btn,.sf-btn{transition:background .15s ease-out,color .15s ease-out,border-color .15s ease-out,transform .1s ease-out,box-shadow .15s ease-out}
+.tab-btn:active,.period-btn:active,.btn-sm:active,.btn-save:active,.splits-win-btn:active,.today-toggle-btn:active,.ww-pos-btn:active,.ww-type-btn:active,.sf-btn:active{transform:scale(.97)}
+
+/* Reduced motion — respects user preference, kills decorative animation only */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .poll-dot.live{animation:none!important}
+}
+
 /* ─── HEADER ─── */
 .header{display:flex;align-items:center;gap:16px;padding:0 28px;padding-left:calc(28px + env(safe-area-inset-left));padding-right:calc(28px + env(safe-area-inset-right));padding-top:env(safe-area-inset-top);border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100;height:calc(52px + env(safe-area-inset-top))}
 .header-brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
@@ -63,7 +84,7 @@ select,input,textarea{font-size:16px!important}
 .poll-dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
 .poll-dot.live{background:var(--green);animation:blinker 1.5s ease-in-out infinite}
 @keyframes blinker{0%,100%{opacity:1}50%{opacity:.3}}
-.theme-toggle{display:flex;align-items:center;cursor:pointer;user-select:none;padding:4px 0}
+.theme-toggle{display:flex;align-items:center;cursor:pointer;user-select:none;padding:4px 0;background:transparent;border:none;color:inherit;font:inherit}
 .theme-toggle-track{position:relative;width:36px;height:20px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);transition:all .25s}
 .theme-toggle-track::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--dim);transition:all .25s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
 [data-theme="light"] .theme-toggle-track{background:var(--green-dim);border-color:var(--green)}
@@ -294,7 +315,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .splits-section-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
 .splits-section-title-row .splits-section-title{margin-bottom:0;padding-bottom:0;border-bottom:none}
 .splits-window-toggle{display:flex;gap:2px;background:var(--surface-2);border-radius:5px;padding:2px;flex-shrink:0}
-.splits-win-btn{background:transparent;border:none;color:var(--dim);font-family:var(--mono);font-size:9px;font-weight:700;padding:3px 8px;border-radius:3px;cursor:pointer;letter-spacing:.04em;transition:background .15s,color .15s}
+.splits-win-btn{background:transparent;border:none;color:var(--dim);font-family:var(--mono);font-size:10px;font-weight:700;padding:4px 10px;min-height:24px;border-radius:3px;cursor:pointer;letter-spacing:.04em;transition:background .15s,color .15s}
 .splits-win-btn:hover{color:var(--text)}
 .splits-win-btn.active{background:var(--surface);color:var(--green);box-shadow:0 1px 2px rgba(0,0,0,.15)}
 .splits-tbl{width:100%;font-size:12px;border-collapse:collapse}
@@ -698,7 +719,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
     <select class="league-select" id="leagueSelect" onchange="switchLeague(this.value)"><option value="">Loading...</option></select>
     <div class="hdr-sep"></div>
     <div class="poll-ind"><div class="poll-dot" id="pollDot"></div><span id="pollStatus">—</span></div>
-    <div class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"><div class="theme-toggle-track"></div></div>
+    <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle theme"><div class="theme-toggle-track" aria-hidden="true"></div></button>
     <a href="/api/auth-logout" class="btn-sm" id="logoutBtn" style="display:none">Sign Out</a>
   </div>
 </div>
@@ -749,7 +770,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
         </div>
         <div class="ww-search-wrap">
           <input type="text" class="ww-search" id="wwSearch" placeholder="Search players..." oninput="onWwSearchInput(this.value)">
-          <button class="ww-search-clear" id="wwSearchClear" onclick="clearWwSearch()">&times;</button>
+          <button class="ww-search-clear" id="wwSearchClear" onclick="clearWwSearch()" aria-label="Clear search">&times;</button>
         </div>
         <div class="ww-pos-bar" id="wwPosBar">
           <button class="ww-pos-btn active" data-wwpos="ALL" onclick="switchWaiverPos('ALL')">All</button>
