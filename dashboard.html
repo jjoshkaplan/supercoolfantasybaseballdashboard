@@ -843,7 +843,7 @@ async function checkAuth(){try{const r=await fetch('/api/auth-me'),d=await r.jso
 async function yahooGet(ep){const r=await fetch(`/api/yahoo?endpoint=${encodeURIComponent(ep)}`);if(r.status===401){window.location.href='/api/auth-login';return null}return r.ok?r.json():null}
 
 // ─── MLB LIVE POLLING ───────────────────────────────────
-async function fetchMLBSchedule(){try{const n=new Date(),td=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;const r=await fetch(`${MLB}/v1/schedule?sportId=1&date=${td}&hydrate=probablePitcher,team,linescore,lineups`);const d=await r.json();mlbSchedule=(d.dates||[]).flatMap(x=>x.games||[])}catch(e){console.error(e)}}
+async function fetchMLBSchedule(){try{const td=getMLBTodayDate();const r=await fetch(`${MLB}/v1/schedule?sportId=1&date=${td}&hydrate=probablePitcher,team,linescore,lineups`);const d=await r.json();mlbSchedule=(d.dates||[]).flatMap(x=>x.games||[])}catch(e){console.error(e)}}
 
 // 11am ET cutoff: before = show last night, after = show today's matchup + splits
 function isAfter11amET(){
@@ -852,6 +852,18 @@ function isAfter11amET(){
   const etStr=now.toLocaleString('en-US',{timeZone:'America/New_York',hour12:false,hour:'2-digit',minute:'2-digit'});
   const[h,m]=etStr.split(':').map(Number);
   return h>=11;
+}
+
+// MLB "today" date — rolls over at 5am ET (not midnight) so games extending past
+// midnight ET (late West Coast games) stay on the same MLB day until 5am ET
+function getMLBTodayDate(){
+  const now=new Date();
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hour12:false}).formatToParts(now);
+  const get=t=>parts.find(p=>p.type===t)?.value;
+  const y=parseInt(get('year')),m=parseInt(get('month')),d=parseInt(get('day')),h=parseInt(get('hour'));
+  const date=new Date(Date.UTC(y,m-1,d,12,0,0));
+  if(h<5)date.setUTCDate(date.getUTCDate()-1);
+  return`${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,'0')}-${String(date.getUTCDate()).padStart(2,'0')}`;
 }
 
 function getYesterdayDateStr(){
