@@ -1456,6 +1456,68 @@ function aggregateGameLog(data,group){
     const agg=group==='pitching'?aggPit:aggHit;
     return{home:agg(homeGames),away:agg(awayGames)}}catch(e){console.warn('[Splits] gameLog agg error:',e);return null}}
 
+// Cache of probable/starting pitcher info per gamePk so toggling between L7/L14/L30
+// doesn't re-fetch the schedule. Keys are gamePks; values are {home:{hand},away:{hand}}.
+let oppStarterCache={};
+
+// MLB's statSplits endpoint silently ignores startDate/endDate (returns full-season splits),
+// so for date-windowed hand splits we aggregate the gameLog manually by looking up each
+// game's opposing starting pitcher hand. Only viable for hitters (vs LHP/RHP); pitchers'
+// vs-LHB/RHB splits would require play-by-play data we don't have here.
+async function aggregateHandSplitsFromGameLog(playerType,gameLogResp){
+  if(playerType!=='hitter')return null;
+  let splits=null;
+  for(const sg of(gameLogResp?.stats||[])){if(sg.splits?.length){splits=sg.splits;break}}
+  if(!splits?.length)return null;
+  // Collect gamePks that aren't already cached
+  const allGpks=splits.map(s=>s.game?.gamePk).filter(Boolean);
+  const uniqueGpks=[...new Set(allGpks)];
+  const uncached=uniqueGpks.filter(g=>!(g in oppStarterCache));
+  if(uncached.length){
+    // Fetch schedule for missing games (one batched call) with probable pitcher hydration
+    const sched=await safeFetchJSON(`${MLB}/v1/schedule?sportId=1&gamePks=${uncached.join(',')}&hydrate=probablePitcher`);
+    for(const d of(sched?.dates||[])){
+      for(const g of(d.games||[])){
+        const h=g.teams?.home?.probablePitcher;
+        const a=g.teams?.away?.probablePitcher;
+        oppStarterCache[g.gamePk]={
+          home:h?{id:h.id,hand:h.pitchHand?.code||null}:null,
+          away:a?{id:a.id,hand:a.pitchHand?.code||null}:null
+        }}}
+    // Mark any still-missing gamePks as null so we don't retry
+    for(const gpk of uncached)if(!(gpk in oppStarterCache))oppStarterCache[gpk]=null;
+  }
+  // Bucket each game by opposing starter's hand
+  const leftGames=[],rightGames=[];
+  for(const sp of splits){
+    const gpk=sp.game?.gamePk;const pm=gpk?oppStarterCache[gpk]:null;
+    if(!pm)continue;
+    const oppStarter=sp.isHome?pm.away:pm.home;
+    if(!oppStarter?.hand)continue;
+    if(oppStarter.hand==='L')leftGames.push(sp);
+    else if(oppStarter.hand==='R')rightGames.push(sp);
+  }
+  if(!leftGames.length&&!rightGames.length)return null;
+  // Aggregate hitter stats (mirrors the hitter branch of aggregateGameLog)
+  const aggHit=games=>{
+    if(!games.length)return null;
+    let pa=0,ab=0,h=0,hr=0,so=0,bb=0,hbp=0,sf=0,doubles=0,triples=0;
+    for(const g of games){const s=g.stat||{};
+      pa+=parseInt(s.plateAppearances||0);ab+=parseInt(s.atBats||0);h+=parseInt(s.hits||0);
+      hr+=parseInt(s.homeRuns||0);so+=parseInt(s.strikeOuts||0);bb+=parseInt(s.baseOnBalls||0);
+      hbp+=parseInt(s.hitByPitch||0);sf+=parseInt(s.sacFlies||0);
+      doubles+=parseInt(s.doubles||0);triples+=parseInt(s.triples||0)}
+    const singles=h-doubles-triples-hr;
+    const tb=singles+2*doubles+3*triples+4*hr;
+    const avg=ab>0?(h/ab):0;const obpD=ab+bb+hbp+sf;
+    const obp=obpD>0?((h+bb+hbp)/obpD):0;
+    const slg=ab>0?(tb/ab):0;const ops=obp+slg;
+    return{plateAppearances:String(pa),atBats:String(ab),avg:avg.toFixed(3),obp:obp.toFixed(3),
+      slg:slg.toFixed(3),ops:ops.toFixed(3),homeRuns:String(hr),strikeOuts:String(so),
+      baseOnBalls:String(bb),hits:String(h),gamesPlayed:String(games.length)}};
+  return{left:aggHit(leftGames),right:aggHit(rightGames)};
+}
+
 async function fetchPlayerSplits(mlbId,playerType){
   const group=playerType==='pitcher'?'pitching':'hitting';
   const key=`${mlbId}_${group}`;
@@ -1467,32 +1529,33 @@ async function fetchPlayerSplits(mlbId,playerType){
   const end=fmt(today);const d30=new Date(today);d30.setDate(d30.getDate()-30);const start=fmt(d30);
   const handCodes=playerType==='pitcher'?'bl,br':'vl,vr';
   const base=`${MLB}/v1/people/${mlbId}/stats`;
-  // Parallel fetch: 2025 season splits + L30 splits + game log fallback
-  const[r1,r2,r3,r4,r5]=await Promise.all([
+  // Parallel fetch: prev-season splits + L30 HA + L30 gameLog. Note: statSplits with
+  // date params is intentionally NOT requested here for L30 hand splits — that endpoint
+  // silently returns full-season data. We derive L30 hand splits from the gameLog below.
+  const[r1,r2,r3,r5]=await Promise.all([
     safeFetchJSON(`${base}?stats=homeAndAway&group=${group}&season=${prevSeason}&gameType=R`),
     safeFetchJSON(`${base}?stats=statSplits&group=${group}&season=${prevSeason}&gameType=R&sitCodes=${handCodes}`),
     safeFetchJSON(`${base}?stats=homeAndAway&group=${group}&season=${season}&gameType=R&startDate=${start}&endDate=${end}`),
-    safeFetchJSON(`${base}?stats=statSplits&group=${group}&season=${season}&gameType=R&startDate=${start}&endDate=${end}&sitCodes=${handCodes}`),
     safeFetchJSON(`${base}?stats=gameLog&group=${group}&season=${season}&gameType=R&startDate=${start}&endDate=${end}`)
   ]);
   // Also try L30 with prevSeason if current season hasn't started
   let r5b=null;
   if(!r5?.stats?.[0]?.splits?.length){
     r5b=await safeFetchJSON(`${base}?stats=gameLog&group=${group}&season=${prevSeason}&gameType=R&startDate=${start}&endDate=${end}`)}
-  // Also try L30 hand splits for prevSeason
-  let r4b=null;
-  if(!parseSplitsHand(r4,playerType)){
-    r4b=await safeFetchJSON(`${base}?stats=statSplits&group=${group}&season=${prevSeason}&gameType=R&startDate=${start}&endDate=${end}&sitCodes=${handCodes}`)}
   // Also try L30 HA for prevSeason
   let r3b=null;
   if(!parseSplitsHomeAway(r3)){
     r3b=await safeFetchJSON(`${base}?stats=homeAndAway&group=${group}&season=${prevSeason}&gameType=R&startDate=${start}&endDate=${end}`)}
   const gameLog=r5||r5b;
+  // Hand splits for L30: aggregate from gameLog (statSplits ignores date params).
+  // For pitchers this returns null; we don't fall back to statSplits since it'd
+  // mislabel season data as recent. r4/r4b ignored for the L30 hand row.
+  const l30HandFromLog=await aggregateHandSplitsFromGameLog(playerType,gameLog);
   const result={
     seasonHA:parseSplitsHomeAway(r1),
     seasonHand:parseSplitsHand(r2,playerType),
     l30HA:parseSplitsHomeAway(r3)||parseSplitsHomeAway(r3b)||aggregateGameLog(gameLog,group),
-    l30Hand:parseSplitsHand(r4,playerType)||parseSplitsHand(r4b,playerType),
+    l30Hand:l30HandFromLog,
     l30Fetched:true
   };
   splitsCache[key]=result;
@@ -1511,26 +1574,23 @@ async function fetchRecentSplits(mlbId,playerType,days){
   const today=new Date();
   const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const end=fmt(today);const dRange=new Date(today);dRange.setDate(dRange.getDate()-days);const start=fmt(dRange);
-  const handCodes=playerType==='pitcher'?'bl,br':'vl,vr';
   const base=`${MLB}/v1/people/${mlbId}/stats`;
-  const[r3,r4,r5]=await Promise.all([
+  // Like fetchPlayerSplits, intentionally skip statSplits — it ignores the date range
+  const[r3,r5]=await Promise.all([
     safeFetchJSON(`${base}?stats=homeAndAway&group=${group}&season=${season}&gameType=R&startDate=${start}&endDate=${end}`),
-    safeFetchJSON(`${base}?stats=statSplits&group=${group}&season=${season}&gameType=R&startDate=${start}&endDate=${end}&sitCodes=${handCodes}`),
     safeFetchJSON(`${base}?stats=gameLog&group=${group}&season=${season}&gameType=R&startDate=${start}&endDate=${end}`)
   ]);
   let r5b=null;
   if(!r5?.stats?.[0]?.splits?.length){
     r5b=await safeFetchJSON(`${base}?stats=gameLog&group=${group}&season=${prevSeason}&gameType=R&startDate=${start}&endDate=${end}`)}
-  let r4b=null;
-  if(!parseSplitsHand(r4,playerType)){
-    r4b=await safeFetchJSON(`${base}?stats=statSplits&group=${group}&season=${prevSeason}&gameType=R&startDate=${start}&endDate=${end}&sitCodes=${handCodes}`)}
   let r3b=null;
   if(!parseSplitsHomeAway(r3)){
     r3b=await safeFetchJSON(`${base}?stats=homeAndAway&group=${group}&season=${prevSeason}&gameType=R&startDate=${start}&endDate=${end}`)}
   const gameLog=r5||r5b;
+  const handFromLog=await aggregateHandSplitsFromGameLog(playerType,gameLog);
   if(!splitsCache[key])splitsCache[key]={};
   splitsCache[key][`${winKey}HA`]=parseSplitsHomeAway(r3)||parseSplitsHomeAway(r3b)||aggregateGameLog(gameLog,group);
-  splitsCache[key][`${winKey}Hand`]=parseSplitsHand(r4,playerType)||parseSplitsHand(r4b,playerType);
+  splitsCache[key][`${winKey}Hand`]=handFromLog;
   splitsCache[key][`${winKey}Fetched`]=true;
   console.log(`[Splits] ${mlbId} L${days}: HA=${splitsCache[key][`${winKey}HA`]?'✓':'✗'} Hand=${splitsCache[key][`${winKey}Hand`]?'✓':'✗'}`);
   return splitsCache[key];
