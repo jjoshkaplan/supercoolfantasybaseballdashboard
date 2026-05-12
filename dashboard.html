@@ -291,6 +291,12 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .splits-section{margin-bottom:12px}
 .splits-section:last-child{margin-bottom:0}
 .splits-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:var(--mono);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.splits-section-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.splits-section-title-row .splits-section-title{margin-bottom:0;padding-bottom:0;border-bottom:none}
+.splits-window-toggle{display:flex;gap:2px;background:var(--surface-2);border-radius:5px;padding:2px;flex-shrink:0}
+.splits-win-btn{background:transparent;border:none;color:var(--dim);font-family:var(--mono);font-size:9px;font-weight:700;padding:3px 8px;border-radius:3px;cursor:pointer;letter-spacing:.04em;transition:background .15s,color .15s}
+.splits-win-btn:hover{color:var(--text)}
+.splits-win-btn.active{background:var(--surface);color:var(--green);box-shadow:0 1px 2px rgba(0,0,0,.15)}
 .splits-tbl{width:100%;font-size:12px;border-collapse:collapse}
 .splits-tbl th{padding:4px 6px;text-align:right;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-family:var(--mono);border-bottom:1px solid var(--border);white-space:nowrap}
 .splits-tbl th:first-child{text-align:left}
@@ -786,6 +792,7 @@ let todayPanelMode={}; // {playerKey: 'today'|'lastnight'} — per-player toggle
 let mlbPlayerMap=null; // {normalizedName → personId}
 let mlbPlayerMeta=null; // {personId → {pitchHand, batSide}}
 let splitsCache={}; // {mlbId_group → splits data}
+let splitsWindow={}; // {playerKey → 'l7'|'l14'|'l30'} — selected recent split window
 
 // Waiver Wire state
 let waiverPlayers=[],waiverPosFilter='ALL',waiverSort={key:'rank',dir:'asc'};
@@ -1031,9 +1038,9 @@ function getPlayerLiveStatus(playerName, teamAbbr, playerType){
 
 // ─── VIEWS ──────────────────────────────────────────────
 function switchView(v){document.querySelectorAll('.view-panel').forEach(p=>p.style.display='none');document.querySelectorAll('.nav-tab[data-view]').forEach(i=>i.classList.remove('active'));document.querySelectorAll('.mob-tab[data-view]').forEach(i=>i.classList.remove('active'));document.getElementById(`view-${v}`).style.display='block';const sb=document.querySelector(`.nav-tab[data-view="${v}"]`);if(sb)sb.classList.add('active');const mb=document.querySelector(`.mob-tab[data-view="${v}"]`);if(mb)mb.classList.add('active');if(currentLeague)loadViewData(v)}
-function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};refData={};expandedPlayer=null;splitsCache={};todayPanelMode={};waiverPlayers=[];waiverOffset=0;expandedWaiver=null;waiverTypeFilter='hitters';wwSearchTerm='';wwSearchMode=false;wwCompareStats={};sparklineCache={};sparklineLoading.clear();standingsData=[];expandedStTeam=null;stTeamRosters={};stTeamPeriod='today';rosterContextLoaded=false;initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
+function switchLeague(k){if(!k)return;currentLeagueKey=k;currentLeague=k;myTeamKey=null;statCategories={};refData={};expandedPlayer=null;splitsCache={};splitsWindow={};todayPanelMode={};waiverPlayers=[];waiverOffset=0;expandedWaiver=null;waiverTypeFilter='hitters';wwSearchTerm='';wwSearchMode=false;wwCompareStats={};sparklineCache={};sparklineLoading.clear();standingsData=[];expandedStTeam=null;stTeamRosters={};stTeamPeriod='today';rosterContextLoaded=false;initLeagueData().then(()=>loadViewData(document.querySelector('.nav-tab.active')?.dataset.view||'roster'))}
 function switchRosterTab(t){rosterTab=t;document.querySelectorAll('#rosterTabs .tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.getElementById('roster-hitters').style.display=t==='hitters'?'':'none';document.getElementById('roster-pitchers').style.display=t==='pitchers'?'':'none'}
-function switchPeriod(p){currentPeriod=p;expandedPlayer=null;todayPanelMode={};document.querySelectorAll('#periodBar .period-btn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));loadRoster()}
+function switchPeriod(p){currentPeriod=p;expandedPlayer=null;todayPanelMode={};splitsWindow={};document.querySelectorAll('#periodBar .period-btn').forEach(b=>b.classList.toggle('active',b.dataset.period===p));loadRoster()}
 function updatePeriodLabels(){const sy=parseInt(leagueSeason||2026);const m={season:String(sy),prevyear:String(sy-1)};document.querySelectorAll('#periodBar .period-btn').forEach(b=>{if(m[b.dataset.period])b.textContent=m[b.dataset.period]})}
 function loadViewData(v){if(!currentLeague)return;({roster:loadRoster,standings:loadStandings,matchups:loadMatchups,waivers:loadWaivers}[v]||function(){})()}
 
@@ -1365,11 +1372,62 @@ async function fetchPlayerSplits(mlbId,playerType){
     seasonHA:parseSplitsHomeAway(r1),
     seasonHand:parseSplitsHand(r2,playerType),
     l30HA:parseSplitsHomeAway(r3)||parseSplitsHomeAway(r3b)||aggregateGameLog(gameLog,group),
-    l30Hand:parseSplitsHand(r4,playerType)||parseSplitsHand(r4b,playerType)
+    l30Hand:parseSplitsHand(r4,playerType)||parseSplitsHand(r4b,playerType),
+    l30Fetched:true
   };
   splitsCache[key]=result;
   console.log(`[Splits] ${mlbId}: seasonHA=${result.seasonHA?'✓':'✗'} seasonHand=${result.seasonHand?'✓':'✗'} l30HA=${result.l30HA?'✓':'✗'} l30Hand=${result.l30Hand?'✓':'✗'}`);
   return result;
+}
+
+// Fetch a recent N-day window (L7, L14) on demand; results merged into existing splitsCache entry
+async function fetchRecentSplits(mlbId,playerType,days){
+  const group=playerType==='pitcher'?'pitching':'hitting';
+  const key=`${mlbId}_${group}`;
+  const winKey=`l${days}`;
+  if(splitsCache[key]?.[`${winKey}Fetched`])return splitsCache[key];
+  const season=parseInt(leagueSeason||2026);
+  const prevSeason=season-1;
+  const today=new Date();
+  const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const end=fmt(today);const dRange=new Date(today);dRange.setDate(dRange.getDate()-days);const start=fmt(dRange);
+  const handCodes=playerType==='pitcher'?'bl,br':'vl,vr';
+  const base=`${MLB}/v1/people/${mlbId}/stats`;
+  const[r3,r4,r5]=await Promise.all([
+    safeFetchJSON(`${base}?stats=homeAndAway&group=${group}&season=${season}&gameType=R&startDate=${start}&endDate=${end}`),
+    safeFetchJSON(`${base}?stats=statSplits&group=${group}&season=${season}&gameType=R&startDate=${start}&endDate=${end}&sitCodes=${handCodes}`),
+    safeFetchJSON(`${base}?stats=gameLog&group=${group}&season=${season}&gameType=R&startDate=${start}&endDate=${end}`)
+  ]);
+  let r5b=null;
+  if(!r5?.stats?.[0]?.splits?.length){
+    r5b=await safeFetchJSON(`${base}?stats=gameLog&group=${group}&season=${prevSeason}&gameType=R&startDate=${start}&endDate=${end}`)}
+  let r4b=null;
+  if(!parseSplitsHand(r4,playerType)){
+    r4b=await safeFetchJSON(`${base}?stats=statSplits&group=${group}&season=${prevSeason}&gameType=R&startDate=${start}&endDate=${end}&sitCodes=${handCodes}`)}
+  let r3b=null;
+  if(!parseSplitsHomeAway(r3)){
+    r3b=await safeFetchJSON(`${base}?stats=homeAndAway&group=${group}&season=${prevSeason}&gameType=R&startDate=${start}&endDate=${end}`)}
+  const gameLog=r5||r5b;
+  if(!splitsCache[key])splitsCache[key]={};
+  splitsCache[key][`${winKey}HA`]=parseSplitsHomeAway(r3)||parseSplitsHomeAway(r3b)||aggregateGameLog(gameLog,group);
+  splitsCache[key][`${winKey}Hand`]=parseSplitsHand(r4,playerType)||parseSplitsHand(r4b,playerType);
+  splitsCache[key][`${winKey}Fetched`]=true;
+  console.log(`[Splits] ${mlbId} L${days}: HA=${splitsCache[key][`${winKey}HA`]?'✓':'✗'} Hand=${splitsCache[key][`${winKey}Hand`]?'✓':'✗'}`);
+  return splitsCache[key];
+}
+
+// Set the active recent split window for a player and trigger fetch if needed
+function setSplitsWindow(pk,days,ev){
+  if(ev){ev.stopPropagation();ev.preventDefault()}
+  splitsWindow[pk]=`l${days}`;
+  const p=rosterData.find(x=>x.playerKey===pk);
+  if(p?.mlbId){
+    const group=p.type==='pitcher'?'pitching':'hitting';
+    const key=`${p.mlbId}_${group}`;
+    if(!splitsCache[key]?.[`l${days}Fetched`]){
+      fetchRecentSplits(p.mlbId,p.type,days).then(()=>{if(expandedPlayer===pk)renderRoster()})}
+  }
+  renderRoster();
 }
 
 // Fetch opposing pitcher's season stats
@@ -2031,21 +2089,36 @@ function buildSplitsPanel(p){
       fetchPitcherSeasonStats(opp.id).then(s=>{if(s){splitsCache[oppStatsKey]=s;if(expandedPlayer===p.playerKey)renderRoster()}})}
     html+=`<div class="splits-opp"><div class="splits-opp-info"><div class="splits-opp-name">${handLabel?`<span class="hand-badge ${handCls}">${handLabel}</span>`:''}${opp.name}</div><div class="splits-opp-line">${oppLine}</div></div></div>`}
   html+='<div class="splits-body">';
-  // 2025 Season splits
+  // Recent splits FIRST — windowed (L7 / L14 / L30) with toggle
+  const winKey=splitsWindow[p.playerKey]||'l30';
+  const winDays=parseInt(winKey.substring(1));
+  // Kick off fetch for selected window if not yet loaded
+  if(!cached[`${winKey}Fetched`]){
+    fetchRecentSplits(p.mlbId,p.type,winDays).then(()=>{if(expandedPlayer===p.playerKey)renderRoster()})}
+  const recentData={hand:cached[`${winKey}Hand`],homeAway:cached[`${winKey}HA`]};
+  const hasRecent=cached[`${winKey}Hand`]||cached[`${winKey}HA`];
+  const recentLoaded=cached[`${winKey}Fetched`];
+  let winToggle='<div class="splits-window-toggle">';
+  for(const d of [7,14,30]){
+    const active=winDays===d?' active':'';
+    winToggle+=`<button class="splits-win-btn${active}" onclick="setSplitsWindow('${p.playerKey}',${d},event)">L${d}</button>`}
+  winToggle+='</div>';
+  html+=`<div class="splits-section"><div class="splits-section-title-row"><div class="splits-section-title">Last ${winDays} Days</div>${winToggle}</div>`;
+  if(!recentLoaded){
+    html+='<div class="splits-no-data">Loading splits...</div>'}
+  else if(hasRecent){
+    html+=buildSplitsTable(recentData,p.type,activeHand,isHome,cols)}
+  else{
+    html+='<div class="splits-no-data">No data available for this window</div>'}
+  html+='</div>';
+  // Season splits SECOND
   const seasonData={hand:cached.seasonHand,homeAway:cached.seasonHA};
   const hasSeason=cached.seasonHand||cached.seasonHA;
   if(hasSeason){
     html+=`<div class="splits-section"><div class="splits-section-title">${prevSeason} Season Splits</div>`;
     html+=buildSplitsTable(seasonData,p.type,activeHand,isHome,cols);
     html+='</div>'}
-  // L30 splits
-  const l30Data={hand:cached.l30Hand,homeAway:cached.l30HA};
-  const hasL30=cached.l30Hand||cached.l30HA;
-  if(hasL30){
-    html+=`<div class="splits-section"><div class="splits-section-title">Last 30 Days</div>`;
-    html+=buildSplitsTable(l30Data,p.type,activeHand,isHome,cols);
-    html+='</div>'}
-  if(!hasSeason&&!hasL30){
+  if(!hasSeason&&!hasRecent&&recentLoaded){
     html+='<div class="splits-no-data">No split data available — splits populate once season begins</div>'}
   html+='</div></div>';
   return html;
