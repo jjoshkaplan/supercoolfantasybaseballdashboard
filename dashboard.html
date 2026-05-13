@@ -372,6 +372,8 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
 .mu-stat-table td.mu-cat{text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);width:50%}
 .mu-stat-table td.mu-v2{text-align:right;width:25%}
 .mu-stat-win{color:var(--green);font-weight:700}.mu-stat-lose{color:var(--dim);font-weight:500}.mu-stat-tie{color:var(--dim)}
+.mu-rank{display:block;font-size:10px;font-weight:600;font-family:var(--mono);letter-spacing:.02em;margin-top:2px;opacity:.9}
+.mu-rank.rk-top{color:var(--green)}.mu-rank.rk-bot{color:var(--red)}.mu-rank.rk-mid{color:var(--muted)}
 .tx-row{display:flex;align-items:center;gap:12px;padding:10px 20px;border-top:1px solid var(--border);font-size:13px}
 .tx-type{padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .tx-add{background:var(--green-dim);color:var(--green)}.tx-trade{background:var(--blue-dim);color:var(--blue)}.tx-commish{background:var(--orange-dim);color:var(--orange)}
@@ -578,6 +580,7 @@ tbody tr:hover .col-pos,tbody tr:hover .col-player,tbody tr.expanded .col-pos,tb
   .mu-tally-score{font-size:18px}
   .mu-stat-table td{padding:6px 0;font-size:12px}
   .mu-stat-table td.mu-cat{font-size:10px}
+  .mu-rank{font-size:9px;margin-top:1px}
   .mu-nav-btn{padding:4px 10px;font-size:11px}
   .mu-nav-label{font-size:10px}
   #view-matchups{padding:0}
@@ -3150,6 +3153,20 @@ function renderMatchupCard(){
   html+=`</div>`;
   // Vertical stat rows
   if(t1.stats.length&&t2.stats.length){
+    // Compute league-wide rank per stat for each team
+    const N=allTeamsStats.length;
+    const lgRanks={}; // {sid: {team_key: rank}}
+    if(N>1){
+      for(const[sid,cat]of ds){
+        const lb=LOWER_IS_BETTER.includes(cat.display_name);
+        const sorted=[...allTeamsStats].sort((a,b)=>{
+          const va=parseFloat(a.stats.find(s=>s.stat_id===sid)?.value)||0;
+          const vb=parseFloat(b.stats.find(s=>s.stat_id===sid)?.value)||0;
+          return lb?(va-vb):(vb-va)});
+        lgRanks[sid]={};
+        sorted.forEach((t,i)=>{lgRanks[sid][t.team_key]=i+1})}}
+    const ord=n=>{const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0])};
+    const rkCls=(r)=>{if(!r||!N)return'rk-mid';const t=N/3;if(r<=t)return'rk-top';if(r>N-t)return'rk-bot';return'rk-mid'};
     html+='<table class="mu-stat-table">';
     for(const[sid,cat]of ds){
       const v1=t1.stats.find(s=>s.stat_id===sid)?.value||'—';
@@ -3158,7 +3175,10 @@ function renderMatchupCard(){
       const w1=sw&&sw.winner===t1.team_key,w2=sw&&sw.winner===t2.team_key,tied=sw&&sw.is_tied;
       const c1=w1?'mu-stat-win':w2?'mu-stat-lose':tied?'mu-stat-tie':'';
       const c2=w2?'mu-stat-win':w1?'mu-stat-lose':tied?'mu-stat-tie':'';
-      html+=`<tr><td class="mu-v1 ${c1}">${fmtStat(v1,cat.display_name)}</td><td class="mu-cat">${cat.display_name}</td><td class="mu-v2 ${c2}">${fmtStat(v2,cat.display_name)}</td></tr>`}
+      const r1=lgRanks[sid]?.[t1.team_key],r2=lgRanks[sid]?.[t2.team_key];
+      const r1h=r1?`<span class="mu-rank ${rkCls(r1)}">${ord(r1)}</span>`:'';
+      const r2h=r2?`<span class="mu-rank ${rkCls(r2)}">${ord(r2)}</span>`:'';
+      html+=`<tr><td class="mu-v1 ${c1}">${fmtStat(v1,cat.display_name)}${r1h}</td><td class="mu-cat">${cat.display_name}</td><td class="mu-v2 ${c2}">${fmtStat(v2,cat.display_name)}${r2h}</td></tr>`}
     html+='</table>'}
   html+='</div>';
   el.innerHTML=html}
@@ -3187,63 +3207,29 @@ function renderLeagueRankings(){
   const HIDE_CATS=['H','AB','H/AB','Hits','At Bats'];
   const ds=Object.entries(statCategories).filter(([,c])=>c.display_name&&!HIDE_CATS.includes(c.display_name));
   const n=allTeamsStats.length;
-  // Compute rank per stat with competition ranking (tied teams share the higher rank, e.g. 1,2,2,4)
-  // ranks[team_key][sid] = {rank, tied}
+  // Compute rank per stat for each team
   const ranks={};
   for(const[sid,cat]of ds){
     const lb=LOWER_IS_BETTER.includes(cat.display_name);
-    const vals=allTeamsStats.map(t=>({tk:t.team_key,v:parseFloat(t.stats.find(s=>s.stat_id===sid)?.value)||0}));
-    vals.sort((a,b)=>lb?(a.v-b.v):(b.v-a.v));
-    let i=0;
-    while(i<vals.length){
-      let j=i;
-      while(j<vals.length&&vals[j].v===vals[i].v)j++;
-      const sharedRank=i+1,tied=(j-i)>1;
-      for(let k=i;k<j;k++){
-        if(!ranks[vals[k].tk])ranks[vals[k].tk]={};
-        ranks[vals[k].tk][sid]={rank:sharedRank,tied};
-      }
-      i=j;
-    }
-  }
-  // Build teams with totalRank (sum of per-stat ranks, lower = better)
+    const sorted=[...allTeamsStats].sort((a,b)=>{
+      const va=parseFloat(a.stats.find(s=>s.stat_id===sid)?.value)||0;
+      const vb=parseFloat(b.stats.find(s=>s.stat_id===sid)?.value)||0;
+      return lb?(va-vb):(vb-va)});
+    sorted.forEach((t,i)=>{if(!ranks[t.team_key])ranks[t.team_key]={};ranks[t.team_key][sid]=i+1})}
+  // Build teams with ranks
   const teamsWithTotal=allTeamsStats.map(t=>{
     const r=ranks[t.team_key]||{};
-    const total=Object.values(r).reduce((a,b)=>a+b.rank,0);
+    const total=Object.values(r).reduce((a,b)=>a+b,0);
     return{...t,ranks:r,totalRank:total}});
-  // Sort: by selected stat (with totalRank as tiebreak) or by overall rank
+  // Sort: by selected stat column or by overall rank
   if(rankSortId){
     const lb=LOWER_IS_BETTER.includes(statCategories[rankSortId]?.display_name);
     teamsWithTotal.sort((a,b)=>{
       const va=parseFloat(a.stats.find(s=>s.stat_id===rankSortId)?.value)||0;
       const vb=parseFloat(b.stats.find(s=>s.stat_id===rankSortId)?.value)||0;
-      if(va!==vb)return lb?(va-vb):(vb-va);
-      return a.totalRank-b.totalRank;
-    })
+      return lb?(va-vb):(vb-va)})
   } else {
     teamsWithTotal.sort((a,b)=>a.totalRank-b.totalRank)}
-  // # column rank: reflects active sort (stat rank when stat-sorted, totalRank-based when overall)
-  const overallDisp=[];
-  if(rankSortId){
-    teamsWithTotal.forEach(t=>{
-      const r=t.ranks[rankSortId];
-      overallDisp.push(r?{rank:r.rank,tied:r.tied}:{rank:n,tied:false});
-    });
-  } else {
-    let i=0;
-    while(i<teamsWithTotal.length){
-      let j=i;
-      while(j<teamsWithTotal.length&&teamsWithTotal[j].totalRank===teamsWithTotal[i].totalRank)j++;
-      const tied=(j-i)>1,rk=i+1;
-      for(let k=i;k<j;k++)overallDisp.push({rank:rk,tied});
-      i=j;
-    }
-  }
-  // Ordinal helper: handles 11th/12th/13th correctly, prefixes "T" for ties
-  const ord=(r,tied)=>{
-    const v=r%100,s=(v>=11&&v<=13)?'th':r%10===1?'st':r%10===2?'nd':r%10===3?'rd':'th';
-    return (tied?'T':'')+r+s;
-  };
   // Render
   const thStyle='padding:8px 6px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s';
   let h='<div class="card"><div class="tw"><table style="width:100%;font-size:12px;border-collapse:collapse">';
@@ -3258,18 +3244,17 @@ function renderLeagueRankings(){
   h+='</tr></thead><tbody>';
   teamsWithTotal.forEach((t,idx)=>{
     const isMe=t.team_key&&myTeamKey&&t.team_key===myTeamKey;
-    const od=overallDisp[idx];
     h+=`<tr style="${isMe?'background:var(--green-dim)':''}">`;
-    h+=`<td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-weight:700;color:var(--dim);border-top:1px solid var(--border)">${od.tied?'T':''}${od.rank}</td>`;
+    h+=`<td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-weight:700;color:var(--dim);border-top:1px solid var(--border)">${idx+1}</td>`;
     h+=`<td style="padding:6px 10px;font-weight:600;border-top:1px solid var(--border);white-space:nowrap">${t.logo?`<img src="${t.logo}" style="width:20px;height:20px;border-radius:4px;vertical-align:middle;margin-right:6px">`:''}${t.name}</td>`;
     for(const[sid,cat]of ds){
       const v=t.stats.find(s=>s.stat_id===sid)?.value||'—';
-      const ri=t.ranks[sid]||{rank:n,tied:false};
+      const rank=t.ranks[sid]||n;
       const third=Math.ceil(n/3);
-      const clr=ri.rank<=third?'var(--green)':ri.rank>n-third?'var(--red)':'var(--text)';
-      const fw=ri.rank<=third?'700':'500';
+      const clr=rank<=third?'var(--green)':rank>n-third?'var(--red)':'var(--text)';
+      const fw=rank<=third?'700':'500';
       const isCol=rankSortId===sid;
-      h+=`<td style="padding:6px 6px;text-align:center;font-family:var(--mono);font-size:12px;border-top:1px solid var(--border);color:${clr};font-weight:${fw};${isCol?'background:var(--surface-2)':''}"><div>${fmtStat(v,cat.display_name)}</div><div style="font-size:9px;color:var(--muted);font-weight:600">${ord(ri.rank,ri.tied)}</div></td>`}
+      h+=`<td style="padding:6px 6px;text-align:center;font-family:var(--mono);font-size:12px;border-top:1px solid var(--border);color:${clr};font-weight:${fw};${isCol?'background:var(--surface-2)':''}"><div>${fmtStat(v,cat.display_name)}</div><div style="font-size:9px;color:var(--muted);font-weight:600">${rank}${rank===1?'st':rank===2?'nd':rank===3?'rd':'th'}</div></td>`}
     h+='</tr>'});
   el.innerHTML=h+'</tbody></table></div></div>'}
 
